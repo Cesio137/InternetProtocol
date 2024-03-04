@@ -31,10 +31,7 @@ public:
 	void Client_Disconect();
 
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	FString Client_GetSessionID();
-
-	UPROPERTY(BlueprintReadWrite, Category="SocketIO || Server Info")
-	FString URL;
+	void Client_Emit(FString name, FString msglist);
 
 private:
 	sio::client h;

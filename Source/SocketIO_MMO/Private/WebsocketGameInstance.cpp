@@ -21,9 +21,9 @@ void UWebsocketGameInstance::Client_Disconect()
 	h.close();
 }
 
-FString UWebsocketGameInstance::Client_GetSessionID()
+void UWebsocketGameInstance::Client_Emit(FString name, FString msglist)
 {
-	return UTF8_TO_TCHAR(h.get_sessionid().c_str());
+	h.socket()->emit(TCHAR_TO_UTF8(*name), std::string(TCHAR_TO_UTF8(*msglist)));
 }
 
 void UWebsocketGameInstance::on_connected()
