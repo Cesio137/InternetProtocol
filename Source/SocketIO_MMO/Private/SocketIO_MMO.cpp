@@ -31,13 +31,9 @@ void FSocketIO_MMOModule::StartupModule()
 	SioclienttslLibraryHandle = !SioclienttslLibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*SioclienttslLibraryPath) : nullptr;
 
 	
-	if (SioclientLibraryHandle && SioclienttslLibraryHandle)
+	if (!SioclientLibraryHandle)
 	{
 		// Call the test function in the third party library that opens a message box
-		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("Sioclient", "Sioclient loaded!"));
-	}
-	else
-	{
 		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("Sioclient error!", "Failed to load sioclient library!"));
 	}
 	

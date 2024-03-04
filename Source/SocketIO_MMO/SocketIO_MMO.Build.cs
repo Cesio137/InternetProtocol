@@ -27,6 +27,7 @@ public class SocketIO_MMO : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
 				"Engine",
 				"SocketIO_Library",
 				"Projects"
