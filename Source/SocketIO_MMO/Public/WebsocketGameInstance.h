@@ -19,23 +19,30 @@ public:
 	virtual void Init() override;
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="SocketIO")
-	void OnClientConnected();
+	void OnConnected();
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="SocketIO")
-	void OnClientDisconnected();
+	void OnFail();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="SocketIO")
+	void OnDisconnected();
 	
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	bool Client_Connect(FString url);
+	void WS_Connect(FString url);
 
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void Client_Disconect();
+	void WS_Disconect();
 
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void Client_Emit(FString name, FString msglist);
+	void WS_Emit(FString name, FString msglist);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="SocketIO")
+	bool WS_IsConnected();
 
 private:
 	sio::client h;
-
+	bool IsSioConnected = false;
 	void on_connected();
+	void on_fail();
 	void on_disconnected();
 };

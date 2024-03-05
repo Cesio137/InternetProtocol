@@ -13,15 +13,15 @@ public class SocketIO_Library : ModuleRules
 		{
 			// Add the import library
 			PublicAdditionalLibraries.Add(Path.Combine(ModuleDirectory, "lib", "Win_x64", "sioclient.lib"));
-			PublicAdditionalLibraries.Add(Path.Combine(ModuleDirectory, "lib", "Win_x64", "sioclient_tls.lib"));
+			//PublicAdditionalLibraries.Add(Path.Combine(ModuleDirectory, "lib", "Win_x64", "sioclient_tls.lib"));
 
 			// Delay-load the DLL, so we can load it from the right place first
 			PublicDelayLoadDLLs.Add("sioclient.dll");
-			PublicDelayLoadDLLs.Add("sioclient_tls.dll");
+			//PublicDelayLoadDLLs.Add("sioclient_tls.dll");
 
 			// Ensure that the DLL is staged along with the executable
 			RuntimeDependencies.Add("$(PluginDir)/Binaries/ThirdParty/SocketIO_Library/Win64/sioclient.dll");
-			RuntimeDependencies.Add("$(PluginDir)/Binaries/ThirdParty/SocketIO_Library/Win64/sioclient_tls.dll");
+			//RuntimeDependencies.Add("$(PluginDir)/Binaries/ThirdParty/SocketIO_Library/Win64/sioclient_tls.dll");
         }
         else if (Target.Platform == UnrealTargetPlatform.Mac)
         {

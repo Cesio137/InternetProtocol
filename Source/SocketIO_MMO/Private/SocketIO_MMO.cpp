@@ -17,10 +17,10 @@ void FSocketIO_MMOModule::StartupModule()
 
 	// Add on the relative location of the third party dll and load it
 	FString SioclientLibraryPath;
-	FString SioclienttslLibraryPath;
+	//FString SioclienttslLibraryPath;
 #if PLATFORM_WINDOWS
 	SioclientLibraryPath = FPaths::Combine(*BaseDir, TEXT("Binaries/ThirdParty/SocketIO_Library/Win64/sioclient.dll"));
-	SioclienttslLibraryPath = FPaths::Combine(*BaseDir, TEXT("Binaries/ThirdParty/SocketIO_Library/Win64/sioclient_tsl.dll"));
+	//SioclienttslLibraryPath = FPaths::Combine(*BaseDir, TEXT("Binaries/ThirdParty/SocketIO_Library/Win64/sioclient_tsl.dll"));
 #elif PLATFORM_MAC
     //LibraryPath = FPaths::Combine(*BaseDir, TEXT("Source/ThirdParty/SocketIO_MMOLibrary/Mac/Release/libExampleLibrary.dylib"));
 #elif PLATFORM_LINUX
@@ -28,7 +28,7 @@ void FSocketIO_MMOModule::StartupModule()
 #endif // PLATFORM_WINDOWS
 
 	SioclientLibraryHandle = !SioclientLibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*SioclientLibraryPath) : nullptr;
-	SioclienttslLibraryHandle = !SioclienttslLibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*SioclienttslLibraryPath) : nullptr;
+	//SioclienttslLibraryHandle = !SioclienttslLibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*SioclienttslLibraryPath) : nullptr;
 
 	
 	if (!SioclientLibraryHandle)
@@ -48,8 +48,8 @@ void FSocketIO_MMOModule::ShutdownModule()
 	FPlatformProcess::FreeDllHandle(SioclientLibraryHandle);
 	SioclientLibraryHandle = nullptr;
 
-	FPlatformProcess::FreeDllHandle(SioclienttslLibraryHandle);
-	SioclienttslLibraryHandle = nullptr;
+	//FPlatformProcess::FreeDllHandle(SioclienttslLibraryHandle);
+	//SioclienttslLibraryHandle = nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE
