@@ -25,6 +25,14 @@ void UWebsocketGameInstance::Init()
 */
 }
 
+void UWebsocketGameInstance::BeginDestroy()
+{
+	Super::BeginDestroy();
+	if (bIsConnected)
+		h.close();
+}
+
+
 void UWebsocketGameInstance::WS_Connect(FString url)
 {
 	h.connect(std::string(TCHAR_TO_UTF8(*url)));
@@ -46,13 +54,56 @@ bool UWebsocketGameInstance::WS_IsConnected()
 	return bIsConnected;
 }
 
-void UWebsocketGameInstance::BindSocketEventByName(FString EventName, FDelegateSocketEvent WebsocketEvent)
+void UWebsocketGameInstance::BindSocketEventStrByName(FString EventName, FDelegateSocketStrEvent WebsocketEvent)
 {
-	SocketEvent = WebsocketEvent;
+	SocketStrEvent = WebsocketEvent;
 	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
 	{
-		std::string message = Event.get_message()->get_string();
-		SocketEvent.ExecuteIfBound(message.c_str());
+		const sio::message::ptr& message_received = Event.get_message();
+		if (message_received->get_flag() == sio::message::flag_string)
+		{
+			std::string message = Event.get_message()->get_string();
+			SocketStrEvent.ExecuteIfBound(message.c_str());
+		}
+	}));
+}
+
+void UWebsocketGameInstance::BindSocketEventBoolByName(FString EventName, FDelegateSocketBoolEvent WebsocketEvent)
+{
+	SocketBoolEvent = WebsocketEvent;
+	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
+	{
+		const sio::message::ptr& message_received = Event.get_message();
+		if (message_received->get_flag() == sio::message::flag_boolean)
+		{
+			SocketBoolEvent.ExecuteIfBound(Event.get_message()->get_bool());
+		}
+	}));
+}
+
+void UWebsocketGameInstance::BindSocketEventIntByName(FString EventName, FDelegateSocketIntEvent WebsocketEvent)
+{
+	SocketIntEvent = WebsocketEvent;
+	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
+	{
+		const sio::message::ptr& message_received = Event.get_message();
+		if (message_received->get_flag() == sio::message::flag_integer)
+		{
+			SocketIntEvent.ExecuteIfBound(Event.get_message()->get_int());
+		}
+	}));
+}
+
+void UWebsocketGameInstance::BindSocketEventFloatByName(FString EventName, FDelegateSocketFloatEvent WebsocketEvent)
+{
+	SocketFloatEvent = WebsocketEvent;
+	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
+	{
+		const sio::message::ptr& message_received = Event.get_message();
+		if (message_received->get_flag() == sio::message::flag_double)
+		{
+			SocketFloatEvent.ExecuteIfBound(static_cast<float>(Event.get_message()->get_double()));
+		}
 	}));
 }
 

@@ -15,5 +15,4 @@ public:
 private:
 	/** Handle to the test dll we will load */
 	void*	SioclientLibraryHandle;
-	//void*	SioclienttslLibraryHandle;
 };

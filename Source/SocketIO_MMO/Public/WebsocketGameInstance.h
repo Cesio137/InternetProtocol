@@ -15,14 +15,20 @@ THIRD_PARTY_INCLUDES_END
  */
 
 
-DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketEvent, FString, Message);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketStrEvent, FString, Message);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketBoolEvent, bool, Message);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketIntEvent, int, Message);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketFloatEvent, float, Message);
 
 UCLASS()
 class SOCKETIO_MMO_API UWebsocketGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
+
 public:
 	virtual void Init() override;
+
+	virtual void BeginDestroy() override;
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="SocketIO || Event")
 	void OnConnected();
@@ -52,10 +58,28 @@ public:
 	bool WS_IsConnected();
 
 	UPROPERTY()
-	FDelegateSocketEvent SocketEvent;
+	FDelegateSocketStrEvent SocketStrEvent;
+
+	UPROPERTY()
+	FDelegateSocketBoolEvent SocketBoolEvent;
+
+	UPROPERTY()
+	FDelegateSocketIntEvent SocketIntEvent;
+
+	UPROPERTY()
+	FDelegateSocketFloatEvent SocketFloatEvent;
 	
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void BindSocketEventByName(FString EventName, FDelegateSocketEvent WebsocketEvent);
+	void BindSocketEventStrByName(FString EventName, FDelegateSocketStrEvent WebsocketEvent);
+
+	UFUNCTION(BlueprintCallable, Category="SocketIO")
+	void BindSocketEventBoolByName(FString EventName, FDelegateSocketBoolEvent WebsocketEvent);
+
+	UFUNCTION(BlueprintCallable, Category="SocketIO")
+	void BindSocketEventIntByName(FString EventName, FDelegateSocketIntEvent WebsocketEvent);
+
+	UFUNCTION(BlueprintCallable, Category="SocketIO")
+	void BindSocketEventFloatByName(FString EventName, FDelegateSocketFloatEvent WebsocketEvent);
 
 private:
 	sio::client h;
