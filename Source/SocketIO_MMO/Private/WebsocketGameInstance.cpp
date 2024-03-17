@@ -10,19 +10,6 @@ void UWebsocketGameInstance::Init()
 	h.set_open_listener(std::bind(&UWebsocketGameInstance::on_connected, this));
 	h.set_fail_listener(std::bind(&UWebsocketGameInstance::on_fail, this));
 	h.set_close_listener(std::bind(&UWebsocketGameInstance::on_disconnected, this));
-/*
-	h.socket()->on("chatMessage", sio::socket::event_listener([&](sio::event& Event)
-	{
-		std::string message = Event.get_message()->get_string();
-		chatMessage(message.c_str());
-	}));
-
-	h.socket()->on("playerName", sio::socket::event_listener([&](sio::event& Event)
-	{
-		std::string message = Event.get_message()->get_string();
-		playerName(message.c_str());
-	}));
-*/
 }
 
 void UWebsocketGameInstance::BeginDestroy()
@@ -33,7 +20,7 @@ void UWebsocketGameInstance::BeginDestroy()
 }
 
 
-void UWebsocketGameInstance::WS_Connect(FString url)
+void UWebsocketGameInstance::WS_Connect(const FString &url)
 {
 	h.connect(std::string(TCHAR_TO_UTF8(*url)));
 }
@@ -44,9 +31,15 @@ void UWebsocketGameInstance::WS_Disconect()
 	bIsConnected = false;
 }
 
-void UWebsocketGameInstance::WS_Emit(FString name, FString msglist)
+void UWebsocketGameInstance::WS_EmitStrMessage(const FString& EventName, FString message)
 {
-	h.socket()->emit(TCHAR_TO_UTF8(*name), std::string(TCHAR_TO_UTF8(*msglist)));
+	h.socket()->emit(TCHAR_TO_UTF8(*EventName), std::string(TCHAR_TO_UTF8(*message)));
+}
+
+void UWebsocketGameInstance::WS_EmitRawMessage(const FString& EventName, const TArray<uint8>& BinaryMessage)
+{
+	std::shared_ptr<std::string> byteArray_char = std::make_shared<std::string>(reinterpret_cast<const char*>( BinaryMessage.GetData() ),  BinaryMessage.Num() );
+	h.socket()->emit(TCHAR_TO_UTF8(*EventName),byteArray_char);
 }
 
 bool UWebsocketGameInstance::WS_IsConnected()
@@ -59,7 +52,7 @@ FString UWebsocketGameInstance::WS_GetID()
 	return h.get_sessionid().c_str();
 }
 
-void UWebsocketGameInstance::BindSocketEventStrByName(FString EventName, FDelegateSocketStrEvent WebsocketEvent)
+void UWebsocketGameInstance::BindSocketEventStrByName(const FString& EventName, FDelegateSocketStrEvent WebsocketEvent)
 {
 	SocketStrEvent = WebsocketEvent;
 	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
@@ -73,41 +66,22 @@ void UWebsocketGameInstance::BindSocketEventStrByName(FString EventName, FDelega
 	}));
 }
 
-void UWebsocketGameInstance::BindSocketEventBoolByName(FString EventName, FDelegateSocketBoolEvent WebsocketEvent)
+void UWebsocketGameInstance::BindSocketEventRawByName(const FString& EventName, FDelegateSocketBinaryEvent WebsocketEvent)
 {
-	SocketBoolEvent = WebsocketEvent;
+	SocketBinaryEvent = WebsocketEvent;
 	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
 	{
 		const sio::message::ptr& message_received = Event.get_message();
-		if (message_received->get_flag() == sio::message::flag_boolean)
+		if (message_received->get_flag() == sio::message::flag_binary)
 		{
-			SocketBoolEvent.ExecuteIfBound(Event.get_message()->get_bool());
-		}
-	}));
-}
+			const std::shared_ptr<const std::string>& RawData = Event.get_message()->get_binary();
+			const char* rawData = RawData->data();
+			size_t size = RawData->size();
 
-void UWebsocketGameInstance::BindSocketEventIntByName(FString EventName, FDelegateSocketIntEvent WebsocketEvent)
-{
-	SocketIntEvent = WebsocketEvent;
-	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
-	{
-		const sio::message::ptr& message_received = Event.get_message();
-		if (message_received->get_flag() == sio::message::flag_integer)
-		{
-			SocketIntEvent.ExecuteIfBound(Event.get_message()->get_int());
-		}
-	}));
-}
-
-void UWebsocketGameInstance::BindSocketEventFloatByName(FString EventName, FDelegateSocketFloatEvent WebsocketEvent)
-{
-	SocketFloatEvent = WebsocketEvent;
-	h.socket()->on(TCHAR_TO_UTF8(*EventName), sio::socket::event_listener([&](sio::event& Event)
-	{
-		const sio::message::ptr& message_received = Event.get_message();
-		if (message_received->get_flag() == sio::message::flag_double)
-		{
-			SocketFloatEvent.ExecuteIfBound(static_cast<float>(Event.get_message()->get_double()));
+			TArray<uint8> BinaryData;
+			BinaryData.Append(reinterpret_cast<const uint8*>(rawData), size);
+			
+			SocketBinaryEvent.ExecuteIfBound(BinaryData);
 		}
 	}));
 }

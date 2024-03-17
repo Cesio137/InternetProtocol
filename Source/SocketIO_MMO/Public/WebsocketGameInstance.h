@@ -16,9 +16,7 @@ THIRD_PARTY_INCLUDES_END
 
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketStrEvent, FString, Message);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketBoolEvent, bool, Message);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketIntEvent, int, Message);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketFloatEvent, float, Message);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateSocketBinaryEvent, TArray<uint8>, BinaryMessage);
 
 UCLASS()
 class SOCKETIO_MMO_API UWebsocketGameInstance : public UGameInstance
@@ -38,21 +36,12 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="SocketIO || Event")
 	void OnDisconnected();
-/*
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="SocketIO || Event")
-	void chatMessage(FString message);
-
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="SocketIO || Event")
-	void playerName(FString name);
-*/
+	
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void WS_Connect(FString url);
+	void WS_Connect(const FString &url);
 
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
 	void WS_Disconect();
-
-	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void WS_Emit(FString name, FString msglist);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="SocketIO")
 	bool WS_IsConnected();
@@ -60,29 +49,23 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "SocketIO")
 	FString WS_GetID();
 
+	UFUNCTION(BlueprintCallable, Category="SocketIO")
+	void WS_EmitStrMessage(const FString& EventName, FString message);
+
+	UFUNCTION(BlueprintCallable, Category="SocketIO")
+	void WS_EmitRawMessage(const FString& EventName, const TArray<uint8> &BinaryMessage);
+
 	UPROPERTY()
 	FDelegateSocketStrEvent SocketStrEvent;
 
 	UPROPERTY()
-	FDelegateSocketBoolEvent SocketBoolEvent;
-
-	UPROPERTY()
-	FDelegateSocketIntEvent SocketIntEvent;
-
-	UPROPERTY()
-	FDelegateSocketFloatEvent SocketFloatEvent;
+	FDelegateSocketBinaryEvent SocketBinaryEvent;
 	
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void BindSocketEventStrByName(FString EventName, FDelegateSocketStrEvent WebsocketEvent);
+	void BindSocketEventStrByName(const FString& EventName, FDelegateSocketStrEvent WebsocketEvent);
 
 	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void BindSocketEventBoolByName(FString EventName, FDelegateSocketBoolEvent WebsocketEvent);
-
-	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void BindSocketEventIntByName(FString EventName, FDelegateSocketIntEvent WebsocketEvent);
-
-	UFUNCTION(BlueprintCallable, Category="SocketIO")
-	void BindSocketEventFloatByName(FString EventName, FDelegateSocketFloatEvent WebsocketEvent);
+	void BindSocketEventRawByName(const FString& EventName, FDelegateSocketBinaryEvent WebsocketEvent);
 
 private:
 	sio::client h;
