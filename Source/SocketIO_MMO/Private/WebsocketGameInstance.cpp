@@ -54,6 +54,11 @@ bool UWebsocketGameInstance::WS_IsConnected()
 	return bIsConnected;
 }
 
+FString UWebsocketGameInstance::WS_GetID()
+{
+	return h.get_sessionid().c_str();
+}
+
 void UWebsocketGameInstance::BindSocketEventStrByName(FString EventName, FDelegateSocketStrEvent WebsocketEvent)
 {
 	SocketStrEvent = WebsocketEvent;

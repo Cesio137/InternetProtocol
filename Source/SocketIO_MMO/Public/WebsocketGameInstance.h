@@ -57,6 +57,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="SocketIO")
 	bool WS_IsConnected();
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "SocketIO")
+	FString WS_GetID();
+
 	UPROPERTY()
 	FDelegateSocketStrEvent SocketStrEvent;
 
