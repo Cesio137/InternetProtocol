@@ -15,9 +15,6 @@ class WEBSOCKET_MMO_API UWebsocketFunctionLibrary : public UBlueprintFunctionLib
 {
 	GENERATED_BODY()
 public:
-	UFUNCTION(BlueprintCallable, Category = "Websockets||Json")
-	static FJsonData GetJsonData(const FString& JsonData);
-
 	// Convert bool to byte array | Convert byte array to bool	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static TArray<uint8> BoolToByteArray(const bool& value);

@@ -36,10 +36,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Websockets")
 	void Close(int32 code = 1000, const FString& reason = "");
 
-	UFUNCTION(BlueprintCallable, Category="Websockets")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets")
 	bool bIsConnected();
 
-	UFUNCTION(BlueprintCallable, Category="Websockets")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets")
 	bool bIsWebsocketValid();
 
 	UFUNCTION(BlueprintCallable, Category="Websockets")
