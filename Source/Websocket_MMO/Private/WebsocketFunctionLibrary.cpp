@@ -8,46 +8,24 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 
-bool UWebsocketFunctionLibrary::GetMessageFromEvent(const FString& EventName, const FString& EventMessage, FString& Message)
+FJsonData UWebsocketFunctionLibrary::GetJsonData(const FString& JsonData)
 {
-	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(EventMessage);
-
+	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonData);
 	TSharedPtr<FJsonObject> JsonObject;
+	FJsonData data;
 
 	if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
 	{
-		FString event;
-		FString message;
-		if (JsonObject->TryGetStringField(TEXT("event"), event))
-		{
-			if (event != EventName) return false;
-			if (!JsonObject->TryGetStringField(TEXT("message"), message)) return false;
-			Message = message;
-			return true;
-		}
-	}
-	return false;
-}
-
-bool UWebsocketFunctionLibrary::GetRawDataFromMessage(const FString& EventName, const FString& EventMessage, TArray<uint8>& Data)
-{
-	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(EventMessage);
-
-	TSharedPtr<FJsonObject> JsonObject;
-
-	if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
-	{
-		FString event;
-		if (JsonObject->TryGetStringField(TEXT("event"), event))
+		data.EventName = JsonObject->GetStringField(TEXT("event"));
+		data.bIsBinary = JsonObject->GetBoolField(TEXT("bIsBinary"));
+		if (!data.bIsBinary) data.Data = JsonObject->GetStringField(TEXT("data"));
+		if ( data.bIsBinary && JsonObject->TryGetField(TEXT("data")) )
 		{
 			TArray<TSharedPtr<FJsonValue>> JsonArray;
-
-			if ( event != EventName ) return false;
-			if (!JsonObject->TryGetField(TEXT("data"))) return false;
 			JsonArray = JsonObject->GetArrayField(TEXT("data"));
 
 			TArray<uint8> RawData;
-			
+
 			for (TSharedPtr<FJsonValue> Val : JsonArray)
 			{
 				if (Val.IsValid() && Val->Type == EJson::Number)
@@ -55,14 +33,10 @@ bool UWebsocketFunctionLibrary::GetRawDataFromMessage(const FString& EventName, 
 					RawData.Add(static_cast<uint8>(Val->AsNumber()));
 				}
 			}
-			
-			Data = RawData;
-
-			return true;
+			data.RawData = RawData;
 		}
 	}
-	
-	return false;
+	return data;
 }
 
 TArray<uint8> UWebsocketFunctionLibrary::BoolToByteArray(const bool& value)

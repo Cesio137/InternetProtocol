@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Data/EnumLibrary.h"
 #include "StructLibrary.generated.h"
 
 /**
@@ -10,11 +11,20 @@
  */
 
 USTRUCT(BlueprintType)
-struct FBinaryData
+struct FJsonData
 {
 	GENERATED_BODY()
 
-	FString event;
-	TArray<uint8> data;
+	UPROPERTY(BlueprintReadWrite)
+	FString EventName;
+
+	UPROPERTY(BlueprintReadWrite)
+	bool bIsBinary;
+
+	UPROPERTY(BlueprintReadWrite)
+	FString Data;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<uint8> RawData;
 
 };

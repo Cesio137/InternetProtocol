@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Data/StructLibrary.h"
 #include "WebsocketFunctionLibrary.generated.h"
 
 /**
@@ -14,11 +15,8 @@ class WEBSOCKET_MMO_API UWebsocketFunctionLibrary : public UBlueprintFunctionLib
 {
 	GENERATED_BODY()
 public:
-	UFUNCTION(BlueprintCallable, Category = "Websockets||Binary")
-	static bool GetMessageFromEvent(const FString& EventName, const FString& EventMessage, FString& Message);
-
-	UFUNCTION(BlueprintCallable, Category = "Websockets||Binary")
-	static bool GetRawDataFromMessage(const FString& EventName, const FString& EventMessage, TArray<uint8>& Data);
+	UFUNCTION(BlueprintCallable, Category = "Websockets||Json")
+	static FJsonData GetJsonData(const FString& JsonData);
 
 	// Convert bool to byte array | Convert byte array to bool	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")

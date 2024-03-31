@@ -54,10 +54,11 @@ void UWebsocketGameInstance::WS_Close(int32 code, const FString& reason)
 	ws->Close(code, reason);
 }
 
-void UWebsocketGameInstance::BindSocketEventByName(const FDelegateWebsocketEvent& Event)
+void UWebsocketGameInstance::BindSocketEventByName(FDelegateWebsocketEvent Event)
 {
 	if (!ws) return;
-	ws->OnMessage().AddUFunction(this, Event.GetFunctionName());
+	
+	ws->OnMessage().AddUFunction(Event.GetUObject(), Event.GetFunctionName());
 }
 
 void UWebsocketGameInstance::WS_EmitString(const FString& EventName, const FString& message)
@@ -69,7 +70,8 @@ void UWebsocketGameInstance::WS_EmitString(const FString& EventName, const FStri
 
 	// Add data "event" and "message to json
 	JsonObject->SetStringField(TEXT("event"), EventName);
-	JsonObject->SetStringField(TEXT("message"), message);
+	JsonObject->SetBoolField(TEXT("bIsBinary"), false);
+	JsonObject->SetStringField(TEXT("data"), message);
 
 	// Convert json to Str message
 	FString messageString;
@@ -95,7 +97,8 @@ void UWebsocketGameInstance::WS_EmitRaw(const FString& EventName, const TArray<u
 
 	// Add data "event" and "message to json
 	JsonObject->SetStringField(TEXT("event"), EventName);
-	JsonObject->SetArrayField("data", JsonArray);
+	JsonObject->SetBoolField(TEXT("bIsBinary"), true);
+	JsonObject->SetArrayField(TEXT("data"), JsonArray);
 
 	// Convert json to Str message
 	FString messageString;

@@ -13,7 +13,7 @@
  * 
  */
 
-DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateWebsocketEvent, FString, Message);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FDelegateWebsocketEvent, FString, JsonData);
 
 UCLASS()
 class WEBSOCKET_MMO_API UWebsocketGameInstance : public UGameInstance
@@ -36,7 +36,7 @@ public:
 	void WS_Close(int32 code = 1000, const FString& reason = "");
 
 	UFUNCTION(BlueprintCallable, Category = "Websockets")
-	void BindSocketEventByName(const FDelegateWebsocketEvent& Event);
+	void BindSocketEventByName(FDelegateWebsocketEvent Event);
 
 	UFUNCTION(BlueprintCallable, Category="Websockets")
 	void WS_EmitString(const FString& EventName, const FString& message);
@@ -51,10 +51,10 @@ public:
 	void WS_OnConnectionError(const FString & Error);
 
 	UFUNCTION(BlueprintImplementableEvent, Category="Websockets||Events")
-	void WS_OnClosed(int32 StatusCode, const FString& Reason, bool bWasClean);
+	void WS_OnClosed(int32 StatusCode, const FString& Reason, bool bWasClean);	
 
 	UFUNCTION(BlueprintImplementableEvent, Category="Websockets||Events")
-	void WS_OnMessage(const FString & Message);
+	void WS_OnMessage(const FString& JsonData);
 
 	UFUNCTION(BlueprintImplementableEvent, Category="Websockets||Events")
 	void WS_OnMessageSent(const FString& MessageString);
