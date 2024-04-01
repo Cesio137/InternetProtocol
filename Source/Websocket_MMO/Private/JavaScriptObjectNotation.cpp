@@ -15,7 +15,7 @@ UJavaScriptObjectNotation::~UJavaScriptObjectNotation()
 
 bool UJavaScriptObjectNotation::ConstructJsonFromObject(const TSharedPtr<FJsonObject>& JsonObject)
 {
-	if (Json.IsValid()) return false;
+	if (Json.IsValid()) Reset();
 	if (!JsonObject.IsValid()) return false;
 	Json = JsonObject;
 	return true;
@@ -28,14 +28,14 @@ TSharedPtr<FJsonObject> UJavaScriptObjectNotation::GetJsonObject()
 
 bool UJavaScriptObjectNotation::ConstructJson()
 {
-	if (Json.IsValid()) return false;
+	if (Json.IsValid()) Reset();
 	Json = MakeShareable(new FJsonObject());
 	return Json.IsValid();
 }
 
 bool UJavaScriptObjectNotation::ConstructJsonFromString(const FString& Data)
 {
-	if (Json.IsValid()) return false;
+	if (Json.IsValid()) Reset();
 	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Data);
 	bool success = FJsonSerializer::Deserialize(JsonReader, Json) && Json.IsValid();
 	return success;
