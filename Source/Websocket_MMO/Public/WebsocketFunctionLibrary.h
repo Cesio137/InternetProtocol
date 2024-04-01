@@ -40,7 +40,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static TArray<uint8> FVectorToByteArray(const FVector& value);
 
-	UFUNCTION(BlueprintCallable, Category="Websockets||Binary")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static FVector ByteArrayToFVector(const TArray<uint8>& ByteArray);
 
 	// Convert float to byte array | Convert byte array to float
