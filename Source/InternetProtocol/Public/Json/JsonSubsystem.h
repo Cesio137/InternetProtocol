@@ -16,5 +16,6 @@ class INTERNETPROTOCOL_API UJsonSubsystem : public UWorldSubsystem
 	GENERATED_BODY()
 
 public:
+	UFUNCTION(BlueprintCallable, Category="Json")
 	UJavaScriptObjectNotation* CreateJsonObject();
 };
