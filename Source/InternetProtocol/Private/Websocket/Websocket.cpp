@@ -41,7 +41,7 @@ void UWebsocket::CreateWebsocket(TEnumAsByte<EOutputExecPins>& Output, const FSt
 		OnRawMessage.Broadcast(data, Size, BytesRemaining);
 	});
 
-	Output = EOutputExecPins::Failure;
+	Output = EOutputExecPins::Success;
 }
 
 void UWebsocket::Connect()

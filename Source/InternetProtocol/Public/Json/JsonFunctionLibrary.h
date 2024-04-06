@@ -10,7 +10,7 @@
 /**
  * 
  */
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UJsonFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()

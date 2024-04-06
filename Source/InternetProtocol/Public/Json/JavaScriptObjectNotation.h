@@ -13,7 +13,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class INTERNETPROTOCOL_API UJavaScriptObjectNotation : public UObject
 {
 	GENERATED_BODY()

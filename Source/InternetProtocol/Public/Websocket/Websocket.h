@@ -21,7 +21,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateOnConnectionError, const FS
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateOnClosed, int32, StatusCode, const FString&, Reason, bool, bWasClean);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateOnMessageSent, const FString&, MessageString);
 
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UWebsocket : public UObject
 {
 	GENERATED_BODY()
