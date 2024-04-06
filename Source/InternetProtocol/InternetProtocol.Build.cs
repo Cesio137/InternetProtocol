@@ -1,10 +1,10 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Some copyright should be here...
 
 using UnrealBuildTool;
 
-public class Websocket_MMO : ModuleRules
+public class InternetProtocol : ModuleRules
 {
-	public Websocket_MMO(ReadOnlyTargetRules Target) : base(Target)
+	public InternetProtocol(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -26,10 +26,9 @@ public class Websocket_MMO : ModuleRules
 			new string[]
 			{
 				"Core",
-				"CoreUObject",
-				"Engine",
 				"WebSockets",
-				"Projects"
+                "Json",
+                "JsonUtilities"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -38,10 +37,12 @@ public class Websocket_MMO : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				// ... add private dependencies that you statically link with here ...
-				"Json",
-                "JsonUtilities"
-            }
+				"CoreUObject",
+				"Engine",
+				"Slate",
+				"SlateCore",
+				// ... add private dependencies that you statically link with here ...	
+			}
 			);
 		
 		

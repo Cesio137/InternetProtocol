@@ -4,14 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "Data/StructLibrary.h"
-#include "WebsocketFunctionLibrary.generated.h"
+#include "Math/TransformNonVectorized.h"
+#include "JsonFunctionLibrary.generated.h"
 
 /**
  * 
  */
 UCLASS(Blueprintable)
-class WEBSOCKET_MMO_API UWebsocketFunctionLibrary : public UBlueprintFunctionLibrary
+class INTERNETPROTOCOL_API UJsonFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 public:
@@ -36,17 +36,24 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static float ByteArrayToFloat(const TArray<uint8>& ByteArray);
 
-	// Convert float to byte array | Convert byte array to float
+	// Convert FVector to byte array | Convert byte array to float
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static TArray<uint8> FVectorToByteArray(const FVector& value);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static FVector ByteArrayToFVector(const TArray<uint8>& ByteArray);
 
-	// Convert float to byte array | Convert byte array to float
+	// Convert FRotator to byte array | Convert byte array to float
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static TArray<uint8> FRotatorToByteArray(const FRotator& value);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
 	static FRotator ByteArrayToFRotator(const TArray<uint8>& ByteArray);
+
+	// Convert FRotator to byte array | Convert byte array to float
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
+	static TArray<uint8> FTransformToByteArray(const FTransform& value);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Websockets||Binary")
+	static FTransform ByteArrayToFTransform(const TArray<uint8>& ByteArray);
 };

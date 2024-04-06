@@ -2,10 +2,10 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "Websocket_MMO",
+	"FriendlyName": "InternetProtocol",
 	"Description": "",
 	"Category": "Other",
-	"CreatedBy": "",
+	"CreatedBy": "Nathan Miguel",
 	"CreatedByURL": "",
 	"DocsURL": "",
 	"MarketplaceURL": "",
@@ -16,9 +16,9 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "Websocket_MMO",
+			"Name": "InternetProtocol",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PreLoadingScreen"
 		}
 	]
 }
