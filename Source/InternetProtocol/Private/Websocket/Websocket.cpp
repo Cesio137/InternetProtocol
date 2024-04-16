@@ -3,7 +3,23 @@
 
 #include "Websocket/Websocket.h"
 
-void UWebsocket::CreateWebsocket(TEnumAsByte<EOutputExecPins>& Output, const FString& url, const FString& protocol)
+void UWebsocket::BeginDestroy()
+{
+	UObject::BeginDestroy();
+
+	if (websocket.IsValid())
+	{
+		websocket->OnConnected().Clear();
+		websocket->OnConnectionError().Clear();
+		websocket->OnClosed().Clear();
+		websocket->OnMessage().Clear();
+		websocket->OnMessageSent().Clear();
+		websocket->OnRawMessage().Clear();
+	}
+	websocket.Reset();
+}
+
+void UWebsocket::ConstructWebsocket(TEnumAsByte<EOutputExecPins>& Output, const FString& url, const FString& protocol)
 {
 	websocket = FWebSocketsModule::Get().CreateWebSocket(url, protocol);
 	if (!websocket.IsValid())

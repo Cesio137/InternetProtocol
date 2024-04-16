@@ -27,8 +27,11 @@ public class InternetProtocol : ModuleRules
 			{
 				"Core",
 				"WebSockets",
+				"HTTP",
                 "Json",
-                "JsonUtilities"
+                "JsonUtilities",
+                "XmlParser",
+                "Projects"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

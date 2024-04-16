@@ -3,6 +3,12 @@
 
 #include "Json/JavaScriptObjectNotation.h"
 
+void UJavaScriptObjectNotation::BeginDestroy()
+{
+	UObject::BeginDestroy();
+	Json.Reset();
+}
+
 bool UJavaScriptObjectNotation::ConstructJsonFromObject(const TSharedPtr<FJsonObject>& JsonObject)
 {
 	if (Json.IsValid()) Reset();

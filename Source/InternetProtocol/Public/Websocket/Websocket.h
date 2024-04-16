@@ -25,28 +25,12 @@ UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UWebsocket : public UObject
 {
 	GENERATED_BODY()
-	UWebsocket()
-	{
-
-	}
-	~UWebsocket()
-	{
-		if (websocket.IsValid())
-		{
-			websocket->OnConnected().Clear();
-			websocket->OnConnectionError().Clear();
-			websocket->OnClosed().Clear();
-			websocket->OnMessage().Clear();
-			websocket->OnMessageSent().Clear();
-			websocket->OnRawMessage().Clear();
-		}
-		websocket.Reset();
-	}
 protected:
+	virtual void BeginDestroy() override;
 	
 public:
 	UFUNCTION(BlueprintCallable, Category = "Websocket", meta=(ExpandEnumAsExecs = "Output"))
-	void CreateWebsocket(TEnumAsByte<EOutputExecPins>& Output, const FString& url, const FString& protocol = "ws");
+	void ConstructWebsocket(TEnumAsByte<EOutputExecPins>& Output, const FString& url, const FString& protocol = "ws");
 
 	UFUNCTION(BlueprintCallable, Category="Websocket")
 	void Connect();

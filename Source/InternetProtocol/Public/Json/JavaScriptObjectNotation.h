@@ -17,14 +17,8 @@ UCLASS(Blueprintable)
 class INTERNETPROTOCOL_API UJavaScriptObjectNotation : public UObject
 {
 	GENERATED_BODY()
-	UJavaScriptObjectNotation()
-	{
-
-	}
-	~UJavaScriptObjectNotation()
-	{
-		Json.Reset();
-	}
+protected:
+	virtual void BeginDestroy() override;
 
 public:
 	bool ConstructJsonFromObject(const TSharedPtr<FJsonObject>& JsonObject);
