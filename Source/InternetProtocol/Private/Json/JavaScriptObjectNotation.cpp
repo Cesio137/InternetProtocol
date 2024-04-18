@@ -55,6 +55,11 @@ FString UJavaScriptObjectNotation::ToString()
 	return JsonString;
 }
 
+bool UJavaScriptObjectNotation::bIsValid()
+{
+	return Json.IsValid();
+}
+
 void UJavaScriptObjectNotation::Reset()
 {
 	Json.Reset();

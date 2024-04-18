@@ -34,6 +34,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Json")
 	FString ToString();
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Json")
+	bool bIsValid();
+
 	UFUNCTION(BlueprintCallable, Category = "IP||Json")
 	void Reset();
 

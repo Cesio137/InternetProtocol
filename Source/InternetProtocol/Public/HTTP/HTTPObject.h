@@ -34,10 +34,16 @@ public:
 	void Reset();
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
-	void SetUrl(const FString& URL, bool bEncodeUrl = false);
+	void SetUrl(const FString& URL);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
-	const FString GetUrl(bool bEncodeUrl = false);
+	const FString GetUrl();
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
+	static FString EncodeUrl(const FString& URL);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
+	static FString DecodeUrl(const FString& URL);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	virtual void SetVerb(const EVerbMode Verb);
@@ -107,11 +113,7 @@ public:
 
 private:
 	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> HttpRequest;
-	bool bIsEncoded = false;
 	FString Url;
 	TMap<FString, FString> UrlParameters;
 	float TimeoutSecs = 3.0f;
-
-	FString EncodeUrl(const FString& url);
-	FString DecodeUrl(const FString& url);
 };

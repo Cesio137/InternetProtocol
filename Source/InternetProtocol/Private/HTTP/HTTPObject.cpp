@@ -127,12 +127,10 @@ void UHTTPObject::Reset()
 	HttpRequest.Reset();
 	Url.Empty();
 	UrlParameters.Empty();
-	bIsEncoded = false;
-	UrlParameters.Empty();
 	TimeoutSecs = 3.0;
 }
 
-void UHTTPObject::SetUrl(const FString& URL, bool bEncodeUrl)
+void UHTTPObject::SetUrl(const FString& URL)
 {
 	if (!HttpRequest.IsValid())
 		return;
@@ -140,24 +138,97 @@ void UHTTPObject::SetUrl(const FString& URL, bool bEncodeUrl)
 	if (URL.IsEmpty())
 		return;
 
-	bIsEncoded = bEncodeUrl;
-	if (bEncodeUrl)
-		Url = EncodeUrl(URL);
-	else
-		Url = DecodeUrl(URL);
-
+	Url = URL;
 	HttpRequest->SetURL(URL);
 }
 
-const FString UHTTPObject::GetUrl(bool bEncodeUrl)
+const FString UHTTPObject::GetUrl()
 {
-	if (!HttpRequest.IsValid())
-		return "";
+	return Url;
+}
 
-	if (bEncodeUrl)
-		return EncodeUrl(Url);
-	
-	return DecodeUrl(Url);
+FString UHTTPObject::EncodeUrl(const FString& url)
+{
+	if (url.IsEmpty())
+		return FString();
+
+	FString EncodedURL = url;
+	EncodedURL.ReplaceInline(TEXT(" "), TEXT("%20"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("!"), TEXT("%21"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("\""), TEXT("%22"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("#"), TEXT("%23"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("$"), TEXT("%24"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("&"), TEXT("%26"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("'"), TEXT("%27"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("("), TEXT("%28"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT(")"), TEXT("%29"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("*"), TEXT("%2A"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("+"), TEXT("%2B"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT(","), TEXT("%2C"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("-"), TEXT("%2D"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("."), TEXT("%2E"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("/"), TEXT("%2F"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT(":"), TEXT("%3A"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT(";"), TEXT("%3B"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("<"), TEXT("%3C"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("="), TEXT("%3D"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT(">"), TEXT("%3E"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("?"), TEXT("%3F"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("@"), TEXT("%40"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("["), TEXT("%5B"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("\\"), TEXT("%5C"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("]"), TEXT("%5D"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("^"), TEXT("%5E"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("_"), TEXT("%5F"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("`"), TEXT("%60"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("{"), TEXT("%7B"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("|"), TEXT("%7C"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("}"), TEXT("%7D"), ESearchCase::CaseSensitive);
+	EncodedURL.ReplaceInline(TEXT("~"), TEXT("%7E"), ESearchCase::CaseSensitive);
+
+	return EncodedURL;
+}
+
+FString UHTTPObject::DecodeUrl(const FString& url)
+{
+	if (url.IsEmpty())
+		return FString();
+
+	FString DecodedURL = url;
+	DecodedURL.ReplaceInline(TEXT(" "), TEXT("%20"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("!"), TEXT("%21"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("\""), TEXT("%22"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("#"), TEXT("%23"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("$"), TEXT("%24"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("&"), TEXT("%26"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("'"), TEXT("%27"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("("), TEXT("%28"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT(")"), TEXT("%29"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("*"), TEXT("%2A"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("+"), TEXT("%2B"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT(","), TEXT("%2C"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("-"), TEXT("%2D"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("."), TEXT("%2E"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("/"), TEXT("%2F"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT(":"), TEXT("%3A"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT(";"), TEXT("%3B"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("<"), TEXT("%3C"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("="), TEXT("%3D"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT(">"), TEXT("%3E"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("?"), TEXT("%3F"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("@"), TEXT("%40"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("["), TEXT("%5B"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("\\"), TEXT("%5C"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("]"), TEXT("%5D"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("^"), TEXT("%5E"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("_"), TEXT("%5F"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("`"), TEXT("%60"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("{"), TEXT("%7B"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("|"), TEXT("%7C"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("}"), TEXT("%7D"), ESearchCase::CaseSensitive);
+	DecodedURL.ReplaceInline(TEXT("~"), TEXT("%7E"), ESearchCase::CaseSensitive);
+
+	return DecodedURL;
 }
 
 void UHTTPObject::SetVerb(const EVerbMode Verb)
@@ -244,8 +315,7 @@ void UHTTPObject::SetParameters(const TMap<FString, FString>& Parameters)
 		UrlParams += Parameter.Key + "=" + Parameter.Value;
 		Index += 1;
 	}
-	if (bIsEncoded)
-		EncodeUrl(UrlParams);
+	
 	HttpRequest->SetURL(UrlParams);
 }
 
@@ -382,88 +452,4 @@ void UHTTPObject::CancelRequest()
 	if (!HttpRequest.IsValid())
 		return;
 	HttpRequest->CancelRequest();
-}
-
-FString UHTTPObject::EncodeUrl(const FString& url)
-{
-	if (Url.IsEmpty())
-		return FString();
-
-	FString EncodedURL = url;
-	EncodedURL.ReplaceInline(TEXT(" "), TEXT("%20"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("!"), TEXT("%21"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("\""), TEXT("%22"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("#"), TEXT("%23"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("$"), TEXT("%24"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("&"), TEXT("%26"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("'"), TEXT("%27"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("("), TEXT("%28"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT(")"), TEXT("%29"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("*"), TEXT("%2A"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("+"), TEXT("%2B"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT(","), TEXT("%2C"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("-"), TEXT("%2D"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("."), TEXT("%2E"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("/"), TEXT("%2F"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT(":"), TEXT("%3A"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT(";"), TEXT("%3B"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("<"), TEXT("%3C"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("="), TEXT("%3D"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT(">"), TEXT("%3E"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("?"), TEXT("%3F"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("@"), TEXT("%40"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("["), TEXT("%5B"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("\\"), TEXT("%5C"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("]"), TEXT("%5D"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("^"), TEXT("%5E"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("_"), TEXT("%5F"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("`"), TEXT("%60"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("{"), TEXT("%7B"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("|"), TEXT("%7C"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("}"), TEXT("%7D"), ESearchCase::CaseSensitive);
-	EncodedURL.ReplaceInline(TEXT("~"), TEXT("%7E"), ESearchCase::CaseSensitive);
-
-	return EncodedURL;
-}
-
-FString UHTTPObject::DecodeUrl(const FString& url)
-{
-	if (Url.IsEmpty())
-		return FString();
-
-	FString DecodedURL = url;
-	DecodedURL.ReplaceInline(TEXT(" "), TEXT("%20"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("!"), TEXT("%21"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("\""), TEXT("%22"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("#"), TEXT("%23"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("$"), TEXT("%24"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("&"), TEXT("%26"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("'"), TEXT("%27"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("("), TEXT("%28"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT(")"), TEXT("%29"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("*"), TEXT("%2A"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("+"), TEXT("%2B"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT(","), TEXT("%2C"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("-"), TEXT("%2D"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("."), TEXT("%2E"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("/"), TEXT("%2F"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT(":"), TEXT("%3A"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT(";"), TEXT("%3B"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("<"), TEXT("%3C"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("="), TEXT("%3D"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT(">"), TEXT("%3E"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("?"), TEXT("%3F"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("@"), TEXT("%40"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("["), TEXT("%5B"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("\\"), TEXT("%5C"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("]"), TEXT("%5D"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("^"), TEXT("%5E"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("_"), TEXT("%5F"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("`"), TEXT("%60"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("{"), TEXT("%7B"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("|"), TEXT("%7C"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("}"), TEXT("%7D"), ESearchCase::CaseSensitive);
-	DecodedURL.ReplaceInline(TEXT("~"), TEXT("%7E"), ESearchCase::CaseSensitive);
-
-	return DecodedURL;
 }

@@ -72,6 +72,12 @@ FString URawFunctionLibrary::RawToString(TEnumAsByte<EOutputExecPins>& Output, F
 		Output = EOutputExecPins::Success;
 		return UTF8_TO_TCHAR(*str.c_str());
 	}
+	else if (typeid(value.Data) == typeid(const char*))
+	{
+		std::string str = *(std::string*)value.Data;
+		Output = EOutputExecPins::Success;
+		return UTF8_TO_TCHAR(*str.c_str());
+	}
 
 	Output = EOutputExecPins::Failure;
 	return FString();
