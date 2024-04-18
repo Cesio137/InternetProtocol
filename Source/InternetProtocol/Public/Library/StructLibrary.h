@@ -9,6 +9,14 @@
  * 
  */
 
+//Websocket
+USTRUCT(Blueprintable)
+struct FVoid
+{
+	GENERATED_BODY()
+	const void* Data;
+};
+
 //HTTP
 USTRUCT(Blueprintable)
 struct FRequest

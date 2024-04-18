@@ -27,87 +27,91 @@ public:
 	
 	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> GetHttp();
 public:
-	UFUNCTION(BlueprintCallable, Category = "HTTP", meta=(ExpandEnumAsExecs = "Output"))
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP", meta=(ExpandEnumAsExecs = "Output"))
 	void ConstructHttp(TEnumAsByte<EOutputExecPins>& Output);
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void Reset();
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
-	void SetUrl(const FString& URL);
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
+	void SetUrl(const FString& URL, bool bEncodeUrl = false);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
-	const FString GetUrl();
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
+	const FString GetUrl(bool bEncodeUrl = false);
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	virtual void SetVerb(const EVerbMode Verb);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	const FString GetVerb();
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void SetParameters(const TMap<FString, FString>& Parameters);
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	const FString GetParameter(const FString& ParameterName);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	const TMap<FString, FString> GetAllParameters();
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void AppendToHeader(const TMap<FString, FString>& Headers);
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	const FString GetHeader(const FString& HeaderName);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	const TArray<FString> GetAllHeaders();
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void SetContent(const TArray<uint8>& Content);
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void SetContentAsString(const FString& Content);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	const TArray<uint8> GetContent();
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	const int GetContentLenght();
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	const FString GetContentType();
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void SetTimeOut(const float InTimeoutSecs = 3.0f);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	float GetTimeOut();
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void ClearTimeOut();
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void Tick(float DeltaSeconds);
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP", meta=(ExpandEnumAsExecs = "Output"))
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP", meta=(ExpandEnumAsExecs = "Output"))
 	void ProcessRequest(TEnumAsByte<EOutputExecPins>& Output);
 
-	UFUNCTION(BlueprintCallable, Category = "HTTP")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void CancelRequest();
 
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "HTTP||Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateResponse OnComplete;
 
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "HTTP||Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateProgress OnProgress;
 
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "HTTP||Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRetry OnWillRetry;
 
 private:
 	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> HttpRequest;
+	bool bIsEncoded = false;
 	FString Url;
 	TMap<FString, FString> UrlParameters;
 	float TimeoutSecs = 3.0f;
+
+	FString EncodeUrl(const FString& url);
+	FString DecodeUrl(const FString& url);
 };

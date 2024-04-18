@@ -17,12 +17,12 @@ class INTERNETPROTOCOL_API UInternetProtocolSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
 public:
-	UFUNCTION(BlueprintCallable, Category="Websocket||Subsystem")
+	UFUNCTION(BlueprintCallable, Category="IP")
 	UWebsocket* CreateWebsocketObject();
 
-	UFUNCTION(BlueprintCallable, Category="HTTP||Subsystem")
+	UFUNCTION(BlueprintCallable, Category="IP")
 	UHTTPObject* CreateHttpObject();
 	
-	UFUNCTION(BlueprintCallable, Category="Json||Subsystem")
+	UFUNCTION(BlueprintCallable, Category="IP")
 	UJavaScriptObjectNotation* CreateJsonObject();
 };

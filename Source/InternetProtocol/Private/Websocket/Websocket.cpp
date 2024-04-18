@@ -50,9 +50,8 @@ void UWebsocket::ConstructWebsocket(TEnumAsByte<EOutputExecPins>& Output, const 
 	});
 	websocket->OnRawMessage().AddLambda([&](const void* Data, SIZE_T Size, SIZE_T BytesRemaining) -> void
 	{
-		TArray<uint8> data;
-		data.SetNumUninitialized(Size);
-		FMemory::Memcpy(data.GetData(), Data, Size);
+		FVoid data;
+		data.Data = Data;
 
 		OnRawMessage.Broadcast(data, Size, BytesRemaining);
 	});
