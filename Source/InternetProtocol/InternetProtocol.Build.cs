@@ -11,6 +11,7 @@ public class InternetProtocol : ModuleRules
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
+				"$(PluginDir)/Source/ThirdParty/openssl/include"
 			}
 			);
 				
@@ -30,7 +31,6 @@ public class InternetProtocol : ModuleRules
 				"HTTP",
                 "Json",
                 "JsonUtilities",
-                "XmlParser",
                 "Projects"
 				// ... add other public dependencies that you statically link with here ...
 			}
