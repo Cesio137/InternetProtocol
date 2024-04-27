@@ -320,6 +320,7 @@ void UJavaScriptObjectNotation::TryGetBoolArrayField(TEnumAsByte<EOutputExecPins
 				data.Add(Val->AsBool());
 			}
 		}
+		Value = data;
 		Output = EOutputExecPins::Success;
 		return;
 	}
@@ -370,6 +371,7 @@ void UJavaScriptObjectNotation::TryGetIntegerArrayField(TEnumAsByte<EOutputExecP
 				data.Add(static_cast<int64>(Val->AsNumber()));
 			}
 		}
+		Value = data;
 		Output = EOutputExecPins::Success;
 		return;
 	}
@@ -394,6 +396,7 @@ void UJavaScriptObjectNotation::TryGetFloatArrayField(TEnumAsByte<EOutputExecPin
 				data.Add(static_cast<float>(Val->AsNumber()));
 			}
 		}
+		Value = data;
 		Output = EOutputExecPins::Success;
 		return;
 	}
@@ -435,6 +438,7 @@ void UJavaScriptObjectNotation::TryGetObjectArrayField(TEnumAsByte<EOutputExecPi
 				data.Last()->ConstructJsonFromObject(Val->AsObject());
 			}
 		}
+		Value = data;
 		Output = EOutputExecPins::Success;
 		return;
 	}

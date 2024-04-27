@@ -18,26 +18,45 @@ bool URawFunctionLibrary::RawToBool(TEnumAsByte<EOutputExecPins>& Output, FVoid 
 	return false;
 }
 
-TArray<uint8> URawFunctionLibrary::RawToByteArray(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+uint8 URawFunctionLibrary::RawToByte(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(TArray<uint8>))
+	if (typeid(value.Data) == typeid(uint8))
 	{
 		Output = EOutputExecPins::Success;
-		return *(TArray<uint8>*)value.Data;
+		return *(uint8*)value.Data;
+	}
+
+	Output = EOutputExecPins::Failure;
+	return 0;
+}
+/*
+TArray<uint8> URawFunctionLibrary::RawToByteArray(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+{
+	if (typeid(value.Data) == typeid(uint8[]))
+	{
+		Output = EOutputExecPins::Success;
+		return *(uint8*)value.Data;
 	}
 
 	Output = EOutputExecPins::Failure;
 	return TArray<uint8>();
 }
-
-int64 URawFunctionLibrary::RawToInt(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+*/
+int URawFunctionLibrary::RawToInt(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
 	if (typeid(value.Data) == typeid(int))
 	{
 		Output = EOutputExecPins::Success;
 		return *(int*)value.Data;
 	}
-	else if (typeid(value.Data) == typeid(int64))
+
+	Output = EOutputExecPins::Failure;
+	return 0;
+}
+
+int64 URawFunctionLibrary::RawToInt64(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+{
+	if (typeid(value.Data) == typeid(int64))
 	{
 		Output = EOutputExecPins::Success;
 		return *(int64*)value.Data;
