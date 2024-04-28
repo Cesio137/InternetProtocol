@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+//© Nathan Miguel, 2024. All Rights Reserved.
 
 #pragma once
 

@@ -1,4 +1,4 @@
-// Some copyright should be here...
+//© Nathan Miguel, 2024. All Rights Reserved.
 
 using UnrealBuildTool;
 

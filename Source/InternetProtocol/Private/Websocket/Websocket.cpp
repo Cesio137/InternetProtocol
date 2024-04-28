@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+//© Nathan Miguel, 2024. All Rights Reserved.
 
 
 #include "Websocket/Websocket.h"
