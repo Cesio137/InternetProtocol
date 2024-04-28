@@ -26,12 +26,7 @@ public class InternetProtocol : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core",
-				"WebSockets",
-				"HTTP",
-                "Json",
-                "JsonUtilities",
-                "Projects"
+				"Core"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -40,7 +35,13 @@ public class InternetProtocol : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CoreUObject",
+
+                "WebSockets",
+                "HTTP",
+                "Json",
+                "JsonUtilities",
+                "Projects",
+                "CoreUObject",
 				"Engine",
 				"Slate",
 				"SlateCore",
