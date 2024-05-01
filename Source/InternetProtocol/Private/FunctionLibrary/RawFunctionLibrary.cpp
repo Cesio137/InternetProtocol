@@ -5,13 +5,19 @@
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
 #include <string>
+#include <typeinfo>
+
+FString URawFunctionLibrary::GetTypeName(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+{
+	return FString();
+}
 
 bool URawFunctionLibrary::RawToBool(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(bool))
+	if (typeid(value.Data).name() == typeid(bool).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(bool*)value.Data;
+		return *((bool*)value.Data);
 	}
 
 	Output = EOutputExecPins::Failure;
@@ -20,10 +26,10 @@ bool URawFunctionLibrary::RawToBool(TEnumAsByte<EOutputExecPins>& Output, FVoid 
 
 uint8 URawFunctionLibrary::RawToByte(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(uint8))
+	if (typeid(value.Data).name() == typeid(uint8).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(uint8*)value.Data;
+		return *((uint8*)value.Data);
 	}
 
 	Output = EOutputExecPins::Failure;
@@ -44,10 +50,10 @@ TArray<uint8> URawFunctionLibrary::RawToByteArray(TEnumAsByte<EOutputExecPins>& 
 */
 int URawFunctionLibrary::RawToInt(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(int))
+	if (typeid(value.Data).name() == typeid(int).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(int*)value.Data;
+		return *((int*)value.Data);
 	}
 
 	Output = EOutputExecPins::Failure;
@@ -56,10 +62,10 @@ int URawFunctionLibrary::RawToInt(TEnumAsByte<EOutputExecPins>& Output, FVoid va
 
 int64 URawFunctionLibrary::RawToInt64(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(int64))
+	if (typeid(value.Data).name() == typeid(int64).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(int64*)value.Data;
+		return *((int64*)value.Data);
 	}
 
 	Output = EOutputExecPins::Failure;
@@ -68,10 +74,10 @@ int64 URawFunctionLibrary::RawToInt64(TEnumAsByte<EOutputExecPins>& Output, FVoi
 
 float URawFunctionLibrary::RawToFloat(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(float))
+	if (typeid(value.Data).name() == typeid(float).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(float*)value.Data;
+		return *((float*)value.Data);
 	}
 
 	Output = EOutputExecPins::Failure;
@@ -80,20 +86,20 @@ float URawFunctionLibrary::RawToFloat(TEnumAsByte<EOutputExecPins>& Output, FVoi
 
 FString URawFunctionLibrary::RawToString(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(FString))
+	if (typeid(value.Data).name() == typeid(FString).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(FString*)value.Data;
+		return *((FString*)value.Data);
 	}
-	else if (typeid(value.Data) == typeid(std::string))
+	else if (typeid(value.Data).name() == typeid(std::string).name())
 	{
-		std::string str = *(std::string*)value.Data;
+		std::string str = *((std::string*)value.Data);
 		Output = EOutputExecPins::Success;
 		return UTF8_TO_TCHAR(*str.c_str());
 	}
-	else if (typeid(value.Data) == typeid(const char*))
+	else if (typeid(value.Data).name() == typeid(const char*).name())
 	{
-		std::string str = *(std::string*)value.Data;
+		std::string str = *((std::string*)value.Data);
 		Output = EOutputExecPins::Success;
 		return UTF8_TO_TCHAR(*str.c_str());
 	}
@@ -116,10 +122,10 @@ FVector URawFunctionLibrary::RawToFVector(TEnumAsByte<EOutputExecPins>& Output, 
 
 FRotator URawFunctionLibrary::RawToFRotator(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(FRotator))
+	if (typeid(value.Data).name() == typeid(FRotator).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(FRotator*)value.Data;
+		return *((FRotator*)value.Data);
 	}
 
 	Output = EOutputExecPins::Failure;
@@ -128,10 +134,10 @@ FRotator URawFunctionLibrary::RawToFRotator(TEnumAsByte<EOutputExecPins>& Output
 
 FTransform URawFunctionLibrary::RawToFTransform(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
 {
-	if (typeid(value.Data) == typeid(FTransform))
+	if (typeid(value.Data).name() == typeid(FTransform).name())
 	{
 		Output = EOutputExecPins::Success;
-		return *(FTransform*)value.Data;
+		return *((FTransform*)value.Data);
 	}
 
 	Output = EOutputExecPins::Failure;
