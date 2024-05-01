@@ -116,7 +116,10 @@ public:
 	void TryGetByteArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<uint8>& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json", meta = (ExpandEnumAsExecs = "Output"))
-	void TryGetIntegerArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<int64>& Value);
+	void TryGetIntegerArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<int>& Value);
+
+	UFUNCTION(BlueprintCallable, Category = "IP||Json", meta = (ExpandEnumAsExecs = "Output"))
+	void TryGetInteger64ArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<int64>& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json", meta = (ExpandEnumAsExecs = "Output"))
 	void TryGetFloatArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<float>& Value);

@@ -385,7 +385,32 @@ void UJavaScriptObjectNotation::TryGetByteArrayField(TEnumAsByte<EOutputExecPins
 	Output = EOutputExecPins::Failure;
 }
 
-void UJavaScriptObjectNotation::TryGetIntegerArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<int64>& Value)
+void UJavaScriptObjectNotation::TryGetIntegerArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<int>& Value)
+{
+	if (!Json.IsValid())
+	{
+		Output = EOutputExecPins::Failure;
+		return;
+	}
+	const TArray<TSharedPtr<FJsonValue>>* JsonArray;
+	if (Json->TryGetArrayField(FieldName, JsonArray))
+	{
+		TArray<int> data;
+		for (TSharedPtr<FJsonValue> Val : *JsonArray)
+		{
+			if (Val.IsValid() && Val->Type == EJson::Number)
+			{
+				data.Add(static_cast<int>(Val->AsNumber()));
+			}
+		}
+		Value = data;
+		Output = EOutputExecPins::Success;
+		return;
+	}
+	Output = EOutputExecPins::Failure;
+}
+
+void UJavaScriptObjectNotation::TryGetInteger64ArrayField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, TArray<int64>& Value)
 {
 	if (!Json.IsValid())
 	{
