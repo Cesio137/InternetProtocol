@@ -53,7 +53,10 @@ public:
 	void SetByteField(const FString& FieldName, const uint8& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json")
-	void SetIntegerField(const FString& FieldName, const int64& Value);
+	void SetIntegerField(const FString& FieldName, const int Value);
+
+	UFUNCTION(BlueprintCallable, Category = "IP||Json")
+	void SetInteger64Field(const FString& FieldName, const int64 Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json")
 	void SetFloatField(const FString& FieldName, const float& Value);
@@ -71,10 +74,13 @@ public:
 	void SetByteArrayField(const FString& FieldName, const TArray<uint8>& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json")
-	void SetIntegerArrayField(const FString& FieldName, const TArray<int64>& Value);
+	void SetIntegerArrayField(const FString& FieldName, const TArray<int>& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json")
-	void SetFloatArrayField(const FString& FieldName, const TArray<int64>& Value);
+	void SetInteger64ArrayField(const FString& FieldName, const TArray<int64>& Value);
+
+	UFUNCTION(BlueprintCallable, Category = "IP||Json")
+	void SetFloatArrayField(const FString& FieldName, const TArray<float>& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json")
 	void SetStringArrayField(const FString& FieldName, const TArray<FString>& Value);
@@ -89,7 +95,10 @@ public:
 	void TryGetByteField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, uint8& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json", meta = (ExpandEnumAsExecs = "Output"))
-	void TryGetIntegerField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, int64& Value);
+	void TryGetIntegerField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, int& Value);
+
+	UFUNCTION(BlueprintCallable, Category = "IP||Json", meta = (ExpandEnumAsExecs = "Output"))
+	void TryGetInteger64Field(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, int64& Value);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Json", meta = (ExpandEnumAsExecs = "Output"))
 	void TryGetFloatField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, float& Value);

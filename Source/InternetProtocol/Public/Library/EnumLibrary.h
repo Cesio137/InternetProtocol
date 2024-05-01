@@ -10,7 +10,7 @@
  */
 
 //Exec Pins
-UENUM(Blueprintable)
+UENUM(Blueprintable, Category="IP")
 enum EOutputExecPins
 {
 	Success,
@@ -18,26 +18,7 @@ enum EOutputExecPins
 };
 
 //HTTP
-UENUM(BlueprintType)
-enum class EVerbMode : uint8
-{
-	GET,
-	POST,
-	PUT,
-	PATCH,
-	DEL UMETA(DisplayName = "DELETE"),
-	COPY,
-	HEAD,
-	OPTIONS,
-	LINK,
-	UNLINK,
-	LOCK,
-	UNLOCK,
-	PROPFIND,
-	VIEW
-};
-
-UENUM(BlueprintType)
+UENUM(BlueprintType, Category = "IP")
 enum class ERequestStatus : uint8
 {
 	NotStarted,

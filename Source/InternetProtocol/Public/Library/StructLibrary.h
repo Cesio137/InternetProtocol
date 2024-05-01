@@ -10,7 +10,7 @@
  */
 
 //Websocket
-USTRUCT(Blueprintable)
+USTRUCT(Blueprintable, Category = "IP")
 struct FVoid
 {
 	GENERATED_BODY()
@@ -18,7 +18,7 @@ struct FVoid
 };
 
 //HTTP
-USTRUCT(Blueprintable)
+USTRUCT(Blueprintable, Category = "IP")
 struct FRequest
 {
 	GENERATED_BODY()
@@ -29,7 +29,7 @@ struct FRequest
 	float ElapsedTime;
 };
 
-USTRUCT(Blueprintable)
+USTRUCT(Blueprintable, Category = "IP")
 struct FResponse
 {
 	GENERATED_BODY()

@@ -30,6 +30,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP", meta=(ExpandEnumAsExecs = "Output"))
 	void ConstructHttp(TEnumAsByte<EOutputExecPins>& Output);
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
+	bool bIsValid();
+
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	void Reset();
 
@@ -46,7 +49,7 @@ public:
 	static FString DecodeUrl(const FString& URL);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
-	virtual void SetVerb(const EVerbMode Verb);
+	virtual void SetVerb(const FString& Verb);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
 	const FString GetVerb();

@@ -122,6 +122,11 @@ void UHTTPObject::ConstructHttp(TEnumAsByte<EOutputExecPins>& Output)
 	Output = EOutputExecPins::Success;
 }
 
+bool UHTTPObject::bIsValid()
+{
+	return HttpRequest.IsValid();
+}
+
 void UHTTPObject::Reset()
 {
 	HttpRequest.Reset();
@@ -231,59 +236,12 @@ FString UHTTPObject::DecodeUrl(const FString& url)
 	return DecodedURL;
 }
 
-void UHTTPObject::SetVerb(const EVerbMode Verb)
+void UHTTPObject::SetVerb(const FString& Verb)
 {
 	if (!HttpRequest.IsValid())
 		return;
 
-	FString verb = "";
-	
-	switch (Verb)
-	{
-	case EVerbMode::GET:
-		verb = "GET";
-		break;
-	case EVerbMode::POST:
-		verb = "POST";
-		break;
-	case EVerbMode::PUT:
-		verb = "PUT";
-		break;
-	case EVerbMode::PATCH:
-		verb = "PATCH";
-		break;
-	case EVerbMode::DEL:
-		verb = "DELETE";
-		break;
-	case EVerbMode::COPY:
-		verb = "COPY";
-		break;
-	case EVerbMode::HEAD:
-		verb = "HEAD";
-		break;
-	case EVerbMode::OPTIONS:
-		verb = "OPTIONS";
-		break;
-	case EVerbMode::LINK:
-		verb = "LINK";
-		break;
-	case EVerbMode::UNLINK:
-		verb = "UNLINK";
-		break;
-	case EVerbMode::LOCK:
-		verb = "LOCK";
-		break;
-	case EVerbMode::UNLOCK:
-		verb = "UNLOCK";
-		break;
-	case EVerbMode::PROPFIND:
-		verb = "PROPFIND";
-		break;
-	case EVerbMode::VIEW:
-		verb = "VIEW";
-	}
-
-	HttpRequest->SetVerb(verb);
+	HttpRequest->SetVerb(Verb);
 }
 
 const FString UHTTPObject::GetVerb()

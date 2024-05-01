@@ -86,15 +86,22 @@ void UJavaScriptObjectNotation::SetBoolField(const FString& FieldName, const boo
 void UJavaScriptObjectNotation::SetByteField(const FString& FieldName, const uint8& Value)
 {
 	if (!Json.IsValid()) return;
-	double d = static_cast<double>(Value);
-	Json->SetNumberField(FieldName, d);
+	double number = static_cast<double>(Value);
+	Json->SetNumberField(FieldName, number);
 }
 
-void UJavaScriptObjectNotation::SetIntegerField(const FString& FieldName, const int64& Value)
+void UJavaScriptObjectNotation::SetIntegerField(const FString& FieldName, const int Value)
 {
 	if (!Json.IsValid()) return;
-	double d = static_cast<double>(Value);
-	Json->SetNumberField(FieldName, d);
+	double number = static_cast<double>(Value);
+	Json->SetNumberField(FieldName, number);
+}
+
+void UJavaScriptObjectNotation::SetInteger64Field(const FString& FieldName, const int64 Value)
+{
+	if (!Json.IsValid()) return;
+	double number = static_cast<double>(Value);
+	Json->SetNumberField(FieldName, number);
 }
 
 void UJavaScriptObjectNotation::SetFloatField(const FString& FieldName, const float& Value)
@@ -139,7 +146,18 @@ void UJavaScriptObjectNotation::SetByteArrayField(const FString& FieldName, cons
 	Json->SetArrayField(FieldName, JsonArray);
 }
 
-void UJavaScriptObjectNotation::SetIntegerArrayField(const FString& FieldName, const TArray<int64>& Value)
+void UJavaScriptObjectNotation::SetIntegerArrayField(const FString& FieldName, const TArray<int>& Value)
+{
+	if (!Json.IsValid()) return;
+	TArray<TSharedPtr<FJsonValue>> JsonArray;
+	for (int Integer : Value)
+	{
+		JsonArray.Add(MakeShareable(new FJsonValueNumber(Integer)));
+	}
+	Json->SetArrayField(FieldName, JsonArray);
+}
+
+void UJavaScriptObjectNotation::SetInteger64ArrayField(const FString& FieldName, const TArray<int64>& Value)
 {
 	if (!Json.IsValid()) return;
 	TArray<TSharedPtr<FJsonValue>> JsonArray;
@@ -150,7 +168,7 @@ void UJavaScriptObjectNotation::SetIntegerArrayField(const FString& FieldName, c
 	Json->SetArrayField(FieldName, JsonArray);
 }
 
-void UJavaScriptObjectNotation::SetFloatArrayField(const FString& FieldName, const TArray<int64>& Value)
+void UJavaScriptObjectNotation::SetFloatArrayField(const FString& FieldName, const TArray<float>& Value)
 {
 	if (!Json.IsValid()) return;
 	TArray<TSharedPtr<FJsonValue>> JsonArray;
@@ -211,20 +229,34 @@ void UJavaScriptObjectNotation::TryGetByteField(TEnumAsByte<EOutputExecPins>& Ou
 		Output = EOutputExecPins::Failure;
 		return;
 	}
-	int i;
-	bool success = Json->TryGetNumberField(FieldName, i);
-	if (Json->TryGetNumberField(FieldName, i))
+	int number;
+	if (Json->TryGetNumberField(FieldName, number))
 	{
-		Value = static_cast<uint8>(i);
+		Value = static_cast<uint8>(number);
 		Output = EOutputExecPins::Success;
 		return;
 	}
 	Output = EOutputExecPins::Failure;
 }
 
-void UJavaScriptObjectNotation::TryGetIntegerField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, int64& Value)
+void UJavaScriptObjectNotation::TryGetIntegerField(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, int& Value)
 {
 	if (!Json.IsValid()) 
+	{
+		Output = EOutputExecPins::Failure;
+		return;
+	}
+	if (Json->TryGetNumberField(FieldName, Value))
+	{
+		Output = EOutputExecPins::Success;
+		return;
+	}
+	Output = EOutputExecPins::Failure;
+}
+
+void UJavaScriptObjectNotation::TryGetInteger64Field(TEnumAsByte<EOutputExecPins>& Output, const FString& FieldName, int64& Value)
+{
+	if (!Json.IsValid())
 	{
 		Output = EOutputExecPins::Failure;
 		return;
