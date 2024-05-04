@@ -10,6 +10,7 @@
 	"DocsURL": "https://cesio137.github.io/InternetProtocol-Documentation/",
 	"MarketplaceURL": "",
 	"SupportURL": "https://github.com/Cesio137/InternetProtocol-Documentation/issues",
+	"PlatformAllowList": [ "Win64", "Win32" ],
 	"EngineVersion": "4.27.0",
 	"CanContainContent": true,
 	"IsBetaVersion": false,

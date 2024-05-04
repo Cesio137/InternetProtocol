@@ -19,8 +19,8 @@ public:
 /*Raw functions*/
 
 	// Convert bool to raw | Convert raw to bool
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static FString GetTypeName(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Raw")
+	static FString GetTypeName(FVoid value);
 
 	// Convert bool to raw | Convert raw to bool
 	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))

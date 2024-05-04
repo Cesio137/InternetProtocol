@@ -7,9 +7,9 @@
 #include <string>
 #include <typeinfo>
 
-FString URawFunctionLibrary::GetTypeName(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+FString URawFunctionLibrary::GetTypeName(FVoid value)
 {
-	return FString();
+	return FString(typeid(value.Data).name());
 }
 
 bool URawFunctionLibrary::RawToBool(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
