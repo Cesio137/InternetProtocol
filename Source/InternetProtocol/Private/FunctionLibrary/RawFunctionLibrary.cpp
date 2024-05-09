@@ -7,141 +7,52 @@
 #include <string>
 #include <typeinfo>
 
-FString URawFunctionLibrary::GetTypeName(FVoid value)
+
+bool URawFunctionLibrary::RawToBool(FVoid value)
 {
-	return FString(typeid(value.Data).name());
+	int rawValue = *static_cast<const int*>(value.Data);
+	return rawValue != 0;
 }
 
-bool URawFunctionLibrary::RawToBool(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+uint8 URawFunctionLibrary::RawToByte(FVoid value)
 {
-	if (typeid(value.Data).name() == typeid(bool).name())
-	{
-		Output = EOutputExecPins::Success;
-		return *((bool*)value.Data);
-	}
-
-	Output = EOutputExecPins::Failure;
-	return false;
+	uint8 rawValue = *static_cast<const uint8*>(value.Data);
+	return rawValue;
 }
 
-uint8 URawFunctionLibrary::RawToByte(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+TArray<uint8> URawFunctionLibrary::RawToByteArray(FVoid value, int size)
 {
-	if (typeid(value.Data).name() == typeid(uint8).name())
+	const uint8* rawByteArray = static_cast<const uint8*>(value.Data);
+	TArray<uint8> rawValue;
+	for (int i = 0; i < size; ++i) 
 	{
-		Output = EOutputExecPins::Success;
-		return *((uint8*)value.Data);
+		rawValue.Emplace(rawByteArray[i]);
 	}
-
-	Output = EOutputExecPins::Failure;
-	return 0;
-}
-/*
-TArray<uint8> URawFunctionLibrary::RawToByteArray(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
-{
-	if (typeid(value.Data) == typeid(uint8[]))
-	{
-		Output = EOutputExecPins::Success;
-		return *(uint8*)value.Data;
-	}
-
-	Output = EOutputExecPins::Failure;
-	return TArray<uint8>();
-}
-*/
-int URawFunctionLibrary::RawToInt(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
-{
-	if (typeid(value.Data).name() == typeid(int).name())
-	{
-		Output = EOutputExecPins::Success;
-		return *((int*)value.Data);
-	}
-
-	Output = EOutputExecPins::Failure;
-	return 0;
+	return rawValue;
 }
 
-int64 URawFunctionLibrary::RawToInt64(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+int URawFunctionLibrary::RawToInt(FVoid value)
 {
-	if (typeid(value.Data).name() == typeid(int64).name())
-	{
-		Output = EOutputExecPins::Success;
-		return *((int64*)value.Data);
-	}
-
-	Output = EOutputExecPins::Failure;
-	return 0;
+	int rawValue = *static_cast<const int*>(value.Data);
+	return rawValue;
 }
 
-float URawFunctionLibrary::RawToFloat(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+int64 URawFunctionLibrary::RawToInt64(FVoid value)
 {
-	if (typeid(value.Data).name() == typeid(float).name())
-	{
-		Output = EOutputExecPins::Success;
-		return *((float*)value.Data);
-	}
-
-	Output = EOutputExecPins::Failure;
-	return 0.0f;
+	int64 rawValue = *static_cast<const int64*>(value.Data);
+	return rawValue;
 }
 
-FString URawFunctionLibrary::RawToString(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+float URawFunctionLibrary::RawToFloat(FVoid value)
 {
-	if (typeid(value.Data).name() == typeid(FString).name())
-	{
-		Output = EOutputExecPins::Success;
-		return *((FString*)value.Data);
-	}
-	else if (typeid(value.Data).name() == typeid(std::string).name())
-	{
-		std::string str = *((std::string*)value.Data);
-		Output = EOutputExecPins::Success;
-		return UTF8_TO_TCHAR(*str.c_str());
-	}
-	else if (typeid(value.Data).name() == typeid(const char*).name())
-	{
-		std::string str = *((std::string*)value.Data);
-		Output = EOutputExecPins::Success;
-		return UTF8_TO_TCHAR(*str.c_str());
-	}
-
-	Output = EOutputExecPins::Failure;
-	return FString();
+	int64 rawValue = *static_cast<const int64*>(value.Data);
+	return rawValue;
 }
 
-FVector URawFunctionLibrary::RawToFVector(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
+FString URawFunctionLibrary::RawToString(FVoid value)
 {
-	if (typeid(value.Data) == typeid(FVector))
-	{
-		Output = EOutputExecPins::Success;
-		return *(FVector*)value.Data;
-	}
-
-	Output = EOutputExecPins::Failure;
-	return FVector();
-}
-
-FRotator URawFunctionLibrary::RawToFRotator(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
-{
-	if (typeid(value.Data).name() == typeid(FRotator).name())
-	{
-		Output = EOutputExecPins::Success;
-		return *((FRotator*)value.Data);
-	}
-
-	Output = EOutputExecPins::Failure;
-	return FRotator();
-}
-
-FTransform URawFunctionLibrary::RawToFTransform(TEnumAsByte<EOutputExecPins>& Output, FVoid value)
-{
-	if (typeid(value.Data).name() == typeid(FTransform).name())
-	{
-		Output = EOutputExecPins::Success;
-		return *((FTransform*)value.Data);
-	}
-
-	Output = EOutputExecPins::Failure;
-	return FTransform();
+	const char* rawValue = static_cast<const char*>(value.Data);
+	return rawValue;
 }
 
 TArray<uint8> URawFunctionLibrary::BoolToByteArray(bool value)

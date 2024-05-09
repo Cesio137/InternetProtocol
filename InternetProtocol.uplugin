@@ -8,8 +8,7 @@
 	"CreatedBy": "Nathan Miguel",
 	"CreatedByURL": "https://github.com/Cesio137",
 	"DocsURL": "https://cesio137.github.io/InternetProtocol-Documentation/",
-	"MarketplaceURL": "com.epicgames.launcher:
-//ue/marketplace/product/6e1c9d50c0624012808c0b6c25fa3a5a",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/6e1c9d50c0624012808c0b6c25fa3a5a",
 	"SupportURL": "https://github.com/Cesio137/InternetProtocol-Documentation/issues",
 	"PlatformAllowList": [ "Win64", "Win32" ],
 	"EngineVersion": "4.27.0",

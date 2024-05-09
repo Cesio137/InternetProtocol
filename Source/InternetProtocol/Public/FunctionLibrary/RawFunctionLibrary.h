@@ -19,50 +19,33 @@ public:
 /*Raw functions*/
 
 	// Convert bool to raw | Convert raw to bool
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Raw")
-	static FString GetTypeName(FVoid value);
-
-	// Convert bool to raw | Convert raw to bool
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static bool RawToBool(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
+	UFUNCTION(BlueprintCallable, Category = "IP||Raw")
+	static bool RawToBool(FVoid value);
 
 	// Convert Byte Array to raw | Convert raw to Byte Array
 	
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static uint8 RawToByte(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
+	UFUNCTION(BlueprintCallable, Category = "IP||Raw")
+	static uint8 RawToByte(FVoid value);
 	
 	// Convert Byte Array to raw | Convert raw to Byte Array
-	/*
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static TArray<uint8> RawToByteArray(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
-	*/
+	UFUNCTION(BlueprintCallable, Category = "IP||Raw")
+	static TArray<uint8> RawToByteArray(FVoid value, int size);
+	
 	// Convert int to raw | Convert raw to int
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static int RawToInt(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
+	UFUNCTION(BlueprintCallable, Category = "IP||Raw")
+	static int RawToInt(FVoid value);
 
 	// Convert int64 to raw | Convert raw to int64
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static int64 RawToInt64(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
+	UFUNCTION(BlueprintCallable, Category = "IP||Raw")
+	static int64 RawToInt64(FVoid value);
 
 	// Convert int to float | Convert raw to float
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static float RawToFloat(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
+	UFUNCTION(BlueprintCallable, Category = "IP||Raw")
+	static float RawToFloat(FVoid value);
 
 	// Convert int to float | Convert raw to float
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static FString RawToString(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
-
-	// Convert int to float | Convert raw to float
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static FVector RawToFVector(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
-
-	// Convert int to float | Convert raw to float
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static FRotator RawToFRotator(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
-
-	// Convert int to float | Convert raw to float
-	UFUNCTION(BlueprintCallable, Category = "IP||Raw", meta = (ExpandEnumAsExecs = "Output"))
-	static FTransform RawToFTransform(TEnumAsByte<EOutputExecPins>& Output, FVoid value);
+	UFUNCTION(BlueprintCallable, Category = "IP||Raw")
+	static FString RawToString(FVoid value);
 
 /*Binary functions*/
 
