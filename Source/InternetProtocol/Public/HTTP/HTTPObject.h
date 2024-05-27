@@ -6,17 +6,13 @@
 #include "HttpModule.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
-#include "Delegates/DelegateSignatureImpl.inl"
+#include "Delegates.h"
 #include "Library/StructLibrary.h"
 #include "HTTPObject.generated.h"
 
 /**
  * 
  */
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateResponse, FRequest, Request, FResponse, Response, bool, Success);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateRetry, FRequest, Request, FResponse, Response, float, TimeToRetry);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateProgress, FRequest, Request, int, BytesSent, int, BytesReceived);
 
 UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UHTTPObject : public UObject

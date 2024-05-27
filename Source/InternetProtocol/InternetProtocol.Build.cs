@@ -1,4 +1,4 @@
-//© Nathan Miguel, 2024. All Rights Reserved.
+//ï¿½ Nathan Miguel, 2024. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -11,7 +11,9 @@ public class InternetProtocol : ModuleRules
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
-			}
+				"$(PluginDir)/Source/ThirdParty/asio/Public",
+                "$(PluginDir)/Source/ThirdParty/simdjson/Public"
+            }
 			);
 				
 		
@@ -34,7 +36,6 @@ public class InternetProtocol : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-
                 "WebSockets",
                 "HTTP",
                 "Json",

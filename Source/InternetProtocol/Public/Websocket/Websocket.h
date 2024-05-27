@@ -6,20 +6,13 @@
 #include "UObject/NoExportTypes.h"
 #include "IWebSocket.h"
 #include "WebSocketsModule.h"
-#include "Delegates/DelegateSignatureImpl.inl"
+#include "Delegates.h"
 #include "Library/StructLibrary.h"
 #include "Websocket.generated.h"
 
 /**
  * 
  */
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateOnConnected);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateOnMessage, const FString&, Message);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateOnRawMessage, const FVoid&, Data, int, Size, int, BytesRemaining);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateOnConnectionError, const FString&, Error);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateOnClosed, int32, StatusCode, const FString&, Reason, bool, bWasClean);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateOnMessageSent, const FString&, MessageString);
 
 UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UWebsocket : public UObject

@@ -1,6 +1,9 @@
 //© Nathan Miguel, 2024. All Rights Reserved.
 
 #include "InternetProtocol.h"
+#include "Core.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IPluginManager.h"
 
 #define LOCTEXT_NAMESPACE "FInternetProtocolModule"
 
