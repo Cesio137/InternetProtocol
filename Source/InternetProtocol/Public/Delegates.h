@@ -14,6 +14,7 @@
 //HTTP
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateResponse, FRequest, Request, FResponse, Response, bool, Success);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateRetry, FRequest, Request, FResponse, Response, float, TimeToRetry);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateError, int, Code, const FString&, exception);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateProgress, FRequest, Request, int, BytesSent, int, BytesReceived);
 
 //Websocket
