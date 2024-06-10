@@ -51,3 +51,104 @@ struct FAsio
 		return *this;
 	}
 };
+
+USTRUCT(Blueprintable, Category = "IP")
+struct FRequest
+{
+	GENERATED_BODY()
+	TMap<FString, FString> params;
+	EVerb verb = EVerb::GET;
+	FString path = "/";
+	FString version = "2.0";
+	TMap<FString, FString> headers;
+	FString body;
+};
+
+UCLASS(Blueprintable, BlueprintType)
+class INTERNETPROTOCOL_API UHeader : public UObject
+{
+	GENERATED_BODY()
+public:
+    UHeader() {}
+    ~UHeader() {
+        clear();
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+    void appendHeader(const FString& headerline) {
+    	int32 Pos;
+    	if (headerline.FindChar(TEXT(':'), Pos)) {
+    		FString key = trimWhitespace(headerline.Left(Pos));
+    		FString value = trimWhitespace(headerline.Mid(Pos + 1));
+    		TArray<FString> values;
+    		value.ParseIntoArray(values, TEXT(";"), true);
+    		for (FString& str : values) {
+    			str = trimWhitespace(str);
+    		}
+    		headers.Add(key, values);
+    	}
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+    void setContent(const FString& value) {
+        if (value.IsEmpty())
+            return;
+        contentLenght = value.Len();
+        content = value;
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+    void appendContent(const FString& value) {
+        contentLenght += value.Len();
+        content.Append(value);
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+	TArray<FString> getKeys() const
+    {
+    	TArray<FString> keys;
+    	headers.GetKeys(keys);
+    	return keys;
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+    TArray<FString> getHeader(const FString& key) const
+	{
+    	TArray<FString> result;
+	    if (headers.Contains(key))
+			result = headers[key];
+        return result;
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+	bool hasHeader(const FString& key) const { return headers.Contains(key); }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+    int getContentLenght() const {
+        return contentLenght;
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+    FString getContent() const {
+        return content;
+    }
+
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+    void clear() {
+        headers.Empty();
+        contentLenght = 0;
+        content.Empty();
+    }
+
+private:
+    TMap<FString, TArray<FString>> headers;
+    int contentLenght = 0;
+    FString content;
+
+	FString trimWhitespace(const FString& str) const {
+    	FString Result = str;
+    	Result.TrimStartAndEndInline();
+    	return Result;
+    }
+
+};

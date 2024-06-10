@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
-#include "Core/Net/Message.h"
+#include "Core/Net/Commons.h"
 #include "Delegates/DelegateSignatureImpl.inl"
 #include "HttpClient.generated.h"
 
@@ -12,8 +12,9 @@
  * 
  */
 
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateResponse, FRequest, Request, FResponse, Response, bool, Success);
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateRetry, FRequest, Request, FResponse, Response, float, TimeToRetry);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateRequestConnected);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateRequestCompleted, const UHeader*, Headers);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestRetry, int, Attemps, int, TimeToRetry);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestError, int, Code, const FString&, exception);
 //DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateProgress, FRequest, Request, int, BytesSent, int, BytesReceived);
 
@@ -22,7 +23,15 @@ class INTERNETPROTOCOL_API UHttpClient : public UObject
 {
 	GENERATED_BODY()
 public:
-	UHttpClient(){}
+	UHttpClient()
+	{
+		if (!response_header)
+			response_header = NewObject<UHeader>();
+
+		request.headers["Accept"] = "*/*";
+		request.headers["User-Agent"] = "ASIO 2.30.2";
+		request.headers["Connection"] = "close";
+	}
 	~UHttpClient(){}
 
 	/*HTTP SETTINGS*/
@@ -39,18 +48,18 @@ public:
 	FString getPort() const { return service; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
-	void setTimeout(float value = 3.0f) { timeout = value; }
+	void setRetryTime(int value = 3) { retrytime = value; }
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
-	void resetTimeout() { timeout = 3.0f; }
+	void resetRetryTime() { retrytime = 3; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
-	float getTimeout() const { return timeout; }
+	int getRetryTime() const { return retrytime; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
-	void setRetryTime(float value = 3.0f) { retrytime = value; }
+	void setMaxRetry(int value = 3) { maxretry = value; }
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
-	void resetRetryTime() { retrytime = 5.0f; }
+	void resetMaxRetry() { maxretry = 3; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP")
-	float getRetryTime() const { return retrytime; }
+	int getMaxRetry() const { return maxretry; }
 	
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
@@ -105,23 +114,58 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP")
 	FString getData();
 
+	/*THREADS*/
+	void setThreadNumbers(int value = 2) { pool = MakeUnique<asio::thread_pool>(2); }
+
+	/*PAYLOAD*/
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+	void preparePayload();
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+	int async_preparePayload();
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+	void clearPayload() { payload.Empty(); }
+	
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
 	int processRequest();
 
+	/*ERRORS*/
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+	int getErrorCode() const { return asio.error_code.value(); }
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP")
+	FString getErrorMessage() const { return asio.error_code.message().data(); }
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
+	FDelegateRequestConnected OnConnected;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
+	FDelegateRequestConnected OnAsyncPayloadFinished;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
+	FDelegateRequestCompleted OnRequestCompleted;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
+	FDelegateRequestRetry OnRequestWillRetry;
+	
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestError OnRequestError;
 	
 private:
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(2);
+	std::mutex mutexPayload;
+	std::mutex mutexIO;
+	void runContextThread();
+	
 	FString host = "localhost";
 	FString service;
-	float timeout = 3.0f;
-	float retrytime = 5.0f;
+	int maxretry = 1;
+	int retrytime = 3;
 	FRequest request;
 	FAsio asio;
+	FString payload;
 	asio::streambuf request_buffer;
 	asio::streambuf response_buffer;
-	FString exception;
+	UHeader* response_header;
 	const TMap<EVerb, FString> verb = {
 		{EVerb::GET     , "GET"},
 		{EVerb::POST    , "POST"},

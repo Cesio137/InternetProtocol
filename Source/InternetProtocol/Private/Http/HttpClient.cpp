@@ -5,52 +5,130 @@
 
 FString UHttpClient::getData()
 {
-	FString request_data;
+	return payload;
+}
 
-	request_data = verb[request.verb] + " " + request.path;
+void UHttpClient::preparePayload()
+{
+	payload.Empty();
+	
+	payload = verb[request.verb] + " " + request.path;
 	
 	if (request.params.Num() < 1)
 	{
-		request_data += "?";
+		payload += "?";
 		bool first = true;
 		for (const TPair<FString, FString>& param : request.params) {
-			if (!first) request_data += "&";
-			request_data += param.Key + "=" + param.Value;
+			if (!first) payload += "&";
+			payload += param.Key + "=" + param.Value;
 			first = false;
 		}
 	}
-	request_data += " HTTP/" + request.version + "\r\n";
+	payload += " HTTP/" + request.version + "\r\n";
 
-	request_data += "Host: " + host;
-	if (!service.IsEmpty()) request_data += ":" + service;
-	request_data += "\r\n";
+	payload += "Host: " + host;
+	if (!service.IsEmpty()) payload += ":" + service;
+	payload += "\r\n";
 
 	if (request.headers.Num() < 1)
 	{
 		for (const TPair<FString, FString>& header : request.headers) {
-			request_data += header.Key + ": " + header.Value + "\r\n";
+			payload += header.Key + ": " + header.Value + "\r\n";
 		}
-		request_data += "Content-Length: " + FString::FromInt(request.body.Len()) + "\r\n";
+		payload += "Content-Length: " + FString::FromInt(request.body.Len()) + "\r\n";
 	}
-	request_data += "\r\n";
+	payload += "\r\n";
 
 	if (!request.body.IsEmpty())
-		request_data += "\r\n" + request.body;
+		payload += "\r\n" + request.body;
+}
 
-	return request_data;
+int UHttpClient::async_preparePayload()
+{
+	if (!pool.IsValid())
+		return -1;
+	
+	asio::post(*pool, [&]()
+	{
+		mutexPayload.lock();
+		payload.Empty();
+	
+		payload = verb[request.verb] + " " + request.path;
+		
+		if (request.params.Num() < 1)
+		{
+			payload += "?";
+			bool first = true;
+			for (const TPair<FString, FString>& param : request.params) {
+				if (!first) payload += "&";
+				payload += param.Key + "=" + param.Value;
+				first = false;
+			}
+		}
+		payload += " HTTP/" + request.version + "\r\n";
+
+		payload += "Host: " + host;
+		if (!service.IsEmpty()) payload += ":" + service;
+		payload += "\r\n";
+
+		if (request.headers.Num() < 1)
+		{
+			for (const TPair<FString, FString>& header : request.headers) {
+				payload += header.Key + ": " + header.Value + "\r\n";
+			}
+			payload += "Content-Length: " + FString::FromInt(request.body.Len()) + "\r\n";
+		}
+		payload += "\r\n";
+
+		if (!request.body.IsEmpty())
+			payload += "\r\n" + request.body;
+
+		OnAsyncPayloadFinished.Broadcast();
+		mutexPayload.unlock();
+	});
+	
+	return 0;
 }
 
 int UHttpClient::processRequest()
 {
-	std::ostream request_stream(&request_buffer);
-	request_stream << GetData(getData());
+	if (!pool.IsValid())
+		return -1;
+	
+	asio::post(*pool, [&]()
+	{
+		runContextThread();
+	});
+	
+	return 0;
+}
 
+void UHttpClient::runContextThread()
+{
+	mutexIO.lock();
 	asio.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()),
 		TCHAR_TO_UTF8(*getPort()),
 		std::bind(&UHttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 	);
+	if (asio.context.stopped())
+		asio.context.restart();
 	asio.context.run();
-	return 0;
+	asio.context.restart();
+	if (getErrorCode() != 0 && maxretry > 0 && retrytime > 0) {
+		int i = 0;
+		while (getErrorCode() != 0 && i < maxretry) {
+			i++;
+			OnRequestWillRetry.Broadcast(i, retrytime);
+			std::this_thread::sleep_for(std::chrono::seconds(retrytime));
+			asio.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()),
+				TCHAR_TO_UTF8(*getPort()),
+				std::bind(&UHttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
+			);
+			asio.context.run();
+			asio.context.restart();
+		}
+	}
+	mutexIO.unlock();
 }
 
 void UHttpClient::resolve(const std::error_code& err, const asio::ip::tcp::resolver::results_type& endpoints)
@@ -78,6 +156,9 @@ void UHttpClient::connect(const std::error_code& err)
 		return;
 	}
 	// The connection was successful. Send the request.
+	OnConnected.Broadcast();
+	std::ostream request_stream(&request_buffer);
+	request_stream << GetData(payload);
 	asio::async_write(asio.socket,
 		request_buffer,
 		std::bind(&UHttpClient::write_request, this, asio::placeholders::error)
@@ -147,14 +228,18 @@ void UHttpClient::read_headers(const std::error_code& err)
 	// Process the response headers.
 	std::istream response_stream(&response_buffer);
 	std::string header;
+	
 	while (std::getline(response_stream, header) && header != "\r")
-		std::cout << header << "\n";
-	std::cout << "\n";
+		response_header->appendHeader(header.data());
 
 	// Write whatever content we already have to output.
+	std::ostringstream content_buffer;
 	if (response_buffer.size() > 0)
-		std::cout << &response_buffer;
-
+	{
+		content_buffer << &response_buffer;
+		response_header->setContent(content_buffer.str().data());
+	}
+	
 	// Start reading remaining data until EOF.
 	asio::async_read(asio.socket,
 		response_buffer,
@@ -167,12 +252,16 @@ void UHttpClient::read_content(const std::error_code& err)
 {
 	if (err)
 	{
-		asio.error_code = err;
-		OnRequestError.Broadcast(err.value(), err.message().data());
+		OnRequestCompleted.Broadcast(response_header);
 		return;
 	}
 	// Write all of the data that has been read so far.
-	//std::cout << &response_buffer;
+	std::ostringstream stream_buffer;
+	stream_buffer << &response_buffer;
+	std::cout << "stream_Buffer: " << stream_buffer.str() << std::endl;
+	if (!stream_buffer.str().empty())
+		response_header->appendContent(stream_buffer.str().data());
+
 
 	// Continue reading remaining data until EOF.
 	asio::async_read(asio.socket, 
