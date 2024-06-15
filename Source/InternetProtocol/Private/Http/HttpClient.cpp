@@ -67,6 +67,11 @@ int UHttpClient::processRequest()
 	return 0;
 }
 
+void UHttpClient::cancelRequest()
+{
+	asio.context.stop();
+}
+
 void UHttpClient::runContextThread()
 {
 	mutexIO.lock();
@@ -77,7 +82,7 @@ void UHttpClient::runContextThread()
 	if (asio.context.stopped())
 		asio.context.restart();
 	asio.context.run();
-	asio.context.restart();
+	clearStreamBuffers();
 	if (getErrorCode() != 0 && maxretry > 0 && retrytime > 0) {
 		int i = 0;
 		while (getErrorCode() != 0 && i < maxretry) {
@@ -88,11 +93,12 @@ void UHttpClient::runContextThread()
 				TCHAR_TO_UTF8(*getPort()),
 				std::bind(&UHttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 			);
+			if (asio.context.stopped())
+				asio.context.restart();
 			asio.context.run();
-			asio.context.restart();
 		}
-	}
-	OnRequestCompleted.Broadcast(response);
+		clearStreamBuffers();
+	}	
 	mutexIO.unlock();
 }
 
@@ -141,6 +147,8 @@ void UHttpClient::write_request(const std::error_code& err)
 	// Read the response status line. The response_ streambuf will
 	// automatically grow to accommodate the entire line. The growth may be
 	// limited by passing a maximum size to the streambuf constructor.
+	bytes_sent = request_buffer.size();
+	OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
 	asio::async_read_until(asio.socket, 
 		response_buffer, "\r\n",
 		std::bind(&UHttpClient::read_status_line, this, asio::placeholders::error)
@@ -156,6 +164,8 @@ void UHttpClient::read_status_line(const std::error_code& err)
 		return;
 	}
 	// Check that response is OK.
+	bytes_received = response_buffer.size();
+	OnRequestProgress.Broadcast(bytes_sent, bytes_received);
 	std::istream response_stream(&response_buffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -165,15 +175,12 @@ void UHttpClient::read_status_line(const std::error_code& err)
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		//std::cout << "Invalid response\n";
-		OnRequestError.Broadcast(status_code, "Invalid response.");
+		OnResponseError.Broadcast(EStatusCode::Invalid_0);
 		return;
 	}
 	if (status_code != 200)
 	{
-		//std::cout << "Response returned with status code ";
-		//std::cout << status_code << "\n";
-		OnRequestError.Broadcast(status_code, "Response returned with status code.");
+		OnResponseError.Broadcast(static_cast<EStatusCode>(status_code));
 		return;
 	}
 

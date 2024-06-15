@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "Core/Net/Commons.h"
+#include "Library/InternetProtocolStructLibrary.h"
+#include "Library/InternetProtocolContainerLibrary.h"
 #include "Delegates/DelegateSignatureImpl.inl"
 #include "HttpClient.generated.h"
 
@@ -16,7 +18,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateRequestConnected);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateRequestCompleted, const FResponse, Headers);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestRetry, int, Attemps, int, TimeToRetry);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestError, int, Code, const FString&, exception);
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateProgress, FRequest, Request, int, BytesSent, int, BytesReceived);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateResponseError, int, StatusCode);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestProgress, int, BytesSent, int, BytesReceived);
 
 UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UHttpClient : public UObject
@@ -136,6 +139,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
 	int processRequest();
 
+	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
+	void cancelRequest();
+
 	/*MEMORY MANAGER*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Memory")
 	void clearRequest() { request.clear(); }
@@ -161,17 +167,21 @@ public:
 	FDelegateRequestCompleted OnRequestCompleted;
 
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
+	FDelegateRequestProgress OnRequestProgress;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestRetry OnRequestWillRetry;
 	
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestError OnRequestError;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
+	FDelegateResponseError OnResponseError;
 	
 private:
 	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(2);
 	std::mutex mutexPayload;
-	std::mutex mutexIO;
-	void runContextThread();
-	
+	std::mutex mutexIO;	
 	FString host = "localhost";
 	FString service;
 	int maxretry = 1;
@@ -182,6 +192,8 @@ private:
 	asio::streambuf request_buffer;
 	asio::streambuf response_buffer;
 	FResponse response;
+	int bytes_sent = 0;
+	int bytes_received = 0;
 	const TMap<EVerb, FString> verb = {
 		{EVerb::GET     , "GET"},
 		{EVerb::POST    , "POST"},
@@ -195,6 +207,15 @@ private:
 		{EVerb::UNLOCK  , "UNLOCK"},
 		{EVerb::PROPFIND, "PROPFIND"},
 	};
+
+	void runContextThread();
+	void clearStreamBuffers()
+	{
+		request_buffer.consume(request_buffer.size());
+		response_buffer.consume(request_buffer.size());
+		bytes_sent = 0;
+		bytes_received = 0;
+	}
 
 	void resolve(const std::error_code& err, const asio::ip::tcp::resolver::results_type& endpoints);
 	void connect(const std::error_code& err);
