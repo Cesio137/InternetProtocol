@@ -9,23 +9,23 @@ THIRD_PARTY_INCLUDES_END
 #include "Commons.generated.h"
 
 USTRUCT(Blueprintable, Category = "IP")
-struct FAsio
+struct FAsioTcp
 {
 	GENERATED_BODY()
-	FAsio() : resolver(context), socket(context) {}
+	FAsioTcp() : resolver(context), socket(context) {}
 	asio::error_code error_code;
 	asio::io_context context;
 	asio::ip::tcp::resolver resolver;
 	asio::ip::tcp::resolver::results_type endpoints;
 	asio::ip::tcp::socket socket;
 
-	FAsio(const FAsio& asio) : resolver(context), socket(context)
+	FAsioTcp(const FAsioTcp& asio) : resolver(context), socket(context)
 	{
 		error_code = asio.error_code;
 		endpoints = asio.endpoints;
 	}
 
-	FAsio& operator=(const FAsio& asio)
+	FAsioTcp& operator=(const FAsioTcp& asio)
 	{
 		if (this != &asio)
 		{

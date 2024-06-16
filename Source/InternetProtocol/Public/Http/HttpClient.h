@@ -133,7 +133,7 @@ public:
 	
 	/*THREADS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Thread")
-	void setThreadNumbers(int value = 2) { pool = MakeUnique<asio::thread_pool>(2); }
+	void setThreadNumbers(int value = 2) { pool = MakeUnique<asio::thread_pool>(value); }
 	
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
@@ -152,9 +152,9 @@ public:
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
-	int getErrorCode() const { return asio.error_code.value(); }
+	int getErrorCode() const { return tcp.error_code.value(); }
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
-	FString getErrorMessage() const { return asio.error_code.message().data(); }
+	FString getErrorMessage() const { return tcp.error_code.message().data(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
@@ -187,7 +187,7 @@ private:
 	int maxretry = 1;
 	int retrytime = 3;
 	FRequest request;
-	FAsio asio;
+	FAsioTcp tcp;
 	FString payload;
 	asio::streambuf request_buffer;
 	asio::streambuf response_buffer;
