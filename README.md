@@ -1,6 +1,6 @@
 # InternetProtocol CLI
 
-The InternetProtocol CLI is a versatile console aplication to do quick tests with thirdparty libraries before integrate into oficial plugin.
+Master branch is a versatile console aplication to do quick tests with thirdparty libraries before make port to the unreal-dev branch. It can also be used as a header-only library to integrate into other projects.
 
 ## Sponsor me
 
@@ -17,7 +17,7 @@ The InternetProtocol CLI is a versatile console aplication to do quick tests wit
 
 - [x] Windows
 
-- [ ] Linux(Help Wanted)
+- [X] Linux
 
 - [ ] Mac(Help Wanted)
 
@@ -32,8 +32,8 @@ The InternetProtocol CLI is a versatile console aplication to do quick tests wit
 - [VCPKG](https://vcpkg.io/en/)
 
 - Windows only
-  - Build With Visual Studio 2019/2022
-    - [Visual Studio 2019/2022](https://visualstudio.microsoft.com/downloads/)
+  - Build With Visual Studio 2022
+    - [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/)
     - 👇 Install the following workloads:
     - Game Development with C++
     - MSVC v142 or above | x64/x86
@@ -46,8 +46,6 @@ The InternetProtocol CLI is a versatile console aplication to do quick tests wit
     - m4 
     - autoconf 
     - automake 
-    - libtool
-    - Python 
 
 ### Roadmap
 
@@ -58,6 +56,8 @@ The InternetProtocol CLI is a versatile console aplication to do quick tests wit
 - [ ] UDP server/client
 
 - [ ] Http server
+
+- [X] Http client
 
 - [ ] Websocket server
 
@@ -127,5 +127,4 @@ A description of what actually happens.
 
 # Thirdparty libraries
 - [Asio non-boost 1.30.2](https://think-async.com/Asio/)
-- [SimdJson 3.9.2](https://simdjson.org/)
 
