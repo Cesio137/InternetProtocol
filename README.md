@@ -30,7 +30,7 @@ This is a development branch to implement some experimental features before merg
 
 - [x] Http client
 
-- [x] Websocket client
+- [ ] Websocket client
 
 - [x] Json
 
@@ -43,6 +43,8 @@ This is a development branch to implement some experimental features before merg
 - [ ] UDP server/client
 
 - [ ] Http server
+
+- [ ] Http client
 
 - [ ] Websocket server
 
@@ -74,4 +76,3 @@ A description of what actually happens.
 
 # Thirdparty libraries
 - [Asio non-boost 1.30.2](https://think-async.com/Asio/)
-- [SimdJson 3.9.2](https://simdjson.org/)
