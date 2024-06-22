@@ -1,5 +1,5 @@
 import { Address } from 'cluster';
-import * as dgram from 'dgram'
+import * as dgram from 'dgram';
 import { AddressInfo } from 'net';
 
 const HOST: string = 'localhost';

@@ -2,7 +2,7 @@
 param (
     [string]$message = "Olá, servidor",
     [string]$server = "127.0.0.1",
-    [int]$port = 8080
+    [int]$port = 3000
 )
 
 $udpClient = New-Object System.Net.Sockets.UdpClient
