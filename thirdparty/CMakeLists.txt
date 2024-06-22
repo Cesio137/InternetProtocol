@@ -1,0 +1,4 @@
+set(THIRDPARTY_DIR ${CMAKE_CURRENT_LIST_DIR})
+
+add_subdirectory(${THIRDPARTY_DIR}/asio)
+add_subdirectory(${THIRDPARTY_DIR}/simdjson)

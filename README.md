@@ -1,7 +1,6 @@
-# InternetProtocol | 4.27 to 5.4 |
+# InternetProtocol CLI
 
-The InternetProtocol plugin is a versatile networking solution designed for Unreal Engine, enabling developers to seamlessly establish and manage HTTP, WebSocket, TCP, and UDP connections. This powerful plugin caters to the creation of both clients and servers, providing a robust framework for real-time data exchange and online interaction. Whether you’re developing multiplayer games, interactive applications, or complex networked systems, the InternetProtocol plugin offers the essential tools to bring your project’s connectivity to the next level.
-
+The InternetProtocol CLI is a versatile console aplication to do quick tests with thirdparty libraries before integrate into oficial plugin.
 
 ## Sponsor me
 
@@ -22,15 +21,33 @@ The InternetProtocol plugin is a versatile networking solution designed for Unre
 
 - [ ] Mac(Help Wanted)
 
-### Features
+## Download and Install
 
 ---
 
-- [x] Http client
+- [Git](https://git-scm.com)
 
-- [x] Websocket client
+- [CMake 3.25 or above](https://cmake.org/download/)
 
-- [x] Json
+- [VCPKG](https://vcpkg.io/en/)
+
+- Windows only
+  - Build With Visual Studio 2019/2022
+    - [Visual Studio 2019/2022](https://visualstudio.microsoft.com/downloads/)
+    - 👇 Install the following workloads:
+    - Game Development with C++
+    - MSVC v142 or above | x64/x86
+    - C++ 2015/2022 redistributable update
+
+- Linux only
+  - Build With GNU ```install with package manager```
+    - GCC 9.x or above
+    - make 
+    - m4 
+    - autoconf 
+    - automake 
+    - libtool
+    - Python 
 
 ### Roadmap
 
@@ -47,6 +64,49 @@ The InternetProtocol plugin is a versatile networking solution designed for Unre
 - [ ] Async json read/writte for big datas.
 
 - [ ] Openssl support
+
+## Setup Repository
+
+---
+
+```shell
+git clone https://github.com/Cesio137/InternetProtocol.git
+```
+
+## Building the Engine
+
+---
+
+#### Setup Enviroment Variables
+VCPKG_ROOT
+* Setup VCPKG  
+  * Create a variable called `VCPKG_ROOT` if do not exist:
+    * ```Path
+      <Path to VCPKG>/x.x.x/
+      ```
+
+#### Windows
+
+* Setup Project.
+  * Create a `build` folder and open terminal inside.
+  * Commands to generate project
+    * ```bash
+      cmake .. --preset=Windows_Debug-x64
+      cmake .. --preset=Windows_Release-x64
+      ```
+
+#### Linux
+
+* Setup Project.
+  
+  * Create a `build` folder and open terminal inside.
+  
+  * Commands to generate project
+    
+    * ```bash
+      cmake .. --preset=Unix_Debug-x64
+      cmake .. --preset=Unix_Release-x64
+      ``` 
 
 ### Bug Reporting Template:
 ```
@@ -65,7 +125,7 @@ A description of what should happen.
 A description of what actually happens.
 ```
 
-# Setting Up Your Project
-- Clone the repository or download the latest release.
-- Create a C++ empty class if your project is blueprint based.
-- Extract/Move `InternetProtocol` folder into your project's `Plugin` folder.
+# Thirdparty libraries
+- [Asio non-boost 1.30.2](https://think-async.com/Asio/)
+- [SimdJson 3.9.2](https://simdjson.org/)
+

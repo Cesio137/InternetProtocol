@@ -1,0 +1,113 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired":
+    {
+      "major": 3,
+      "minor": 24,
+      "patch": 0
+    },
+    "configurePresets":
+    [
+      {
+        "name": "Windows_Debug-x64",
+        "displayName": "Windows Debug x64",
+        "description": "Default build using VS 2022 Debug",
+        "generator": "Visual Studio 17 2022",
+        "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "architecture":{ "value": "x64", "strategy": "external" },
+        "binaryDir": "${sourceDir}/build/Windows_Debug-x64",
+        "vendor": {
+          "microsoft.com/VisualStudioSettings/CMake/1.0": {
+            "defaultProject": "InternetProtocol"
+          }
+        },
+        "cacheVariables":
+        {
+          "CMAKE_BUILD_TYPE":"Debug",
+          "CMAKE_SYSTEM_NAME":"Windows",
+          "CMAKE_SYSTEM_PROCESSOR":"x64",
+          "C_COMPILER_ID":"MSVC",
+          "CXX_COMPILER_ID":"MSVC",
+          "VCPKG_TARGET_TRIPLET":"x64-Windows"
+        },
+        "condition":
+        {
+          "type": "equals",
+          "lhs": "${hostSystemName}",
+          "rhs": "Windows"
+        }
+      },
+      {
+        "name": "Windows_Release-x64",
+        "displayName": "Windows Release x64",
+        "description": "Default build using VS 2022 Release",
+        "generator": "Visual Studio 17 2022",
+        "architecture":{ "value": "x64", "strategy": "external" },
+        "binaryDir": "${sourceDir}/build/Windows_Release-x64",
+        "vendor": {
+          "microsoft.com/VisualStudioSettings/CMake/1.0": {
+            "defaultProject": "Nanometro"
+          }
+        },
+        "cacheVariables":
+        {
+          "CMAKE_BUILD_TYPE":"Release",
+          "CMAKE_SYSTEM_PROCESSOR":"x64",
+          "C_COMPILER_ID":"MSVC",
+          "CXX_COMPILER_ID":"MSVC"
+        },
+        "condition":
+        {
+          "type": "equals",
+          "lhs": "${hostSystemName}",
+          "rhs": "Windows"
+        }
+      },
+  
+      {
+        "name": "Unix_Debug-x64",
+        "displayName": "Unix Debug x64",
+        "description": "Default build using Unix Makefiles Debug",
+        "generator": "Unix Makefiles",
+        "architecture":{ "value": "x64", "strategy": "external" },
+        "binaryDir": "${sourceDir}/build/Unix_Debug-x64",
+        "cacheVariables":
+        {
+          "CMAKE_BUILD_TYPE":"Debug",
+          "CMAKE_SYSTEM_NAME":"Unix",
+          "CMAKE_SYSTEM_PROCESSOR":"x64",
+          "C_COMPILER_ID":"GNU",
+          "CXX_COMPILER_ID":"GNU"
+        },
+        "condition":
+        {
+          "type": "notEquals",
+          "lhs": "${hostSystemName}",
+          "rhs": "Windows"
+        }
+      },
+      {
+        "name": "Unix_Release-x64",
+        "displayName": "Unix Release x64",
+        "description": "Default build using Unix Makefiles Release",
+        "generator": "Unix Makefiles",
+        "architecture":{ "value": "x64", "strategy": "external" },
+        "binaryDir": "${sourceDir}/build/Unix_Release-x64",
+        "cacheVariables":
+        {
+          "CMAKE_BUILD_TYPE":"Release",
+          "CMAKE_SYSTEM_NAME":"Unix",
+          "CMAKE_SYSTEM_PROCESSOR":"x64",
+          "C_COMPILER_ID":"GNU",
+          "CXX_COMPILER_ID":"GNU"
+        },
+        "condition":
+        {
+          "type": "notEquals",
+          "lhs": "${hostSystemName}",
+          "rhs": "Windows"
+        }
+      }
+  
+    ]
+  }
