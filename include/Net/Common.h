@@ -129,14 +129,16 @@ namespace InternetProtocol
 
     struct FAsioUdp
     {
-        FAsioUdp() : resolver(context) {}
+        FAsioUdp() : resolver(context), socket(context) {}
+        asio::error_code error_code;
         asio::io_context context;
-        //asio::ip::udp::socket socket;
+        asio::ip::udp::socket socket;
         asio::ip::udp::endpoint endpoints;
         asio::ip::udp::resolver resolver;
 
-        FAsioUdp(const FAsioUdp& asio) : resolver(context)
+        FAsioUdp(const FAsioUdp& asio) : resolver(context), socket(context)
         {
+            error_code = asio.error_code;
             endpoints = asio.endpoints;
         }
 
@@ -144,6 +146,7 @@ namespace InternetProtocol
         {
             if (this != &asio)
             {
+                error_code = asio.error_code;
                 endpoints = asio.endpoints;
             }
             return *this;
