@@ -188,12 +188,11 @@ namespace InternetProtocol {
 
 		void runContextThread() {
 			mutexIO.lock();
+			tcp.context.restart();
 			tcp.resolver.async_resolve(getHost(),
 				getPort(),
 				std::bind(&HttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
-			);
-			if (tcp.context.stopped())
-				tcp.context.restart();
+			);				
 			tcp.context.run();
 			clearStreamBuffers();
 			if (getErrorCode() != 0 && maxretry > 0 && retrytime > 0) {
@@ -203,18 +202,15 @@ namespace InternetProtocol {
 					if (onRequestWillRetry)
 						onRequestWillRetry(i, retrytime);
 					std::this_thread::sleep_for(std::chrono::seconds(retrytime));
-					tcp.resolver.async_resolve(getHost(),
-						getPort(),
-					std::bind(&HttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
+					tcp.context.restart();
+					tcp.resolver.async_resolve(getHost(), getPort(),
+						std::bind(&HttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 					);
-					if (tcp.context.stopped())
-						tcp.context.restart();
 					tcp.context.run();
 				}
 				clearStreamBuffers();
 			}
-			if (tcp.socket.is_open())
-				tcp.socket.close();
+			tcp.socket.close();
 			mutexIO.unlock();
 		}
 

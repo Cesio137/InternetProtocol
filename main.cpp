@@ -12,6 +12,13 @@ int main(int argc, char* argv[])
     client.onConnected = [&](){
         std::cout << client.isOpen() << std::endl;
     };
+    client.onMessageReceived = [&](int BytesReceived, const std::string& message) {
+        std::cout << "Message size: " << BytesReceived << std::endl;
+        std::cout << "Message: " << message << std::endl;
+    };
+    client.onMessageReceivedError = [&](int code, const std::string& message) {
+        std::cout << "Message error: " << message << std::endl;
+    };
     client.onConnectionError = [&](int code, const std::string& message) {
         std::cout << "Error: " << message << std::endl;
     };
