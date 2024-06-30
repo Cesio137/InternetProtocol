@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Net/Common.h>
-#include <iostream>
 
 namespace InternetProtocol {
 	class HttpClient
@@ -235,8 +234,7 @@ namespace InternetProtocol {
 			// successfully establish a connection.
 			tcp.endpoints = endpoints;
 
-			asio::async_connect(tcp.socket,
-				tcp.endpoints,
+			asio::async_connect(tcp.socket, tcp.endpoints,
 				std::bind(&HttpClient::connect, this, asio::placeholders::error)
 			);
 		}
@@ -254,8 +252,7 @@ namespace InternetProtocol {
 			// The connection was successful. Send the request.;
 			std::ostream request_stream(&request_buffer);
 			request_stream << payload;
-			asio::async_write(tcp.socket,
-				request_buffer,
+			asio::async_write(tcp.socket, request_buffer,
 				std::bind(&HttpClient::write_request, this, asio::placeholders::error)
 			);
 		}
@@ -274,8 +271,7 @@ namespace InternetProtocol {
 			bytes_sent = request_buffer.size();
 			if (onRequestProgress)
 				onRequestProgress(bytes_sent, bytes_sent);
-			asio::async_read_until(tcp.socket,
-				response_buffer, "\r\n",
+			asio::async_read_until(tcp.socket, response_buffer, "\r\n",
 				std::bind(&HttpClient::read_status_line, this, asio::placeholders::error)
 			);
 		}
@@ -313,8 +309,7 @@ namespace InternetProtocol {
 			}
 
 			// Read the response headers, which are terminated by a blank line.
-			asio::async_read_until(tcp.socket,
-				response_buffer, "\r\n\r\n",
+			asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
 				std::bind(&HttpClient::read_headers, this, asio::placeholders::error)
 			);
 		}
@@ -343,9 +338,7 @@ namespace InternetProtocol {
 			}
 
 			// Start reading remaining data until EOF.
-			asio::async_read(tcp.socket,
-				response_buffer,
-				asio::transfer_at_least(1),
+			asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
 				std::bind(&HttpClient::read_content, this, asio::placeholders::error)
 			);
 		}
@@ -366,9 +359,7 @@ namespace InternetProtocol {
 
 
 			// Continue reading remaining data until EOF.
-			asio::async_read(tcp.socket,
-				response_buffer,
-				asio::transfer_at_least(1),
+			asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
 				std::bind(&HttpClient::read_content, this, asio::placeholders::error)
 			);
 		}

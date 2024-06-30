@@ -10,7 +10,7 @@ int main(int argc, char* argv[])
     client.setThreadNumber(4);
     client.setHost("localhost", "3000");
     client.onConnected = [&](){
-        std::cout << client.isOpen() << std::endl;
+        std::cout << "Connected" << std::endl;
     };
     client.onMessageReceived = [&](int BytesReceived, const std::string& message) {
         std::cout << "Message size: " << BytesReceived << std::endl;
@@ -18,6 +18,7 @@ int main(int argc, char* argv[])
     };
     client.onMessageReceivedError = [&](int code, const std::string& message) {
         std::cout << "Message error: " << message << std::endl;
+        std::cout << "Message error code: " << code << std::endl;
     };
     client.onConnectionError = [&](int code, const std::string& message) {
         std::cout << "Error: " << message << std::endl;
@@ -27,8 +28,10 @@ int main(int argc, char* argv[])
     std::string str;
     std::cout << "Type 'quit' to exit." << std::endl;
     while (std::getline(std::cin, str)) {
-        if (str == "quit")
+        if (str == "quit") {
+            client.close();
             break;
+        }
         client.send(str);
     }
 
