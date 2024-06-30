@@ -13,7 +13,7 @@ server.on("message", (msg: Buffer, rinfo: dgram.RemoteInfo) => {
 
   const response: string = `Server: ${rinfo.address}:${
     rinfo.port
-  } \nMessage: ${msg.toString()}`;
+  } \nMessage: ${msg}`;
   server.send(response, rinfo.port, rinfo.address, (error) => {
     if (error) {
       console.error(`Erro trying send message: ${error.message}`);
