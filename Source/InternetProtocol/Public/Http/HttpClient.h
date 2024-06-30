@@ -6,7 +6,6 @@
 #include "UObject/NoExportTypes.h"
 #include "Core/Net/Commons.h"
 #include "Library/InternetProtocolStructLibrary.h"
-#include "Library/InternetProtocolContainerLibrary.h"
 #include "Delegates/DelegateSignatureImpl.inl"
 #include "HttpClient.generated.h"
 
@@ -159,22 +158,16 @@ public:
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestConnected OnConnected;
-
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestConnected OnAsyncPayloadFinished;
-
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestCompleted OnRequestCompleted;
-
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestProgress OnRequestProgress;
-
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestRetry OnRequestWillRetry;
-	
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestError OnRequestError;
-
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateResponseError OnResponseError;
 	

@@ -70,13 +70,13 @@ int UHttpClient::processRequest()
 void UHttpClient::cancelRequest()
 {
 	tcp.context.stop();
+	tcp.socket.close();
 }
 
 void UHttpClient::runContextThread()
 {
 	mutexIO.lock();
-	tcp.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()),
-		TCHAR_TO_UTF8(*getPort()),
+	tcp.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()), TCHAR_TO_UTF8(*getPort()),
 		std::bind(&UHttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 	);
 	if (tcp.context.stopped())
@@ -89,8 +89,7 @@ void UHttpClient::runContextThread()
 			i++;
 			OnRequestWillRetry.Broadcast(i, retrytime);
 			std::this_thread::sleep_for(std::chrono::seconds(retrytime));
-			tcp.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()),
-				TCHAR_TO_UTF8(*getPort()),
+			tcp.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()), TCHAR_TO_UTF8(*getPort()),
 				std::bind(&UHttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 			);
 			if (tcp.context.stopped())
@@ -98,7 +97,8 @@ void UHttpClient::runContextThread()
 			tcp.context.run();
 		}
 		clearStreamBuffers();
-	}	
+	}
+	tcp.socket.close();
 	mutexIO.unlock();
 }
 
@@ -112,8 +112,7 @@ void UHttpClient::resolve(const std::error_code& err, const asio::ip::tcp::resol
 	// Attempt a connection to each endpoint in the list until we
 	// successfully establish a connection.
 		
-	asio::async_connect(tcp.socket,
-		endpoints,
+	asio::async_connect(tcp.socket, endpoints,
 		std::bind(&UHttpClient::connect, this, asio::placeholders::error)
 	);
 }
@@ -130,8 +129,7 @@ void UHttpClient::connect(const std::error_code& err)
 	OnConnected.Broadcast();
 	std::ostream request_stream(&request_buffer);
 	request_stream << TCHAR_TO_UTF8(*payload);
-	asio::async_write(tcp.socket,
-		request_buffer,
+	asio::async_write(tcp.socket, request_buffer,
 		std::bind(&UHttpClient::write_request, this, asio::placeholders::error)
 	);
 }
@@ -175,18 +173,17 @@ void UHttpClient::read_status_line(const std::error_code& err)
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		OnResponseError.Broadcast(EStatusCode::Invalid_0);
+		OnResponseError.Broadcast(1);
 		return;
 	}
 	if (status_code != 200)
 	{
-		OnResponseError.Broadcast(static_cast<EStatusCode>(status_code));
+		OnResponseError.Broadcast(status_code);
 		return;
 	}
 
 	// Read the response headers, which are terminated by a blank line.
-	asio::async_read_until(tcp.socket, 
-		response_buffer, "\r\n\r\n",
+	asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
 		std::bind(&UHttpClient::read_headers, this, asio::placeholders::error)
 	);
 }
@@ -216,9 +213,7 @@ void UHttpClient::read_headers(const std::error_code& err)
 	}
 	
 	// Start reading remaining data until EOF.
-	asio::async_read(tcp.socket,
-		response_buffer,
-		asio::transfer_at_least(1),
+	asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
 		std::bind(&UHttpClient::read_content, this, asio::placeholders::error)
 	);
 }
@@ -238,9 +233,7 @@ void UHttpClient::read_content(const std::error_code& err)
 		response.appendContent(stream_buffer.str().data());
 	
 	// Continue reading remaining data until EOF.
-	asio::async_read(tcp.socket, 
-		response_buffer,
-		asio::transfer_at_least(1),
+	asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
 		std::bind(&UHttpClient::read_content, this, asio::placeholders::error)
 	);
 }
