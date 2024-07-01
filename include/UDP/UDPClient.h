@@ -79,7 +79,6 @@ namespace InternetProtocol {
         FAsioUdp udp;
         std::string host = "localhost";
 		std::string service;
-        //std::array<char, 1024> rbuffer;
         udpMessage rbuffer;
 
         /*ASYNC HANDLER FUNCTIONS*/
@@ -137,7 +136,6 @@ namespace InternetProtocol {
                 std::vector<char> sbuffer = std::vector<char>(buffer.begin() + buffer_offset, buffer.begin() + buffer_offset + package_size);
                 if (sbuffer.back() != '\0')
                     sbuffer.push_back('\0');
-                std::cout << sbuffer.size() << std::endl;
                 udp.socket.async_send_to(asio::buffer(sbuffer.data(), sbuffer.size()), udp.endpoints,
                     std::bind(&UDPClient::send_to, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
                 );

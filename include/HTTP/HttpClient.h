@@ -153,7 +153,7 @@ namespace InternetProtocol {
 		std::function<void(int, int)> onRequestProgress;
 		std::function<void(int, int)> onRequestWillRetry;
 		std::function<void(int, const std::string&)> onRequestFail;
-		std::function<void(EStatusCode)> onResponseFail;
+		std::function<void(int)> onResponseFail;
 		
 	private:
 		std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(2);
@@ -298,13 +298,13 @@ namespace InternetProtocol {
 			if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 			{
 				if (onResponseFail)
-					onResponseFail(EStatusCode::Invalid_0);
+					onResponseFail(-1);
 				return;
 			}
 			if (status_code != 200)
 			{
 				if (onResponseFail)
-					onResponseFail(static_cast<EStatusCode>(status_code));
+					onResponseFail(status_code);
 				return;
 			}
 
