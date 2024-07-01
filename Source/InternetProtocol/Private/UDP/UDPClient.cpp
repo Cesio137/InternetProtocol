@@ -56,7 +56,7 @@ void UUDPClient::conn(std::error_code error)
 		OnConnectionError.Broadcast( error.value(), UTF8_TO_TCHAR(error.message().c_str()) );
 		return;
 	}
-
+	
 	udp.socket.async_receive_from(asio::buffer(rbuffer.message.GetData(), 1024), udp.endpoints,
 		std::bind(&UUDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 	);

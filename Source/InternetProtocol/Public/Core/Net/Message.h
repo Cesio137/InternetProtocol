@@ -10,6 +10,7 @@ USTRUCT(Blueprintable, Category = "IP")
 struct FUdpMessage
 {
 	GENERATED_BODY()
+	FUdpMessage() { message.SetNum(1024); }
 	TArray<char> message;
 	UPROPERTY(BlueprintReadWrite, Category="IP||UDP")
 	int size = 0;

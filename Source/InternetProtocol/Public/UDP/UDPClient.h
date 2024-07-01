@@ -24,7 +24,7 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 public:
 	UUDPClient()
 	{
-		rbuffer.message.SetNumUninitialized(1024);
+		
 	}
 
 	~UUDPClient()
