@@ -3,6 +3,11 @@
 
 #include "Library/InternetProtocolFunctionLibrary.h"
 
+FString UInternetProtocolFunctionLibrary::toString(const FUdpMessage& value)
+{
+	return value.toString();
+}
+
 TArray<FString> UInternetProtocolFunctionLibrary::DeserializeHeaderLine(const FString& value)
 {
 	TArray<FString> values;

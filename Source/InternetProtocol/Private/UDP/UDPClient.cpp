@@ -57,7 +57,7 @@ void UUDPClient::conn(std::error_code error)
 		return;
 	}
 
-	udp.socket.async_receive_from(asio::buffer(rbuffer.GetData(), 1024), udp.endpoints,
+	udp.socket.async_receive_from(asio::buffer(rbuffer.message.GetData(), 1024), udp.endpoints,
 		std::bind(&UUDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 	);
 
@@ -107,10 +107,10 @@ void UUDPClient::receive_from(std::error_code error, std::size_t bytes_recvd)
 		OnMessageReceivedError.Broadcast( error.value(), UTF8_TO_TCHAR(error.message().c_str()) );
 		return;
 	}
+	rbuffer.size = bytes_recvd;
+	OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
 
-	OnMessageReceived.Broadcast(bytes_recvd, rbuffer.GetData());
-
-	udp.socket.async_receive_from(asio::buffer(rbuffer.GetData(), 1024), udp.endpoints,
+	udp.socket.async_receive_from(asio::buffer(rbuffer.message.GetData(), 1024), udp.endpoints,
 		std::bind(&UUDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 	);
 }

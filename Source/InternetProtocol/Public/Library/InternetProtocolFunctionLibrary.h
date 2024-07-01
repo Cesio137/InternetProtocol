@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Core/Net/Message.h"
 #include "InternetProtocolFunctionLibrary.generated.h"
 
 /**
@@ -14,6 +15,9 @@ class INTERNETPROTOCOL_API UInternetProtocolFunctionLibrary : public UBlueprintF
 {
 	GENERATED_BODY()
 public:
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP||UDP||Message")
+	static FString toString(const FUdpMessage& value);
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP||HTTP||Response")
 	static TArray<FString> DeserializeHeaderLine(const FString& value);
 };

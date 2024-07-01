@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
-#include "Core/Net/Commons.h"
+#include "Core/Net/Message.h"
 #include "Delegates/DelegateSignatureImpl.inl"
 #include "UDPClient.generated.h"
 
@@ -14,7 +14,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpConnection);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageSent, int, size);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessageReceived, int, size, const FString&, message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessageReceived, int, size, const FUdpMessage, message);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpError, int, code, const FString&, exception);
 
 UCLASS(Blueprintable, BlueprintType)
@@ -24,7 +24,7 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 public:
 	UUDPClient()
 	{
-		rbuffer.SetNumUninitialized(1024);
+		rbuffer.message.SetNumUninitialized(1024);
 	}
 
 	~UUDPClient()
@@ -87,7 +87,7 @@ private:
 	FAsioUdp udp;
 	FString host = "localhost";
 	FString service;
-	TArray<char> rbuffer;
+	FUdpMessage rbuffer;
 
 	void runContextThread();
 	void resolve(std::error_code error, asio::ip::udp::resolver::results_type results);
