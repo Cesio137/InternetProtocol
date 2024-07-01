@@ -12,9 +12,9 @@ int main(int argc, char* argv[])
     client.onConnected = [&](){
         std::cout << "Connected" << std::endl;
     };
-    client.onMessageReceived = [&](int BytesReceived, const std::string& message) {
-        std::cout << "Message size: " << BytesReceived << std::endl;
-        std::cout << "Message: " << message << std::endl;
+    client.onMessageReceived = [&](int BytesReceived, const udpMessage message) {
+        std::cout << "Message size: " << message.size << std::endl;
+        std::cout << "Message: " << message.toString() << std::endl;
     };
     client.onMessageReceivedError = [&](int code, const std::string& message) {
         std::cout << "Message error: " << message << std::endl;

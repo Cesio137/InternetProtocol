@@ -1,8 +1,6 @@
 #pragma once
 
-#include <Net/Common.h>
-
-#include <utility>
+#include <Net/Message.h>
 
 namespace InternetProtocol {
     class UDPClient
@@ -71,7 +69,7 @@ namespace InternetProtocol {
         std::function<void(int, const std::string&)> onConnectionError;
         std::function<void(std::size_t)> onMessageSent;
         std::function<void(int, const std::string&)> onMessageSentError;
-        std::function<void(int, const std::string&)> onMessageReceived;
+        std::function<void(int, const udpMessage)> onMessageReceived;
         std::function<void(int, const std::string&)> onMessageReceivedError;
 
     private:
@@ -81,7 +79,8 @@ namespace InternetProtocol {
         FAsioUdp udp;
         std::string host = "localhost";
 		std::string service;
-        std::array<char, 1024> rbuffer;
+        //std::array<char, 1024> rbuffer;
+        udpMessage rbuffer;
 
         /*ASYNC HANDLER FUNCTIONS*/
         void runContextThread() {
@@ -113,7 +112,7 @@ namespace InternetProtocol {
                 return;
             }
 
-            udp.socket.async_receive_from(asio::buffer(rbuffer, 1024), udp.endpoints,
+            udp.socket.async_receive_from(asio::buffer(rbuffer.message, 1024), udp.endpoints,
                 std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
             );
 
@@ -164,11 +163,11 @@ namespace InternetProtocol {
                     
                 return;
             }
-
+            rbuffer.size = bytes_recvd;
             if (onMessageReceived)
-                onMessageReceived(bytes_recvd, rbuffer.data());
+                onMessageReceived(bytes_recvd, rbuffer);
 
-            udp.socket.async_receive_from(asio::buffer(rbuffer, 1024), udp.endpoints,
+            udp.socket.async_receive_from(asio::buffer(rbuffer.message, 1024), udp.endpoints,
                 std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
             );            
         }
