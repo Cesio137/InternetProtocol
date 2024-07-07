@@ -35,13 +35,34 @@ void UUDPClient::runContextThread()
 		std::bind(&UUDPClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 	);
 	udp.context.run();
+	if (udp.error_code && maxAttemp > 0 && timeout > 0) {
+		uint8_t attemp = 0;
+		while(attemp < maxAttemp) {
+			OnConnectionWillRetry.Broadcast(attemp + 1);
+			udp.error_code.clear();
+			udp.context.restart();
+			asio::steady_timer timer(udp.context, asio::chrono::seconds(timeout));
+			timer.async_wait([this](const std::error_code& error) {
+				if (error) {
+					OnConnectionError.Broadcast( error.value(), error.message().c_str());
+				}
+				udp.resolver.async_resolve(asio::ip::udp::v4(), TCHAR_TO_UTF8(*host), TCHAR_TO_UTF8(*service),
+				std::bind(&UUDPClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
+				);
+			});
+			udp.context.run();
+			attemp += 1;
+			if(!udp.error_code)
+				break;
+		}
+	}
 	mutexIO.unlock();
 }
 
 void UUDPClient::resolve(std::error_code error, asio::ip::udp::resolver::results_type results)
 {
 	if (error) {
-		OnConnectionError.Broadcast( error.value(), UTF8_TO_TCHAR(error.message().c_str()) );
+		OnConnectionError.Broadcast( error.value(), error.message().c_str());
 		return;
 	}
 	udp.endpoints = *results;
@@ -67,7 +88,7 @@ void UUDPClient::conn(std::error_code error)
 void UUDPClient::package_buffer(const TArray<char>& buffer)
 {
 	mutexBuffer.lock();
-	if (buffer.Num() * sizeof(char) <= 1024) {
+	if (!splitBuffer || buffer.Num() * sizeof(char) <= maxBufferSize) {
 		udp.socket.async_send_to(asio::buffer(buffer.GetData(), buffer.Num() * sizeof(char)), udp.endpoints,
 			std::bind(&UUDPClient::send_to, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 		);
@@ -76,7 +97,7 @@ void UUDPClient::package_buffer(const TArray<char>& buffer)
 	}
 
 	size_t buffer_offset = 0;
-	const size_t max_size = 1023;
+	const size_t max_size = maxBufferSize - 1;
 	while (buffer_offset < buffer.Num() * sizeof(char)) {
 		size_t package_size = std::min(max_size, (buffer.Num() * sizeof(char)) - buffer_offset);
 		TArray<char> sbuffer;

@@ -7,6 +7,19 @@
 #include "Message.generated.h"
 
 USTRUCT(Blueprintable, Category = "IP")
+struct FTcpMessage
+{
+	GENERATED_BODY()
+	FTcpMessage() { message.SetNum(8192); }
+	TArray<char> message;
+	UPROPERTY(BlueprintReadWrite, Category="IP||TCP")
+	int size = 0;
+	FString toString() const {
+		return message.GetData();
+	}
+};
+
+USTRUCT(Blueprintable, Category = "IP")
 struct FUdpMessage
 {
 	GENERATED_BODY()

@@ -15,7 +15,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateRequestConnected);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateRequestCompleted, const FResponse, Headers);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestRetry, int, Attemps, int, TimeToRetry);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateRequestRetry, int, Attemps);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestError, int, Code, const FString&, exception);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateResponseError, int, StatusCode);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateRequestProgress, int, BytesSent, int, BytesReceived);
@@ -52,18 +52,14 @@ public:
 	FString getPort() const { return service; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
-	void setRetryTime(int value = 3) { retrytime = value; }
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
-	void resetRetryTime() { retrytime = 3; }
+	void setTimeout(int value = 3) { timeout= value; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Settings")
-	int getRetryTime() const { return retrytime; }
+	int getTimeout() const { return timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||SETTINGS")
-	void setMaxRetry(int value = 3) { maxretry = value; }
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||SETTINGS")
-	void resetMaxRetry() { maxretry = 3; }
+	void setMaxAttemp(int value = 3) { maxAttemp = value; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||SETTINGS")
-	int getMaxRetry() const { return maxretry; }
+	int getMaxAttemp() const { return maxAttemp; }
 	
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
@@ -157,8 +153,6 @@ public:
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateRequestConnected OnConnected;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestConnected OnAsyncPayloadFinished;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestCompleted OnRequestCompleted;
@@ -172,21 +166,19 @@ public:
 	FDelegateResponseError OnResponseError;
 	
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(2);
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	std::mutex mutexPayload;
 	std::mutex mutexIO;	
 	FString host = "localhost";
 	FString service;
-	int maxretry = 1;
-	int retrytime = 3;
+	uint8 timeout = 4;
+	uint8 maxAttemp = 3;
 	FRequest request;
 	FAsioTcp tcp;
 	FString payload;
 	asio::streambuf request_buffer;
 	asio::streambuf response_buffer;
 	FResponse response;
-	int bytes_sent = 0;
-	int bytes_received = 0;
 	const TMap<EVerb, FString> verb = {
 		{EVerb::GET     , "GET"},
 		{EVerb::POST    , "POST"},
@@ -206,15 +198,13 @@ private:
 	{
 		request_buffer.consume(request_buffer.size());
 		response_buffer.consume(request_buffer.size());
-		bytes_sent = 0;
-		bytes_received = 0;
 	}
 
-	void resolve(const std::error_code& err, const asio::ip::tcp::resolver::results_type& endpoints);
-	void connect(const std::error_code& err);
-	void write_request(const std::error_code& err);
-	void read_status_line(const std::error_code& err);
-	void read_headers(const std::error_code& err);
-	void read_content(const std::error_code& err);
+	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
+	void connect(const std::error_code& error);
+	void write_request(const std::error_code& error, std::size_t bytes_sent);
+	void read_status_line(const std::error_code& error, std::size_t bytes_sent, std::size_t bytes_recvd);
+	void read_headers(const std::error_code& error);
+	void read_content(const std::error_code& error);
 	
 };

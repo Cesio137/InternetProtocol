@@ -13,6 +13,7 @@
  */
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpConnection);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpWillRetry, int, Attemp);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageSent, int, size);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessageReceived, int, size, const FUdpMessage, message);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpError, int, code, const FString&, exception);
@@ -22,15 +23,9 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 {
 	GENERATED_BODY()
 public:
-	UUDPClient()
-	{
-		
-	}
+	UUDPClient() {}
 
-	~UUDPClient()
-	{
-		
-	}
+	~UUDPClient() {}
 	
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Host")
@@ -44,9 +39,23 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Host")
 	FString getPort() const { return service; }
 
-	/*THREADS*/
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Threads")
-	void setThreadNumber(int value = 2) { pool = MakeUnique<asio::thread_pool>(value); }
+	/*SETTINGS*/
+	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
+	void setTimeout(uint8 value = 4) { timeout = value; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
+	uint8 getTimeout() const { return timeout; }
+	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
+	void setMaxAttemp(uint8 value = 3) { maxAttemp = value; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
+	uint8 getMaxAttemp() const { return timeout; }
+	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
+	void setMaxBufferSize(int value = 1400) { maxBufferSize = value; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
+	int getMaxBufferSize() const { return maxBufferSize; }
+	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
+	void setSplitPackage(bool value = true) { splitBuffer = value; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
+	bool getSplitPackage() const { return splitBuffer; }
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
@@ -68,6 +77,8 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpConnection OnConnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateUdpWillRetry OnConnectionWillRetry;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpConnection OnConnectionFinished;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpError OnConnectionError;
@@ -81,12 +92,16 @@ public:
 	FDelegateUdpError OnMessageReceivedError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(2);
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	std::mutex mutexIO;
 	std::mutex mutexBuffer;
 	FAsioUdp udp;
 	FString host = "localhost";
 	FString service;
+	uint8_t timeout = 4;
+	uint8_t maxAttemp = 3;
+	bool splitBuffer = true;
+	int maxBufferSize = 1400;
 	FUdpMessage rbuffer;
 
 	void runContextThread();

@@ -83,30 +83,36 @@ void UHttpClient::runContextThread()
 		tcp.context.restart();
 	tcp.context.run();
 	clearStreamBuffers();
-	if (getErrorCode() != 0 && maxretry > 0 && retrytime > 0) {
-		int i = 0;
-		while (getErrorCode() != 0 && i < maxretry) {
-			i++;
-			OnRequestWillRetry.Broadcast(i, retrytime);
-			std::this_thread::sleep_for(std::chrono::seconds(retrytime));
-			tcp.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()), TCHAR_TO_UTF8(*getPort()),
-				std::bind(&UHttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
-			);
-			if (tcp.context.stopped())
-				tcp.context.restart();
+	if (tcp.error_code && maxAttemp > 0 && timeout > 0) {
+		uint8 attemp = 0;
+		while(attemp < maxAttemp) {
+			OnRequestWillRetry.Broadcast(attemp + 1);
+			tcp.error_code.clear();
+			tcp.context.restart();
+			asio::steady_timer timer(tcp.context, asio::chrono::seconds(timeout));
+			timer.async_wait([this](const std::error_code& error) {
+				if (error) {
+					OnRequestError.Broadcast(error.value(), error.message().data());
+				}
+				tcp.resolver.async_resolve(TCHAR_TO_UTF8(*host), TCHAR_TO_UTF8(*service),
+					std::bind(&UHttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
+				);
+			});
 			tcp.context.run();
+			attemp += 1;
+			if(!tcp.error_code)
+				break;
 		}
-		clearStreamBuffers();
 	}
 	tcp.socket.close();
 	mutexIO.unlock();
 }
 
-void UHttpClient::resolve(const std::error_code& err, const asio::ip::tcp::resolver::results_type& endpoints)
+void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
 {
-	if (err)
+	if (error)
 	{
-		OnRequestError.Broadcast(err.value(), err.message().data());
+		OnRequestError.Broadcast(error.value(), error.message().data());
 		return;
 	}
 	// Attempt a connection to each endpoint in the list until we
@@ -117,53 +123,46 @@ void UHttpClient::resolve(const std::error_code& err, const asio::ip::tcp::resol
 	);
 }
 
-void UHttpClient::connect(const std::error_code& err)
+void UHttpClient::connect(const std::error_code& error)
 {
-	if (err)
-	{
-		tcp.error_code = err;
-		OnRequestError.Broadcast(err.value(), err.message().data());
+	if (error) {
+		tcp.error_code = error;
+		OnRequestError.Broadcast(error.value(), error.message().data());
 		return;
 	}
 	// The connection was successful. Send the request.
-	OnConnected.Broadcast();
 	std::ostream request_stream(&request_buffer);
 	request_stream << TCHAR_TO_UTF8(*payload);
 	asio::async_write(tcp.socket, request_buffer,
-		std::bind(&UHttpClient::write_request, this, asio::placeholders::error)
+		std::bind(&UHttpClient::write_request, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 	);
 }
 
-void UHttpClient::write_request(const std::error_code& err)
+void UHttpClient::write_request(const std::error_code& error, std::size_t bytes_sent)
 {
-	if (err)
-	{
-		tcp.error_code = err;
-		OnRequestError.Broadcast(err.value(), err.message().data());
+	if (error) {
+		tcp.error_code = error;
+		OnRequestError.Broadcast(error.value(), error.message().data());
 		return;
 	}
 	// Read the response status line. The response_ streambuf will
 	// automatically grow to accommodate the entire line. The growth may be
 	// limited by passing a maximum size to the streambuf constructor.
-	bytes_sent = request_buffer.size();
 	OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
-	asio::async_read_until(tcp.socket, 
-		response_buffer, "\r\n",
-		std::bind(&UHttpClient::read_status_line, this, asio::placeholders::error)
+	asio::async_read_until(tcp.socket, response_buffer, "\r\n",
+		std::bind(&UHttpClient::read_status_line, this, asio::placeholders::error, bytes_sent, asio::placeholders::bytes_transferred)
 	);
 }
 
-void UHttpClient::read_status_line(const std::error_code& err)
+void UHttpClient::read_status_line(const std::error_code& error, std::size_t bytes_sent, std::size_t bytes_recvd)
 {
-	if (err)
-	{
-		tcp.error_code = err;
-		OnRequestError.Broadcast(err.value(), err.message().data());
+	if (error) {
+		tcp.error_code = error;
+		OnRequestError.Broadcast(error.value(), error.message().data());
 		return;
 	}
 	// Check that response is OK.
-	bytes_received = response_buffer.size();
-	OnRequestProgress.Broadcast(bytes_sent, bytes_received);
+	OnRequestProgress.Broadcast(bytes_sent, bytes_recvd);
 	std::istream response_stream(&response_buffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -188,12 +187,11 @@ void UHttpClient::read_status_line(const std::error_code& err)
 	);
 }
 
-void UHttpClient::read_headers(const std::error_code& err)
+void UHttpClient::read_headers(const std::error_code& error)
 {
-	if (err)
-	{
-		tcp.error_code = err;
-		OnRequestError.Broadcast(err.value(), err.message().data());
+	if (error) {
+		tcp.error_code = error;
+		OnRequestError.Broadcast(error.value(), error.message().data());
 		return;
 	}
 	// Process the response headers.
@@ -218,9 +216,9 @@ void UHttpClient::read_headers(const std::error_code& err)
 	);
 }
 
-void UHttpClient::read_content(const std::error_code& err)
+void UHttpClient::read_content(const std::error_code& error)
 {
-	if (err)
+	if (error)
 	{
 		OnRequestCompleted.Broadcast(response);
 		return;
