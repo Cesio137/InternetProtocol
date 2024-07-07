@@ -26,6 +26,9 @@ namespace InternetProtocol {
 		void setThreadNumber(int value = 2) { pool = std::make_unique<asio::thread_pool>(value); }
 
         /*MESSAGE*/
+        void setSplitPackage(bool value = true) { splitPackage = value; }
+        bool getSplitPackage() const { return splitPackage; }
+
         void send(const std::string& message)
         {
             if (!pool || !isConnected())
@@ -79,6 +82,7 @@ namespace InternetProtocol {
         FAsioUdp udp;
         std::string host = "localhost";
 		std::string service;
+        bool splitPackage = true;
         udpMessage rbuffer;
 
         /*ASYNC HANDLER FUNCTIONS*/
@@ -111,7 +115,10 @@ namespace InternetProtocol {
                 return;
             }
 
-            udp.socket.async_receive_from(asio::buffer(rbuffer.message, 1024), udp.endpoints,
+            udp.socket.set_option(asio::socket_base::send_buffer_size(1024));
+            udp.socket.set_option(asio::socket_base::receive_buffer_size(rbuffer.message.size()));
+
+            udp.socket.async_receive_from(asio::buffer(rbuffer.message, rbuffer.message.size()), udp.endpoints,
                 std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
             );
 
@@ -121,7 +128,7 @@ namespace InternetProtocol {
 
         void package_buffer(const std::vector<char>& buffer) {
             mutexBuffer.lock();
-            if (buffer.size() <= 1024) {
+            if (!splitPackage || buffer.size() <= 1024) {
                 udp.socket.async_send_to(asio::buffer(buffer.data(), buffer.size()), udp.endpoints,
                     std::bind(&UDPClient::send_to, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
                 );
@@ -165,7 +172,7 @@ namespace InternetProtocol {
             if (onMessageReceived)
                 onMessageReceived(bytes_recvd, rbuffer);
 
-            udp.socket.async_receive_from(asio::buffer(rbuffer.message, 1024), udp.endpoints,
+            udp.socket.async_receive_from(asio::buffer(rbuffer.message, rbuffer.message.size()), udp.endpoints,
                 std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
             );            
         }

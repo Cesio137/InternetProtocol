@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <TCP/TCPClient.h>
 #include <UDP/UDPClient.h>
 
 using namespace InternetProtocol;

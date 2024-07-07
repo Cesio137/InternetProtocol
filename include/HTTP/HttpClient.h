@@ -188,8 +188,7 @@ namespace InternetProtocol {
 		void runContextThread() {
 			mutexIO.lock();
 			tcp.context.restart();
-			tcp.resolver.async_resolve(getHost(),
-				getPort(),
+			tcp.resolver.async_resolve(getHost(), getPort(),
 				std::bind(&HttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 			);				
 			tcp.context.run();
