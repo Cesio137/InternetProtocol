@@ -27,13 +27,11 @@ namespace InternetProtocol {
 		std::string getHost() const { return host; }
 		std::string getPort() const { return service; }
 
-		void setRetryTime(int value = 3.) { retrytime = value; }
-		void resetRetryTime() { retrytime = 5; }
-		int getRetryTime() const { return retrytime; }
+		void setTimeout(uint8_t value = 4) { timeout = value; }
+		uint8_t getTimeout() const { return timeout; }
 
-		void setMaxRetry(int value = 1) { maxretry = value; }
-		void resetMaxRetry() { maxretry = 1; }
-		int getMaxRetry() const { return  maxretry; }
+		void setMaxAttemp(uint8_t value = 3) { maxAttemp = value; }
+		uint8_t getMaxAttemp() const { return timeout; }
 		
 		/*REQUEST DATA*/
 		void setRequest(const FRequest& value) { request = value; }
@@ -119,9 +117,6 @@ namespace InternetProtocol {
 		/*RESPONSE DATA*/
 		FResponse getResponseData() const { return response; }
 
-		/*THREADS*/
-		void setThreadNumber(int value = 2) { pool = std::make_unique<asio::thread_pool>(value); }
-
 		/*CONNECTION*/
 		int processRequest()
 		{
@@ -147,30 +142,27 @@ namespace InternetProtocol {
 		std::string getErrorMessage() const { return tcp.error_code.message(); }
 
 		/*EVENTS*/
-		std::function<void()> onConnected;
 		std::function<void()> onAsyncPayloadFinished;
 		std::function<void(const FResponse)> onRequestComplete;
 		std::function<void(int, int)> onRequestProgress;
-		std::function<void(int, int)> onRequestWillRetry;
+		std::function<void(int)> onRequestWillRetry;
 		std::function<void(int, const std::string&)> onRequestFail;
 		std::function<void(int)> onResponseFail;
 		
 	private:
-		std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(2);
+		std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(std::thread::hardware_concurrency());
 		std::mutex mutexPayload;
 		std::mutex mutexIO;
 		std::string host = "localhost";
 		std::string service;
-		int maxretry = 1;
-		int retrytime = 3;
+		uint8_t timeout = 4;
+		uint8_t maxAttemp = 3;
 		FRequest request;
 		FAsioTcp tcp;
 		std::string payload;
 		asio::streambuf request_buffer;
 		asio::streambuf response_buffer;
 		FResponse response;
-		int bytes_sent = 0;
-		int bytes_received = 0;
 		const std::map<EVerb, std::string> verb = {
 			{EVerb::GET     , "GET"},
 			{EVerb::POST    , "POST"},
@@ -193,22 +185,29 @@ namespace InternetProtocol {
 			);				
 			tcp.context.run();
 			clearStreamBuffers();
-			if (getErrorCode() != 0 && maxretry > 0 && retrytime > 0) {
-				int i = 0;
-				while (getErrorCode() != 0 && i < maxretry) {
-					i++;
+			if (tcp.error_code && maxAttemp > 0 && timeout > 0) {
+				uint8_t attemp = 0;
+				while(attemp < maxAttemp) {
 					if (onRequestWillRetry)
-						onRequestWillRetry(i, retrytime);
-					std::this_thread::sleep_for(std::chrono::seconds(retrytime));
+						onRequestWillRetry(attemp + 1);
+					tcp.error_code.clear();
 					tcp.context.restart();
-					tcp.resolver.async_resolve(getHost(), getPort(),
-						std::bind(&HttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
-					);
+					asio::steady_timer timer(tcp.context, asio::chrono::seconds(timeout));
+					timer.async_wait([this](const std::error_code& error) {
+						if (error) {
+							if (onRequestFail)
+								onRequestFail(tcp.error_code.value(), tcp.error_code.message());
+						}
+						tcp.resolver.async_resolve(getHost(), getPort(),
+							std::bind(&HttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
+						);
+					});
 					tcp.context.run();
+					attemp += 1;
+					if(!tcp.error_code)
+						break;
 				}
-				clearStreamBuffers();
 			}
-			tcp.socket.close();
 			mutexIO.unlock();
 		}
 
@@ -216,15 +215,12 @@ namespace InternetProtocol {
 		{
 			request_buffer.consume(request_buffer.size());
 			response_buffer.consume(request_buffer.size());
-			bytes_sent = 0;
-			bytes_received = 0;
 		}
 		
-		void resolve(const std::error_code& err, const asio::ip::tcp::resolver::results_type& endpoints)
+		void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
 		{
-			if (err)
-			{
-				tcp.error_code = err;
+			if (error) {
+				tcp.error_code = error;
 				if (onRequestFail)
 					onRequestFail(tcp.error_code.value(), tcp.error_code.message());
 				return;
@@ -237,29 +233,25 @@ namespace InternetProtocol {
 				std::bind(&HttpClient::connect, this, asio::placeholders::error)
 			);
 		}
-		void connect(const std::error_code& err)
+		void connect(const std::error_code& error)
 		{
-			if (err)
-			{
-				tcp.error_code = err;
+			if (error) {
+				tcp.error_code = error;
 				if (onRequestFail)
 					onRequestFail(tcp.error_code.value(), tcp.error_code.message());
 				return;
 			}
-			if (onConnected)
-				onConnected();
 			// The connection was successful. Send the request.;
 			std::ostream request_stream(&request_buffer);
 			request_stream << payload;
 			asio::async_write(tcp.socket, request_buffer,
-				std::bind(&HttpClient::write_request, this, asio::placeholders::error)
+				std::bind(&HttpClient::write_request, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 			);
 		}
-		void write_request(const std::error_code& err)
+		void write_request(const std::error_code& error, std::size_t bytes_sent)
 		{
-			if (err)
-			{
-				tcp.error_code = err;
+			if (error) {
+				tcp.error_code = error;
 				if (onRequestFail)
 					onRequestFail(tcp.error_code.value(), tcp.error_code.message());
 				return;
@@ -267,26 +259,23 @@ namespace InternetProtocol {
 			// Read the response status line. The response_ streambuf will
 			// automatically grow to accommodate the entire line. The growth may be
 			// limited by passing a maximum size to the streambuf constructor.
-			bytes_sent = request_buffer.size();
 			if (onRequestProgress)
-				onRequestProgress(bytes_sent, bytes_sent);
+				onRequestProgress(bytes_sent, 0);
 			asio::async_read_until(tcp.socket, response_buffer, "\r\n",
-				std::bind(&HttpClient::read_status_line, this, asio::placeholders::error)
+				std::bind(&HttpClient::read_status_line, this, asio::placeholders::error, bytes_sent, asio::placeholders::bytes_transferred)
 			);
 		}
-		void read_status_line(const std::error_code& err)
+		void read_status_line(const std::error_code& error, std::size_t bytes_sent, std::size_t bytes_recvd)
 		{
-			if (err)
-			{
-				tcp.error_code = err;
+			if (error) {
+				tcp.error_code = error;
 				if (onRequestFail)
 					onRequestFail(tcp.error_code.value(), tcp.error_code.message());
 				return;
 			}
 			// Check that response is OK.
-			bytes_received = response_buffer.size();
 			if (onRequestProgress)
-				onRequestProgress(bytes_sent, bytes_received);
+				onRequestProgress(bytes_sent, bytes_recvd);
 			std::istream response_stream(&response_buffer);
 			std::string http_version;
 			response_stream >> http_version;
@@ -312,11 +301,10 @@ namespace InternetProtocol {
 				std::bind(&HttpClient::read_headers, this, asio::placeholders::error)
 			);
 		}
-		void read_headers(const std::error_code& err)
+		void read_headers(const std::error_code& error)
 		{
-			if (err)
-			{
-				tcp.error_code = err;
+			if (error) {
+				tcp.error_code = error;
 				if (onRequestFail)
 					onRequestFail(tcp.error_code.value(), tcp.error_code.message());
 				return;
@@ -341,10 +329,9 @@ namespace InternetProtocol {
 				std::bind(&HttpClient::read_content, this, asio::placeholders::error)
 			);
 		}
-		void read_content(const std::error_code& err)
+		void read_content(const std::error_code& error)
 		{
-			if (err)
-			{
+			if (error) {
 				if (onRequestComplete)
 					onRequestComplete(response);
 				return;

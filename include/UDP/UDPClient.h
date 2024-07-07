@@ -22,13 +22,17 @@ namespace InternetProtocol {
         std::string getHost() const { return host; }
         std::string getPort() const { return service; }
 
-        /*THREADS*/
-		void setThreadNumber(int value = 2) { pool = std::make_unique<asio::thread_pool>(value); }
+        /*SETTINGS*/
+        void setTimeout(uint8_t value = 4) { timeout = value; }
+        uint8_t getTimeout() const { return timeout; }
+        void setMaxAttemp(uint8_t value = 3) { maxAttemp = value; }
+        uint8_t getMaxAttemp() const { return timeout; }
+        void setMaxBufferSize(int value = 1024) { maxBufferSize = value; }
+        int getMaxBufferSize() const { return maxBufferSize; }
+        void setSplitPackage(bool value = true) { splitBuffer = value; }
+        bool getSplitPackage() const { return splitBuffer; }
 
         /*MESSAGE*/
-        void setSplitPackage(bool value = true) { splitPackage = value; }
-        bool getSplitPackage() const { return splitPackage; }
-
         void send(const std::string& message)
         {
             if (!pool || !isConnected())
@@ -70,19 +74,23 @@ namespace InternetProtocol {
         /*EVENTS*/
         std::function<void()> onConnected;
         std::function<void(int, const std::string&)> onConnectionError;
+        std::function<void(int)> onConnectionRetry;
         std::function<void(std::size_t)> onMessageSent;
         std::function<void(int, const std::string&)> onMessageSentError;
         std::function<void(int, const udpMessage)> onMessageReceived;
         std::function<void(int, const std::string&)> onMessageReceivedError;
 
     private:
-        std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(2);
+        std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(std::thread::hardware_concurrency());
         std::mutex mutexIO;
         std::mutex mutexBuffer;
         FAsioUdp udp;
         std::string host = "localhost";
 		std::string service;
-        bool splitPackage = true;
+        uint8_t timeout = 4;
+        uint8_t maxAttemp = 3;
+        bool splitBuffer = true;
+        int maxBufferSize = 1024;
         udpMessage rbuffer;
 
         /*ASYNC HANDLER FUNCTIONS*/
@@ -93,11 +101,35 @@ namespace InternetProtocol {
                 std::bind(&UDPClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
             );
             udp.context.run();
+            if (udp.error_code && maxAttemp > 0 && timeout > 0) {
+                uint8_t attemp = 0;
+                while(attemp < maxAttemp) {
+                    if (onConnectionRetry)
+                        onConnectionRetry(attemp + 1);
+                    udp.error_code.clear();
+                    udp.context.restart();
+                    asio::steady_timer timer(udp.context, asio::chrono::seconds(timeout));
+                    timer.async_wait([this](const std::error_code& error) {
+                        if (error) {
+                            if (onConnectionError)
+                                onConnectionError(error.value(), error.message());
+                        }
+                        udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
+                            std::bind(&UDPClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
+                        );
+                    });
+                    udp.context.run();
+                    attemp += 1;
+                    if(!udp.error_code)
+                        break;
+                }
+            }
             mutexIO.unlock();
         }
 
-        void resolve(std::error_code error, asio::ip::udp::resolver::results_type results) {
+        void resolve(const std::error_code& error, asio::ip::udp::resolver::results_type results) {
             if (error) {
+                udp.error_code = error;
                 if (onConnectionError)
                     onConnectionError(error.value(), error.message());
                 return;
@@ -108,15 +140,13 @@ namespace InternetProtocol {
             );
         }
 
-        void conn(std::error_code error) {
+        void conn(const std::error_code& error) {
             if (error) {
+                udp.error_code = error;
                 if (onConnectionError)
                     onConnectionError(error.value(), error.message());
                 return;
             }
-
-            udp.socket.set_option(asio::socket_base::send_buffer_size(1024));
-            udp.socket.set_option(asio::socket_base::receive_buffer_size(rbuffer.message.size()));
 
             udp.socket.async_receive_from(asio::buffer(rbuffer.message, rbuffer.message.size()), udp.endpoints,
                 std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
@@ -128,7 +158,7 @@ namespace InternetProtocol {
 
         void package_buffer(const std::vector<char>& buffer) {
             mutexBuffer.lock();
-            if (!splitPackage || buffer.size() <= 1024) {
+            if (!splitBuffer || buffer.size() <= maxBufferSize) {
                 udp.socket.async_send_to(asio::buffer(buffer.data(), buffer.size()), udp.endpoints,
                     std::bind(&UDPClient::send_to, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
                 );
@@ -137,7 +167,7 @@ namespace InternetProtocol {
             }
 
             size_t buffer_offset = 0;
-            const size_t max_size = 1023;
+            const size_t max_size = maxBufferSize - 1;
             while (buffer_offset < buffer.size()) {
                 size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
                 std::vector<char> sbuffer = std::vector<char>(buffer.begin() + buffer_offset, buffer.begin() + buffer_offset + package_size);
@@ -153,6 +183,7 @@ namespace InternetProtocol {
 
         void send_to(std::error_code error, std::size_t bytes_sent) {
             if (error) {
+                udp.error_code = error;
                 if (onMessageSentError)
                     onMessageSentError(error.value(), error.message());
                 return;
@@ -163,6 +194,7 @@ namespace InternetProtocol {
 
         void receive_from(std::error_code error, std::size_t bytes_recvd) {
             if (error) {
+                udp.error_code = error;
                 if (onMessageReceivedError)
                     onMessageReceivedError(error.value(), error.message());
                     

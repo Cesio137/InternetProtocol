@@ -2,14 +2,14 @@
 #include <string>
 #include <TCP/TCPClient.h>
 #include <UDP/UDPClient.h>
+#include <HTTP/HttpClient.h>
 
 using namespace InternetProtocol;
 
 int main(int argc, char* argv[])
 {
     UDPClient client;
-    client.setThreadNumber(4);
-    client.setHost("localhost", "3000");
+    client.setHost("never", "3000");
     client.onConnected = [&](){
         std::cout << "Connected" << std::endl;
     };
@@ -23,6 +23,9 @@ int main(int argc, char* argv[])
     };
     client.onConnectionError = [&](int code, const std::string& message) {
         std::cout << "Error: " << message << std::endl;
+    };
+    client.onConnectionRetry = [&](int attemp) {
+        std::cout << "Retry attemp: " << attemp << std::endl;
     };
     client.connect();    
 
