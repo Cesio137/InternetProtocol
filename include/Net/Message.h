@@ -11,7 +11,7 @@ namespace InternetProtocol {
 		uint32_t size = 0;
 	};
 
-	struct clientDataFrame {
+	struct wsDataFrame {
 		bool fin = true;
 		bool rsv1 = false;
 		bool rsv2 = false;
@@ -26,9 +26,9 @@ namespace InternetProtocol {
 
 			// FIN, RSV, Opcode
 			uint8_t byte1 = fin ? 0x80 : 0x00;
-			if(rsv1) byte1 |= (uint8_t)ERSV::RSV1;
-			if(rsv2) byte1 |= (uint8_t)ERSV::RSV2;
-			if(rsv3) byte1 |= (uint8_t)ERSV::RSV3;
+			byte1 |= rsv1 ? (uint8_t)ERSV::RSV1 : 0x00;
+			byte1 |= rsv2 ? (uint8_t)ERSV::RSV2 : 0x00;
+			byte1 |= rsv3 ? (uint8_t)ERSV::RSV3 : 0x00;
 			byte1 |= ((uint8_t)opcode & 0x0F);
 			buffer.push_back(byte1);
 
@@ -52,12 +52,8 @@ namespace InternetProtocol {
 
 			std::array<uint8_t, 4> masking_key;
 			if (mask) {
+				masking_key = mask_gen();
 				for (uint8_t key : masking_key) buffer.push_back(key);
-			}
-
-			// payload data
-			for (uint8_t data : payload) {
-				buffer.push_back(data);
 			}
 
 			// payload mask

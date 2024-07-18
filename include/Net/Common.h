@@ -42,14 +42,14 @@ namespace InternetProtocol
 
     enum class EOpcode : uint8_t
     {
-        FRAME_CON =             0x0,
-        TEXT_FRAME =            0x1,
-        BINARY_FRAME =          0x2,
-        NON_CONTROL_FRAMES =    0x3,
-        CONNECTION_CLOSE =      0x8,
-        PING =                  0x9,
-        PONG =                  0xA,
-        FURTHER_FRAMES =        0xB,
+        FRAME_CON =             0x00,
+        TEXT_FRAME =            0x01,
+        BINARY_FRAME =          0x02,
+        NON_CONTROL_FRAMES =    0x03,
+        CONNECTION_CLOSE =      0x08,
+        PING =                  0x09,
+        PONG =                  0x0A,
+        FURTHER_FRAMES =        0x0B,
     };
 
     enum class ERSV : uint8_t

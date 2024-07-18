@@ -220,7 +220,7 @@ namespace InternetProtocol {
 		
         void package_buffer(const std::vector<char>& buffer) { 
 	        mutexBuffer.lock();
-            clientDataFrame dataFrame;
+            wsDataFrame dataFrame;
 			dataFrame.payload.assign(buffer.begin(), buffer.end());
             asio::async_write(tcp.socket, asio::buffer(dataFrame.encodeFrame().data(), dataFrame.encodeFrame().size()),
                 std::bind(&WebsocketClient::write, this, asio::placeholders::error, asio::placeholders::bytes_transferred)

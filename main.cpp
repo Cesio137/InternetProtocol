@@ -6,7 +6,6 @@ using namespace InternetProtocol;
 
 int main(int argc, char* argv[])
 {
-    /*
     WebsocketClient client;
     client.setHost("localhost", "3000");
     client.onConnected = []() {
@@ -31,8 +30,6 @@ int main(int argc, char* argv[])
         }
         client.send(str);
     }
-    */
 
-    std::cout << 0x01 << std::endl;
     return 0;
 }
