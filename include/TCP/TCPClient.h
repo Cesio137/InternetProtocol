@@ -69,12 +69,10 @@ namespace InternetProtocol {
 
         /*EVENTS*/
         std::function<void()> onConnected;
-        std::function<void(int, const std::string&)> onConnectionError;
     	std::function<void(int)> onConnectionRetry;
 		std::function<void(std::size_t)> onMessageSent;
-        std::function<void(int, const std::string&)> onMessageSentError;
         std::function<void(int, const tcpMessage)> onMessageReceived;
-        std::function<void(int, const std::string&)> onMessageReceivedError;
+    	std::function<void(int, const std::string&)> onError;
 
     private:
         std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(std::thread::hardware_concurrency());
@@ -106,8 +104,8 @@ namespace InternetProtocol {
         			asio::steady_timer timer(tcp.context, asio::chrono::seconds(timeout));
         			timer.async_wait([this](const std::error_code& error) {
 						if (error) {
-							if (onConnectionError)
-								onConnectionError(error.value(), error.message());
+							if (onError)
+								onError(error.value(), error.message());
 						}
         				tcp.resolver.async_resolve(host, service,
 							std::bind(&TCPClient::resolve, this, asio::placeholders::error, asio::placeholders::endpoint)
@@ -126,8 +124,8 @@ namespace InternetProtocol {
 		{
 			if (error) {
 				tcp.error_code = error;
-				if (onConnectionError)
-					onConnectionError(tcp.error_code.value(), tcp.error_code.message());
+				if (onError)
+					onError(tcp.error_code.value(), tcp.error_code.message());
 				return;
 			}
 			// Attempt a connection to each endpoint in the list until we
@@ -143,8 +141,8 @@ namespace InternetProtocol {
 		{
 			if (error) {
 				tcp.error_code = error;
-				if (onConnectionError)
-					onConnectionError(tcp.error_code.value(), tcp.error_code.message());
+				if (onError)
+					onError(tcp.error_code.value(), tcp.error_code.message());
 				return;
 			}
 			// The connection was successful;
@@ -183,8 +181,8 @@ namespace InternetProtocol {
 
     	void write(std::error_code error, std::size_t bytes_sent) {
         	if (error) {
-        		if (onMessageSentError)
-        			onMessageSentError(error.value(), error.message());
+        		if (onError)
+        			onError(error.value(), error.message());
         		return;
         	}
         	if (onMessageSent)
@@ -193,8 +191,8 @@ namespace InternetProtocol {
 
 		void read(std::error_code error, std::size_t bytes_recvd) {
             if (error) {
-                if (onMessageReceivedError)
-                    onMessageReceivedError(error.value(), error.message());
+                if (onError)
+                    onError(error.value(), error.message());
                 return;
             }
             rbuffer.size = bytes_recvd;

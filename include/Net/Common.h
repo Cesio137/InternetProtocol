@@ -10,7 +10,9 @@
 #include <iostream>
 #include <algorithm>
 #include <chrono>
+#include <random>
 #include <cstdint>
+#include <bitset>
 
 #ifdef _WIN32
 #define _WIN32_WINNT 0x0A00
@@ -36,6 +38,25 @@ namespace InternetProtocol
         LOCK =      8,
         UNLOCK =    9,
         PROPFIND = 10
+    };
+
+    enum class EOpcode : uint8_t
+    {
+        FRAME_CON =             0x0,
+        TEXT_FRAME =            0x1,
+        BINARY_FRAME =          0x2,
+        NON_CONTROL_FRAMES =    0x3,
+        CONNECTION_CLOSE =      0x8,
+        PING =                  0x9,
+        PONG =                  0xA,
+        FURTHER_FRAMES =        0xB,
+    };
+
+    enum class ERSV : uint8_t
+    {
+        RSV1 = 0x40,
+        RSV2 = 0x20,
+        RSV3 = 0x10
     };
 
     struct FAsioTcp

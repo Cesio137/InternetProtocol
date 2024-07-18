@@ -18,14 +18,13 @@ namespace InternetProtocol {
 		}
 
 		/*HTTP SETTINGS*/
-
 		void setHost(const std::string& url = "localhost", const std::string& port = "")
 		{
 			host = url;
 			service = port;
 		}
 		std::string getHost() const { return host; }
-		std::string getPort() const { return service; }
+		std::string getPort() const { return service; } 
 
 		void setTimeout(uint8_t value = 4) { timeout = value; }
 		uint8_t getTimeout() const { return timeout; }
@@ -78,7 +77,7 @@ namespace InternetProtocol {
 				bool first = true;
 				for (const std::pair<std::string, std::string> param : request.params) {
 					if (!first) payload += "&";
-					payload += param.first + "=" + param.second;
+					payload += param.first + "=" + param.second; 
 					first = false;
 				}
 			}
@@ -101,7 +100,7 @@ namespace InternetProtocol {
 				payload += "\r\n" + request.body;
 		}
 
-		void async_preparePayload()
+		void async_preparePayload() 
 		{
 			asio::post(*pool, [this](){
 				mutexPayload.lock();

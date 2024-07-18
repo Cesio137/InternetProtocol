@@ -1,33 +1,26 @@
 #include <iostream>
 #include <string>
-#include <TCP/TCPClient.h>
-#include <UDP/UDPClient.h>
-#include <HTTP/HttpClient.h>
+#include <Websocket/WebsocketClient.h>
 
 using namespace InternetProtocol;
 
 int main(int argc, char* argv[])
 {
-    UDPClient client;
-    client.setHost("never", "3000");
-    client.onConnected = [&](){
-        std::cout << "Connected" << std::endl;
+    /*
+    WebsocketClient client;
+    client.setHost("localhost", "3000");
+    client.onConnected = []() {
+        std::cout << "Connected." << std::endl;
     };
-    client.onMessageReceived = [&](int BytesReceived, const udpMessage message) {
-        std::cout << "Message size: " << message.size << std::endl;
-        std::cout << "Message: " << message.toString() << std::endl;
+    client.onError = [](int code, const std::string& message) {
+        std::cout << "Error code: " << code << std::endl;
+        std::cout << "Error message: " << message << std::endl;
     };
-    client.onMessageReceivedError = [&](int code, const std::string& message) {
-        std::cout << "Message error: " << message << std::endl;
-        std::cout << "Message error code: " << code << std::endl;
+    client.onMessageReceived = [](int size, const std::string& message) {
+        std::cout << "Message size: " << size << std::endl;
+        std::cout << "Message: " << message << std::endl;
     };
-    client.onConnectionError = [&](int code, const std::string& message) {
-        std::cout << "Error: " << message << std::endl;
-    };
-    client.onConnectionRetry = [&](int attemp) {
-        std::cout << "Retry attemp: " << attemp << std::endl;
-    };
-    client.connect();    
+    client.connect();
 
     std::string str;
     std::cout << "Type 'quit' to exit." << std::endl;
@@ -38,6 +31,8 @@ int main(int argc, char* argv[])
         }
         client.send(str);
     }
+    */
 
+    std::cout << 0x01 << std::endl;
     return 0;
 }

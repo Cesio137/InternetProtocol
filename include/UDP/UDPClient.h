@@ -76,9 +76,8 @@ namespace InternetProtocol {
         std::function<void(int, const std::string&)> onConnectionError;
         std::function<void(int)> onConnectionRetry;
         std::function<void(std::size_t)> onMessageSent;
-        std::function<void(int, const std::string&)> onMessageSentError;
         std::function<void(int, const udpMessage)> onMessageReceived;
-        std::function<void(int, const std::string&)> onMessageReceivedError;
+        std::function<void(int, const std::string&)> onError;
 
     private:
         std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(std::thread::hardware_concurrency());
@@ -130,8 +129,8 @@ namespace InternetProtocol {
         void resolve(const std::error_code& error, asio::ip::udp::resolver::results_type results) {
             if (error) {
                 udp.error_code = error;
-                if (onConnectionError)
-                    onConnectionError(error.value(), error.message());
+                if (onError)
+                    onError(error.value(), error.message());
                 return;
             }
             udp.endpoints = *results;
@@ -143,8 +142,8 @@ namespace InternetProtocol {
         void conn(const std::error_code& error) {
             if (error) {
                 udp.error_code = error;
-                if (onConnectionError)
-                    onConnectionError(error.value(), error.message());
+                if (onError)
+                    onError(error.value(), error.message());
                 return;
             }
 
@@ -184,8 +183,8 @@ namespace InternetProtocol {
         void send_to(std::error_code error, std::size_t bytes_sent) {
             if (error) {
                 udp.error_code = error;
-                if (onMessageSentError)
-                    onMessageSentError(error.value(), error.message());
+                if (onError)
+                    onError(error.value(), error.message());
                 return;
             }
             if (onMessageSent)
@@ -195,8 +194,8 @@ namespace InternetProtocol {
         void receive_from(std::error_code error, std::size_t bytes_recvd) {
             if (error) {
                 udp.error_code = error;
-                if (onMessageReceivedError)
-                    onMessageReceivedError(error.value(), error.message());
+                if (onError)
+                    onError(error.value(), error.message());
                     
                 return;
             }
