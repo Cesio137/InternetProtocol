@@ -76,7 +76,7 @@ namespace InternetProtocol {
         std::function<void(int, const std::string&)> onConnectionError;
         std::function<void(int)> onConnectionRetry;
         std::function<void(std::size_t)> onMessageSent;
-        std::function<void(int, const udpMessage)> onMessageReceived;
+        std::function<void(int, const FUdpMessage)> onMessageReceived;
         std::function<void(int, const std::string&)> onError;
 
     private:
@@ -90,7 +90,7 @@ namespace InternetProtocol {
         uint8_t maxAttemp = 3;
         bool splitBuffer = true;
         int maxBufferSize = 1024;
-        udpMessage rbuffer;
+        FUdpMessage rbuffer;
 
         /*ASYNC HANDLER FUNCTIONS*/
         void runContextThread() {

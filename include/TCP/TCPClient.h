@@ -71,7 +71,7 @@ namespace InternetProtocol {
         std::function<void()> onConnected;
     	std::function<void(int)> onConnectionRetry;
 		std::function<void(std::size_t)> onMessageSent;
-        std::function<void(int, const tcpMessage)> onMessageReceived;
+        std::function<void(int, const FTcpMessage)> onMessageReceived;
     	std::function<void(int, const std::string&)> onError;
 
     private:
@@ -85,7 +85,7 @@ namespace InternetProtocol {
     	uint8_t maxAttemp = 3;
     	bool splitBuffer = true;
     	int maxBufferSize = 1400;
-		tcpMessage rbuffer;
+		FTcpMessage rbuffer;
 
         void runContextThread() {
             mutexIO.lock();
