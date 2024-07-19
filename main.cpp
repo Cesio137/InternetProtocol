@@ -1,12 +1,14 @@
 #include <iostream>
 #include <string>
 #include <Websocket/WebsocketClient.h>
+#include <TCP/TCPClient.h>
+#include <UDP/UDPClient.h>
 
 using namespace InternetProtocol;
 
 int main(int argc, char* argv[])
 {
-    WebsocketClient client;
+    UDPClient client;
     client.setHost("localhost", "3000");
     client.onConnected = []() {
         std::cout << "Connected." << std::endl;
@@ -15,9 +17,9 @@ int main(int argc, char* argv[])
         std::cout << "Error code: " << code << std::endl;
         std::cout << "Error message: " << message << std::endl;
     };
-    client.onMessageReceived = [](int size, const std::string& message) {
+    client.onMessageReceived = [](int size, const FUdpMessage message) {
         std::cout << "Message size: " << size << std::endl;
-        std::cout << "Message: " << message << std::endl;
+        std::cout << "Message: " << message.toUTF8() << std::endl;
     };
     client.connect();
 

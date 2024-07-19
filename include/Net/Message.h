@@ -4,9 +4,10 @@
 
 namespace InternetProtocol {
 	struct FTcpMessage {
-		std::array<char, 8192> message;
-		std::string toString() const {
-			return message.data();
+		std::array<uint8_t, 8192> rawData;
+		std::string toUTF8() const {
+			std::string str(rawData.begin(), rawData.begin() + size);
+			return str;
 		}
 		uint32_t size = 0;
 	};
@@ -22,9 +23,10 @@ namespace InternetProtocol {
 	};
 
 	struct FUdpMessage {
-		std::array<char, 1024> message;
-		std::string toString() const {
-			return message.data();
+		std::array<uint8_t, 1024> rawData;
+		std::string toUTF8() const {
+			std::string str(rawData.begin(), rawData.begin() + size);
+			return str;
 		}
 		uint32_t size = 0;
 	};
