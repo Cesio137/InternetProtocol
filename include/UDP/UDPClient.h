@@ -23,8 +23,10 @@ namespace InternetProtocol {
         uint8_t getTimeout() const { return timeout; }
         void setMaxAttemp(uint8_t value = 3) { maxAttemp = value; }
         uint8_t getMaxAttemp() const { return timeout; }
-        void setMaxBufferSize(int value = 1024) { maxBufferSize = value; }
-        int getMaxBufferSize() const { return maxBufferSize; }
+        void setSendMaxBufferSize(int value = 1024) { maxSendBufferSize = value; }
+        int getSendMaxBufferSize() const { return maxSendBufferSize; }
+        void setReceiveMaxBufferSize(int value = 1024) { maxReceiveBufferSize = value; }
+        int getReceiveMaxBufferSize() const { return maxReceiveBufferSize; }
         void setSplitPackage(bool value = true) { splitBuffer = value; }
         bool getSplitPackage() const { return splitBuffer; }
 
@@ -69,7 +71,6 @@ namespace InternetProtocol {
 
         /*EVENTS*/
         std::function<void()> onConnected;
-        std::function<void(int, const std::string&)> onConnectionError;
         std::function<void(int)> onConnectionRetry;
         std::function<void(std::size_t)> onMessageSent;
         std::function<void(int, const FUdpMessage)> onMessageReceived;
@@ -85,7 +86,8 @@ namespace InternetProtocol {
         uint8_t timeout = 4;
         uint8_t maxAttemp = 3;
         bool splitBuffer = true;
-        int maxBufferSize = 1024;
+        int maxSendBufferSize = 1024;
+        int maxReceiveBufferSize = rbuffer.rawData.size();
         FUdpMessage rbuffer;
 
         /*ASYNC HANDLER FUNCTIONS*/
@@ -106,8 +108,8 @@ namespace InternetProtocol {
                     asio::steady_timer timer(udp.context, asio::chrono::seconds(timeout));
                     timer.async_wait([this](const std::error_code& error) {
                         if (error) {
-                            if (onConnectionError)
-                                onConnectionError(error.value(), error.message());
+                            if (onError)
+                                onError(error.value(), error.message());
                         }
                         udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
                             std::bind(&UDPClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
@@ -143,6 +145,10 @@ namespace InternetProtocol {
                 return;
             }
 
+            rbuffer.rawData.clear();
+            if(rbuffer.rawData.size() != maxReceiveBufferSize)
+				rbuffer.rawData.resize(maxReceiveBufferSize);
+
             udp.socket.async_receive_from(asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), udp.endpoints,
                 std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
             );
@@ -153,7 +159,7 @@ namespace InternetProtocol {
 
         void package_buffer(const std::vector<uint8_t>& buffer) {
             mutexBuffer.lock();
-            if (!splitBuffer || buffer.size() <= maxBufferSize) {
+            if (!splitBuffer || buffer.size() <= maxSendBufferSize) {
                 udp.socket.async_send_to(asio::buffer(buffer.data(), buffer.size()), udp.endpoints,
                     std::bind(&UDPClient::send_to, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
                 );
@@ -162,7 +168,7 @@ namespace InternetProtocol {
             }
 
             size_t buffer_offset = 0;
-            const size_t max_size = maxBufferSize - 1;
+            const size_t max_size = maxSendBufferSize - 1;
             while (buffer_offset < buffer.size()) {
                 size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
                 std::vector<uint8_t> sbuffer(buffer.begin() + buffer_offset, buffer.begin() + buffer_offset + package_size);
@@ -192,13 +198,17 @@ namespace InternetProtocol {
                 udp.error_code = error;
                 if (onError)
                     onError(error.value(), error.message());
-                    
+                rbuffer.rawData.clear();
                 return;
             }
             
             rbuffer.size = bytes_recvd;
             if (onMessageReceived)
                 onMessageReceived(bytes_recvd, rbuffer);
+
+            rbuffer.rawData.clear();
+            if(rbuffer.rawData.size() != maxReceiveBufferSize)
+				rbuffer.rawData.resize(maxReceiveBufferSize);
 
             udp.socket.async_receive_from(asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), udp.endpoints,
                 std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)

@@ -4,15 +4,16 @@
 
 namespace InternetProtocol {
 	struct FTcpMessage {
-		std::array<uint8_t, 8192> rawData;
+		FTcpMessage() { rawData.resize(8192); }
+		std::vector<uint8_t> rawData;
 		std::string toUTF8() const {
-			std::string str(rawData.begin(), rawData.begin() + size);
-			return str;
+			return std::string(rawData.begin(), rawData.end());
 		}
 		uint32_t size = 0;
 	};
 
 	struct FDataFrame {
+		FDataFrame() { payload.resize(8192); }
 		bool fin = true;
 		bool rsv1 = false;
 		bool rsv2 = false;
@@ -20,13 +21,20 @@ namespace InternetProtocol {
 		bool mask = true;
 		EOpcode opcode = EOpcode::TEXT_FRAME;
 		std::vector<uint8_t> payload;
+		size_t length = 0;
+		std::array<uint8_t, 4> masking_key;
+		std::string toUTF8() const {
+			if (opcode == EOpcode::TEXT_FRAME)
+				return std::string(payload.begin(), payload.end());
+			return "";		
+		}
 	};
 
 	struct FUdpMessage {
-		std::array<uint8_t, 1024> rawData;
+		FUdpMessage() { rawData.resize(1024); }
+		std::vector<uint8_t> rawData;
 		std::string toUTF8() const {
-			std::string str(rawData.begin(), rawData.begin() + size);
-			return str;
+			return std::string(rawData.begin(), rawData.end());
 		}
 		uint32_t size = 0;
 	};

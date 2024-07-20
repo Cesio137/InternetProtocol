@@ -338,7 +338,6 @@ namespace InternetProtocol {
 			// Write all of the data that has been read so far.
 			std::ostringstream stream_buffer;
 			stream_buffer << &response_buffer;
-			std::cout << "stream_Buffer: " << stream_buffer.str() << std::endl;
 			if (!stream_buffer.str().empty())
 				response.setContent(stream_buffer.str());
 

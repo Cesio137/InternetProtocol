@@ -8,7 +8,7 @@ using namespace InternetProtocol;
 
 int main(int argc, char* argv[])
 {
-    UDPClient client;
+    WebsocketClient client;
     client.setHost("localhost", "3000");
     client.onConnected = []() {
         std::cout << "Connected." << std::endl;
@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
         std::cout << "Error code: " << code << std::endl;
         std::cout << "Error message: " << message << std::endl;
     };
-    client.onMessageReceived = [](int size, const FUdpMessage message) {
+    client.onMessageReceived = [](int size, const FDataFrame message) {
         std::cout << "Message size: " << size << std::endl;
         std::cout << "Message: " << message.toUTF8() << std::endl;
     };

@@ -24,6 +24,13 @@ namespace InternetProtocol {
 		uint8_t getTimeout() const { return timeout; }
 		void setMaxAttemp(uint8_t value = 3) { maxAttemp = value; }
 		uint8_t getMaxAttemp() const { return timeout; }
+		void setMaxSendBufferSize(int value = 1400) { maxSendBufferSize = value; }
+    	int getMaxSendBufferSize() const { return maxSendBufferSize; }
+		void setMaxReceiveBufferSize(int value = 8192) { maxReceiveBufferSize = value; }
+    	int getMaxReceiveBufferSize() const { return maxReceiveBufferSize; }
+    	void setSplitPackage(bool value = true) { splitBuffer = value; }
+    	bool getSplitPackage() const { return splitBuffer; }
+		
 
         /*HANDSHAKE*/
     	void setPath(const std::string& value = "chat") { handShake.insert_or_assign("Path", value); }
@@ -58,14 +65,14 @@ namespace InternetProtocol {
         		return;
 
         	asio::post(*pool, [this, message]() {
-				std::vector<char> buffer(message.begin(), message.end());
+				std::vector<uint8_t> buffer(message.begin(), message.end());
 				if (buffer.back() != '\0')
 					buffer.push_back('\0');
 				package_buffer(buffer);
 			});
         }
 
-		void sendRaw(const std::vector<char>& buffer)
+		void sendRaw(const std::vector<uint8_t>& buffer)
         {
             if (!pool || !isConnected() || buffer.empty())
                 return;
@@ -95,7 +102,7 @@ namespace InternetProtocol {
     	std::function<void(int)> onConnectionRetry;
     	std::function<void()> onHandshakeReceived;
 		std::function<void(std::size_t)> onMessageSent;
-        std::function<void(int, const std::string&)> onMessageReceived;
+        std::function<void(int, const FDataFrame)> onMessageReceived;
         std::function<void(int, const std::string&)> onError;
 
     private:
@@ -107,7 +114,8 @@ namespace InternetProtocol {
 		uint8_t timeout = 4;
 		uint8_t maxAttemp = 3;
     	bool splitBuffer = false;
-    	int maxBufferSize = 1400;
+    	int maxSendBufferSize = 1400;
+		int maxReceiveBufferSize = 8192;
 		FAsioTcp tcp;
 		asio::streambuf request_buffer;
 		asio::streambuf response_buffer;
@@ -129,6 +137,29 @@ namespace InternetProtocol {
                 std::bind(&WebsocketClient::resolve, this, asio::placeholders::error, asio::placeholders::endpoint)
             );
             tcp.context.run();
+			if (tcp.error_code && maxAttemp > 0 && timeout > 0) {
+                uint8_t attemp = 0;
+                while(attemp < maxAttemp) {
+                    if (onConnectionRetry)
+                        onConnectionRetry(attemp + 1);
+                    tcp.error_code.clear();
+                    tcp.context.restart();
+                    asio::steady_timer timer(tcp.context, asio::chrono::seconds(timeout));
+                    timer.async_wait([this](const std::error_code& error) {
+                        if (error) {
+                            if (onError)
+                                onError(error.value(), error.message());
+                        }
+                        tcp.resolver.async_resolve(host, service, 
+							std::bind(&WebsocketClient::resolve, this, asio::placeholders::error, asio::placeholders::endpoint)
+						);
+                    });
+                    tcp.context.run();
+                    attemp += 1;
+                    if(!tcp.error_code)
+                        break;
+                }
+            }
             mutexIO.unlock();
         }
 
@@ -212,16 +243,16 @@ namespace InternetProtocol {
 			{
 				if (onError)
 					onError(-1, "Invalid response.");
+				close();
 				return;
 			}
 			if (status_code != 101)
 			{
 				if (onError)
 					onError(status_code, "Invalid status code.");
+				close();
 				return;
 			}
-
-			request_buffer.consume(request_buffer.size());
 
 			// Read the remaining response headers, which are terminated by a blank line.
 			asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
@@ -235,16 +266,21 @@ namespace InternetProtocol {
 
 		void read_remaining_header(const std::error_code& error)
 		{
+			request_buffer.consume(request_buffer.size());
 			response_buffer.consume(response_buffer.size());
-			// Start reading remaining data until EOF.
-			asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
+			// Start reading data.
+			rDataFrame.payload.clear();
+			if(rDataFrame.payload.size() != maxReceiveBufferSize)
+				rDataFrame.payload.resize(maxReceiveBufferSize);
+
+			asio::async_read(tcp.socket, asio::buffer(rDataFrame.payload, rDataFrame.payload.size()), asio::transfer_at_least(4),
 				std::bind(&WebsocketClient::read, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 			);
 		}
 		
-        void package_buffer(const std::vector<char>& buffer) { 
+        void package_buffer(const std::vector<uint8_t>& buffer) { 
 	        mutexBuffer.lock();
-        	if (!splitBuffer || buffer.size() <= maxBufferSize) {
+        	if (!splitBuffer || buffer.size() + getFrameEncodeSize(buffer) <= maxSendBufferSize) {
         		sDataFrame.fin = true;
         		sDataFrame.payload.assign(buffer.begin(), buffer.end());
         		encodePayload(sDataFrame.payload);
@@ -257,7 +293,7 @@ namespace InternetProtocol {
 
         	sDataFrame.fin = false;
         	size_t buffer_offset = 0;
-        	const size_t max_size = maxBufferSize - getFrameEncodeSize(buffer) - 1;
+        	const size_t max_size = maxSendBufferSize - getFrameEncodeSize(buffer) - 1;
         	while (buffer_offset < buffer.size()) {
         		sDataFrame.fin = buffer_offset < buffer.size();
         		size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
@@ -281,8 +317,10 @@ namespace InternetProtocol {
         		sDataFrame.payload.clear();
         		return;
         	}
+
         	if (onMessageSent)
         		onMessageSent(bytes_sent);
+			
         	sDataFrame.payload.clear();
         }
 
@@ -293,20 +331,28 @@ namespace InternetProtocol {
                 return;
             }
 			
-        	if (!decodePayload(response_buffer, rDataFrame.payload)) {
+        	if (!decodePayload(rDataFrame.payload, rDataFrame.payload)) {
         		if (onError)
         			onError(-1, "Error: can not decoding payload!");
-				response_buffer.consume(response_buffer.size());
-        		asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
+
+				rDataFrame.payload.clear();
+				if(rDataFrame.payload.size() != maxReceiveBufferSize)
+					rDataFrame.payload.resize(maxReceiveBufferSize);
+
+        		asio::async_read(tcp.socket, asio::buffer(rDataFrame.payload, rDataFrame.payload.size()), asio::transfer_at_least(4),
 					std::bind(&WebsocketClient::read, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 				);
         		return;
         	}
-        	std::vector<char> message(rDataFrame.payload.begin(), rDataFrame.payload.end());
+        	
             if (onMessageReceived)
-                onMessageReceived(bytes_recvd, message.data());
-			response_buffer.consume(response_buffer.size());
-            asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
+                onMessageReceived(bytes_recvd, rDataFrame);
+			
+			rDataFrame.payload.clear();
+			if(rDataFrame.payload.size() != maxReceiveBufferSize)
+				rDataFrame.payload.resize(maxReceiveBufferSize);
+
+            asio::async_read(tcp.socket, asio::buffer(rDataFrame.payload, rDataFrame.payload.size()), asio::transfer_at_least(4),
 				std::bind(&WebsocketClient::read, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
 			);
         }
@@ -372,7 +418,7 @@ namespace InternetProtocol {
         	return maskKey;
         }
 
-    	size_t getFrameEncodeSize(const std::vector<char>& buffer) {
+    	size_t getFrameEncodeSize(const std::vector<uint8_t>& buffer) {
 	        size_t size = 2;
         	if (buffer.size() <= 125) {
         		size += 0;
@@ -387,11 +433,10 @@ namespace InternetProtocol {
 			return size;
         }
 
-    	bool decodePayload(const asio::streambuf& encoded_payload, std::vector<uint8_t>& decoded_payload) {
+    	bool decodePayload(const std::vector<uint8_t> encoded_payload, std::vector<uint8_t>& decoded_payload) {
         	if (encoded_payload.size() < 2) return false;
-        	const char* data = asio::buffer_cast<const char*>(encoded_payload.data());
         	std::size_t size = encoded_payload.size();
-			std::vector<uint8_t> encoded_buffer(data, data + size);
+			std::vector<uint8_t> encoded_buffer = encoded_payload;
 
         	size_t pos = 0;
         	// FIN, RSV, Opcode
@@ -418,13 +463,13 @@ namespace InternetProtocol {
         		}
         		pos += 8;
         	}
+			rDataFrame.length = payload_length;
 
         	// Masking key
-        	std::array<uint8_t, 4> masking_key;
         	if (rDataFrame.mask) {
         		if (encoded_buffer.size() < pos + 4) return false;
         		for (int i = 0; i < 4; ++i) {
-        			masking_key[i] = encoded_buffer[pos++];
+        			rDataFrame.masking_key[i] = encoded_buffer[pos++];
         		}
         	}
 
@@ -434,7 +479,7 @@ namespace InternetProtocol {
         	for (size_t i = 0; i < payload_length; ++i) {
         		decoded_payload[i] = encoded_buffer[pos++];
         		if (rDataFrame.mask) {
-        			decoded_payload[i] ^= masking_key[i % 4];
+        			decoded_payload[i] ^= rDataFrame.masking_key[i % 4];
         		}
         	}
 

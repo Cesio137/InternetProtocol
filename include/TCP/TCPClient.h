@@ -23,8 +23,10 @@ namespace InternetProtocol {
     	uint8_t getTimeout() const { return timeout; }
     	void setMaxAttemp(uint8_t value = 3) { maxAttemp = value; }
     	uint8_t getMaxAttemp() const { return timeout; }
-    	void setMaxBufferSize(int value = 1400) { maxBufferSize = value; }
-    	int getMaxBufferSize() const { return maxBufferSize; }
+    	void setMaxSendBufferSize(int value = 1400) { maxSendBufferSize = value; }
+    	int getMaxSendBufferSize() const { return maxSendBufferSize; }
+		void setMaxReceiveBufferSize(int value = 8192) { maxReceiveBufferSize = value; }
+    	int getMaxReceiveBufferSize() const { return maxReceiveBufferSize; }
     	void setSplitPackage(bool value = true) { splitBuffer = value; }
     	bool getSplitPackage() const { return splitBuffer; }
 
@@ -84,7 +86,8 @@ namespace InternetProtocol {
     	uint8_t timeout = 4;
     	uint8_t maxAttemp = 3;
     	bool splitBuffer = true;
-    	int maxBufferSize = 1400;
+    	int maxSendBufferSize = 1400;
+		int maxReceiveBufferSize = 8192;
 		FTcpMessage rbuffer;
 
         void runContextThread() {
@@ -145,6 +148,11 @@ namespace InternetProtocol {
 					onError(tcp.error_code.value(), tcp.error_code.message());
 				return;
 			}
+
+			rbuffer.rawData.clear();
+			if(rbuffer.rawData.size() != maxReceiveBufferSize)
+				rbuffer.rawData.resize(maxReceiveBufferSize);
+			
 			// The connection was successful;
             asio::async_read(tcp.socket, asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), asio::transfer_at_least(1),
 				std::bind(&TCPClient::read, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
@@ -156,7 +164,7 @@ namespace InternetProtocol {
 
     	void package_buffer(const std::vector<uint8_t>& buffer) {
 	        mutexBuffer.lock();
-            if (!splitBuffer || buffer.size() <= maxBufferSize) {
+            if (!splitBuffer || buffer.size() <= maxSendBufferSize) {
                 asio::async_write(tcp.socket, asio::buffer(buffer.data(), buffer.size()),
                     std::bind(&TCPClient::write, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
                 );
@@ -165,7 +173,7 @@ namespace InternetProtocol {
             }
 
             size_t buffer_offset = 0;
-            const size_t max_size = maxBufferSize - 1;
+            const size_t max_size = maxSendBufferSize - 1;
             while (buffer_offset < buffer.size()) {
                 size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
                 std::vector<uint8_t> sbuffer(buffer.begin() + buffer_offset, buffer.begin() + buffer_offset + package_size);
@@ -193,11 +201,17 @@ namespace InternetProtocol {
             if (error) {
                 if (onError)
                     onError(error.value(), error.message());
+				rbuffer.rawData.clear();
                 return;
             }
+			
             rbuffer.size = bytes_recvd;
             if (onMessageReceived)
                 onMessageReceived(bytes_recvd, rbuffer);
+
+			rbuffer.rawData.clear();
+			if(rbuffer.rawData.size() != maxReceiveBufferSize)
+				rbuffer.rawData.resize(maxReceiveBufferSize);
 
             asio::async_read(tcp.socket, asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), asio::transfer_at_least(1),
 				std::bind(&TCPClient::read, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
