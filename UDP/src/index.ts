@@ -11,9 +11,7 @@ server.on("message", (msg: Buffer, rinfo: dgram.RemoteInfo) => {
   console.log(`Client: ${rinfo.address}:${rinfo.port}`);
   console.log(`Message: ${msg}`);
 
-  const response: string = `Server: ${rinfo.address}:${
-    rinfo.port
-  } \nMessage: ${msg}`;
+  const response: string = `${msg}`;
   server.send(response, rinfo.port, rinfo.address, (error) => {
     if (error) {
       console.error(`Erro trying send message: ${error.message}`);
