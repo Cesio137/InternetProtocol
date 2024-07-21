@@ -54,6 +54,15 @@ namespace InternetProtocol {
             });
         }
 
+        void async_read() {
+            if (!isConnected())
+                return;
+
+            udp.socket.async_receive_from(asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), udp.endpoints,
+                std::bind(&UDPClient::receive_from, this, asio::placeholders::error, asio::placeholders::bytes_transferred)
+            );
+        }
+
         /*CONNECTION*/
         void connect() { 
             if (!pool)
@@ -64,13 +73,16 @@ namespace InternetProtocol {
 			});
         }
         bool isConnected() const { return udp.socket.is_open(); }
-        void close() {             
-            udp.context.stop(); 
-            udp.socket.close();
+        void close() {
+            udp.context.stop();
+            udp.socket.close(udp.error_code);
+            if (udp.error_code && onError) onError(udp.error_code.value(), udp.error_code.message());
+            if (onClose) onClose();
         }
 
         /*EVENTS*/
         std::function<void()> onConnected;
+        std::function<void()> onClose;
         std::function<void(int)> onConnectionRetry;
         std::function<void(std::size_t)> onMessageSent;
         std::function<void(int, const FUdpMessage)> onMessageReceived;

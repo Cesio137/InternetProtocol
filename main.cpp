@@ -1,8 +1,11 @@
 #include <iostream>
 #include <string>
+#include <UDP/UDPClient.h>
 #include <Websocket/WebsocketClient.h>
 #include <TCP/TCPClient.h>
 #include <UDP/UDPClient.h>
+
+#include "HTTP/HttpClient.h"
 
 using namespace InternetProtocol;
 
@@ -13,13 +16,16 @@ int main(int argc, char* argv[])
     client.onConnected = []() {
         std::cout << "Connected." << std::endl;
     };
-    client.onError = [](int code, const std::string& message) {
+    client.onError = [&](int code, const std::string& message) {
         std::cout << "Error code: " << code << std::endl;
         std::cout << "Error message: " << message << std::endl;
     };
-    client.onMessageReceived = [](int size, const FDataFrame message) {
+    client.onMessageReceived = [](int size, const FWsMessage message) {
         std::cout << "Message size: " << size << std::endl;
-        std::cout << "Message: " << message.toUTF8() << std::endl;
+        std::cout << "Message: " << message.payload.data() << std::endl;
+    };
+    client.onPongReceived = []() {
+        std::cout << "pong" << std::endl;
     };
     client.connect();
 
@@ -30,7 +36,10 @@ int main(int argc, char* argv[])
             client.close();
             break;
         }
-        client.send(str);
+        if (str == "ping")
+            client.sendPing();
+        else
+            client.send(str);
     }
 
     return 0;

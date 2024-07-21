@@ -129,7 +129,12 @@ namespace InternetProtocol {
 			return 0;
 		}
 
-		void cancelRequest() { tcp.context.stop(); }
+		void cancelRequest() {
+			tcp.context.stop();
+			tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both);
+			tcp.socket.close(tcp.error_code);
+			if (onRequestCanceled) onRequestCanceled();
+		}
 
 		/*MEMORY MANAGER*/
 		void clearRequest() { request.clear(); }
@@ -147,6 +152,7 @@ namespace InternetProtocol {
 		std::function<void(int)> onRequestWillRetry;
 		std::function<void(int, const std::string&)> onRequestFail;
 		std::function<void(int)> onResponseFail;
+		std::function<void()> onRequestCanceled;
 		
 	private:
 		std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(std::thread::hardware_concurrency());
@@ -183,7 +189,6 @@ namespace InternetProtocol {
 				std::bind(&HttpClient::resolve, this, asio::placeholders::error, asio::placeholders::results)
 			);				
 			tcp.context.run();
-			clearStreamBuffers();
 			if (tcp.error_code && maxAttemp > 0 && timeout > 0) {
 				uint8_t attemp = 0;
 				while(attemp < maxAttemp) {
@@ -207,6 +212,7 @@ namespace InternetProtocol {
 						break;
 				}
 			}
+			clearStreamBuffers();
 			mutexIO.unlock();
 		}
 

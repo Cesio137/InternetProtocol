@@ -20,45 +20,39 @@
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
-#include <asio/ts/buffer.hpp>
+#include <asio/buffer.hpp>
 #include <asio/ts/internet.hpp>
 
 namespace InternetProtocol
 {
-    enum class EVerb : uint8_t
+    /*UDP*/
+    struct FAsioUdp
     {
-        GET =       0,
-        POST =      1,
-        PUT =       2,
-        PATCH =     3,
-        DEL =       4,
-        COPY =      5,
-        HEAD =      6,
-        OPTIONS =   7,
-        LOCK =      8,
-        UNLOCK =    9,
-        PROPFIND = 10
+        FAsioUdp() : resolver(context), socket(context) {}
+        asio::error_code error_code;
+        asio::io_context context;
+        asio::ip::udp::socket socket;
+        asio::ip::udp::endpoint endpoints;
+        asio::ip::udp::resolver resolver;
+
+        FAsioUdp(const FAsioUdp& asio) : resolver(context), socket(context)
+        {
+            error_code = asio.error_code;
+            endpoints = asio.endpoints;
+        }
+
+        FAsioUdp& operator=(const FAsioUdp& asio)
+        {
+            if (this != &asio)
+            {
+                error_code = asio.error_code;
+                endpoints = asio.endpoints;
+            }
+            return *this;
+        }
     };
 
-    enum class EOpcode : uint8_t
-    {
-        FRAME_CON =             0x00,
-        TEXT_FRAME =            0x01,
-        BINARY_FRAME =          0x02,
-        NON_CONTROL_FRAMES =    0x03,
-        CONNECTION_CLOSE =      0x08,
-        PING =                  0x09,
-        PONG =                  0x0A,
-        FURTHER_FRAMES =        0x0B,
-    };
-
-    enum class ERSV : uint8_t
-    {
-        RSV1 = 0x40,
-        RSV2 = 0x20,
-        RSV3 = 0x10
-    };
-
+    /*TCP*/
     struct FAsioTcp
     {
         FAsioTcp() : resolver(context), socket(context) {}
@@ -85,32 +79,21 @@ namespace InternetProtocol
         }
     };
 
-    struct FAsioUdp
+    /*HTTP REQUEST*/
+    enum class EVerb : uint8_t
     {
-        FAsioUdp() : resolver(context), socket(context) {}
-        asio::error_code error_code;
-        asio::io_context context;
-        asio::ip::udp::socket socket;
-        asio::ip::udp::endpoint endpoints;
-        asio::ip::udp::resolver resolver;
-
-        FAsioUdp(const FAsioUdp& asio) : resolver(context), socket(context)
-        {
-            error_code = asio.error_code;
-            endpoints = asio.endpoints;
-        }
-
-        FAsioUdp& operator=(const FAsioUdp& asio)
-        {
-            if (this != &asio)
-            {
-                error_code = asio.error_code;
-                endpoints = asio.endpoints;
-            }
-            return *this;
-        }
+        GET =       0,
+        POST =      1,
+        PUT =       2,
+        PATCH =     3,
+        DEL =       4,
+        COPY =      5,
+        HEAD =      6,
+        OPTIONS =   7,
+        LOCK =      8,
+        UNLOCK =    9,
+        PROPFIND = 10
     };
-    
 
     struct FRequest
     {
@@ -152,7 +135,7 @@ namespace InternetProtocol
                 std::transform(values.begin(), values.end(), values.begin(), [this](const std::string& str) { return trimWhitespace(str); });
                 headers.insert_or_assign(key, values);
             }
-            
+
         }
 
         void setContent(const std::string& value) {
@@ -197,6 +180,46 @@ namespace InternetProtocol
 
             return std::string(start, end + 1);
         }
+    };
+
+    /*WEBSOCKET*/
+    enum class EOpcode : uint8_t
+    {
+        FRAME_CON =             0x00,
+        TEXT_FRAME =            0x01,
+        BINARY_FRAME =          0x02,
+        NON_CONTROL_FRAMES =    0x03,
+        CONNECTION_CLOSE =      0x08,
+        PING =                  0x09,
+        PONG =                  0x0A,
+        FURTHER_FRAMES =        0x0B,
+    };
+
+    enum class ERSV : uint8_t
+    {
+        RSV1 = 0x40,
+        RSV2 = 0x20,
+        RSV3 = 0x10
+    };
+
+    struct FDataFrame {
+        bool fin = true;
+        bool rsv1 = false;
+        bool rsv2 = false;
+        bool rsv3 = false;
+        bool mask = true;
+        EOpcode opcode = EOpcode::TEXT_FRAME;
+        size_t length = 0;
+        std::array<uint8_t, 4> masking_key;
+    };
+
+    struct FHandShake {
+        std::string path = "chat";
+        std::string version = "1.1";
+        std::string Sec_WebSocket_Key = "dGhlIHNhbXBsZSBub25jZQ==";
+        std::string origin = "client";
+        std::string Sec_WebSocket_Protocol = "chat, superchat";
+        std::string Sec_Websocket_Version = "13";
     };
 
 } // namespace Nanometro
