@@ -122,7 +122,8 @@ namespace InternetProtocol {
         /*EVENTS*/
         std::function<void()> onConnected;
     	std::function<void(int)> onConnectionRetry;
-    	std::function<void()> onClose;
+		std::function<void()> onClose;
+    	std::function<void()> onCloseNotify;
 		std::function<void(std::size_t)> onMessageSent;
         std::function<void(int, const FWsMessage)> onMessageReceived;
     	std::function<void()> onPongReceived;
@@ -372,7 +373,10 @@ namespace InternetProtocol {
         	if (rDataFrame.dataFrame.opcode == EOpcode::PONG) {
 				if (onPongReceived)
 					onPongReceived();
-        	} else {
+        	} else if (rDataFrame.dataFrame.opcode == EOpcode::CONNECTION_CLOSE) {
+				if (onCloseNotify)
+					onCloseNotify();
+			} else {
         		if (onMessageReceived)
 					onMessageReceived(bytes_recvd, rDataFrame);
         	}
