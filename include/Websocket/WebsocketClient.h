@@ -30,7 +30,7 @@ namespace InternetProtocol {
     	bool getSplitPackage() const { return splitBuffer; }
 		
 
-        /*handshake*/
+        /*HANDSHAKE*/
     	void setPath(const std::string& value = "chat") { handshake.path = value; }
     	std::string getPath() const { return handshake.path; }
     	void setVersion(const std::string& value = "1.1") { handshake.version = value; }
