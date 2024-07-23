@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <TCP/TCPClient.h>
 #include <Websocket/WebsocketClient.h>
 
 using namespace InternetProtocol;

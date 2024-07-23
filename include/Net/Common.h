@@ -23,6 +23,7 @@ namespace InternetProtocol {
         asio::ip::udp::socket socket;
         asio::ip::udp::endpoint endpoints;
         asio::ip::udp::resolver resolver;
+        uint8_t attemps_fail = 0;
 
         FAsioUdp(const FAsioUdp &asio) : resolver(context), socket(context) {
             error_code = asio.error_code;
@@ -48,6 +49,7 @@ namespace InternetProtocol {
         asio::ip::tcp::resolver resolver;
         asio::ip::tcp::resolver::results_type endpoints;
         asio::ip::tcp::socket socket;
+        uint8_t attemps_fail = 0;
 
         FAsioTcp(const FAsioTcp &asio) : resolver(context), socket(context) {
             error_code = asio.error_code;

@@ -19,12 +19,12 @@ namespace InternetProtocol {
     };
 
     struct FTcpMessage {
-        std::vector<std::byte> rawData;
+        std::vector<std::byte> raw_data;
 
         std::string toUTF8() const {
             std::string str;
             str.resize(size);
-            std::transform(rawData.begin(), rawData.end(), str.begin(),
+            std::transform(raw_data.begin(), raw_data.end(), str.begin(),
                            [](std::byte byte) { return static_cast<char>(byte); });
             return str;
         }
@@ -33,11 +33,11 @@ namespace InternetProtocol {
     };
 
     struct FWsMessage {
-        FDataFrame dataFrame;
+        FDataFrame data_frame;
         std::vector<std::byte> payload;
 
         std::string toUTF8() const {
-            if (dataFrame.opcode != EOpcode::TEXT_FRAME || dataFrame.opcode != EOpcode::BINARY_FRAME) {
+            if (data_frame.opcode != EOpcode::TEXT_FRAME || data_frame.opcode != EOpcode::BINARY_FRAME) {
                 std::string str;
                 str.resize(payload.size());
                 std::transform(payload.begin(), payload.end(), str.begin(),

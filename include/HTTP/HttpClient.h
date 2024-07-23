@@ -26,7 +26,7 @@ namespace InternetProtocol {
         std::string getHost() const { return host; }
         std::string getPort() const { return service; }
 
-        void setTimeout(uint8_t value = 4) { timeout = value; }
+        void setTimeout(uint8_t value = 3) { timeout = value; }
         uint8_t getTimeout() const { return timeout; }
 
         void setMaxAttemp(uint8_t value = 3) { maxAttemp = value; }
@@ -114,13 +114,10 @@ namespace InternetProtocol {
 
         /*CONNECTION*/
         int processRequest() {
-            if (!pool)
+            if (!pool && !payload.empty())
                 return -1;
 
-            asio::post(*pool, [this]() {
-                runContextThread();
-            });
-
+            asio::post(*pool, std::bind(&HttpClient::run_context_thread, this));
             return 0;
         }
 
@@ -128,6 +125,7 @@ namespace InternetProtocol {
             tcp.context.stop();
             tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both);
             tcp.socket.close(tcp.error_code);
+            if (tcp.error_code && onRequestFail) onRequestFail(tcp.error_code.value(), tcp.error_code.message());
             if (onRequestCanceled) onRequestCanceled();
         }
 
@@ -156,7 +154,7 @@ namespace InternetProtocol {
         std::mutex mutexIO;
         std::string host = "localhost";
         std::string service;
-        uint8_t timeout = 4;
+        uint8_t timeout = 3;
         uint8_t maxAttemp = 3;
         FRequest request;
         FAsioTcp tcp;
@@ -178,43 +176,26 @@ namespace InternetProtocol {
             {EVerb::PROPFIND, "PROPFIND"},
         };
 
-        void runContextThread() {
+        void run_context_thread() {
             mutexIO.lock();
-            tcp.context.restart();
-            tcp.resolver.async_resolve(getHost(), getPort(),
-                                       std::bind(&HttpClient::resolve, this, asio::placeholders::error,
-                                                 asio::placeholders::results)
-            );
-            tcp.context.run();
-            if (tcp.error_code && maxAttemp > 0 && timeout > 0) {
-                uint8_t attemp = 0;
-                while (attemp < maxAttemp) {
-                    if (onRequestWillRetry)
-                        onRequestWillRetry(attemp + 1);
-                    tcp.error_code.clear();
-                    tcp.context.restart();
-                    asio::steady_timer timer(tcp.context, asio::chrono::seconds(timeout));
-                    timer.async_wait([this](const std::error_code &error) {
-                        if (error) {
-                            if (onRequestFail)
-                                onRequestFail(tcp.error_code.value(), tcp.error_code.message());
-                        }
-                        tcp.resolver.async_resolve(getHost(), getPort(),
-                                                   std::bind(&HttpClient::resolve, this, asio::placeholders::error,
-                                                             asio::placeholders::results)
-                        );
-                    });
-                    tcp.context.run();
-                    attemp += 1;
-                    if (!tcp.error_code)
-                        break;
-                }
+            while (tcp.attemps_fail <= maxAttemp) {
+                if (onRequestWillRetry && tcp.attemps_fail > 0)
+                    onRequestWillRetry(tcp.attemps_fail);
+                tcp.error_code.clear();
+                tcp.context.restart();
+                tcp.resolver.async_resolve(getHost(), getPort(),
+                                           std::bind(&HttpClient::resolve, this, asio::placeholders::error,
+                                                     asio::placeholders::results));
+                tcp.context.run();
+                if (!tcp.error_code) break;
+                tcp.attemps_fail++;
+                std::this_thread::sleep_for(std::chrono::seconds(timeout));
             }
-            clearStreamBuffers();
+            consume_stream_buffers();
             mutexIO.unlock();
         }
 
-        void clearStreamBuffers() {
+        void consume_stream_buffers() {
             request_buffer.consume(request_buffer.size());
             response_buffer.consume(request_buffer.size());
         }
