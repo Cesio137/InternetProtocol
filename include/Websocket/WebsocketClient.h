@@ -168,7 +168,6 @@ namespace InternetProtocol {
                 sDataFrame.fin = true;
                 payload = str;
                 encode_string_payload(payload);
-                std::cout << payload << std::endl;
                 asio::async_write(tcp.socket, asio::buffer(payload.data(), payload.size()),
                                   std::bind(&WebsocketClient::write, this, asio::placeholders::error,
                                             asio::placeholders::bytes_transferred)
