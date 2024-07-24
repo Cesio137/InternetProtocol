@@ -37,7 +37,7 @@ namespace InternetProtocol {
             if (!pool && !isConnected() && !message.empty())
                 return;
 
-            asio::post(*pool, std::bind(&UDPClient::send, this, message));
+            asio::post(*pool, std::bind(&UDPClient::package_string, this, message));
         }
 
         void sendRaw(const std::vector<std::byte> &buffer) {
