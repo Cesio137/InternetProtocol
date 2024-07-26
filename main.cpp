@@ -1,22 +1,23 @@
 #include <iostream>
 #include <string>
-#include <UDP/UDPClient.h>
+#include <Websocket/WebsocketClient.h>
 
 using namespace InternetProtocol;
 
 int main(int argc, char *argv[]) {
-    UDPClient client;
+    WebsocketClient client;
     client.setHost("localhost", "3000");
-    client.onConnected = []() {
+    client.onConnected = [&]() {
         std::cout << "Connected." << std::endl;
+        client.send("Olá, mundo!");
     };
     client.onError = [&](const int code, const std::string &message) {
         std::cout << "Error code: " << code << std::endl;
         std::cout << "Error message: " << message << std::endl;
     };
-    client.onMessageReceived = [](const size_t bytes_recv, const FUdpMessage message) {
+    client.onMessageReceived = [](const size_t bytes_recv, const FWsMessage message) {
         std::cout << "Message size: " << bytes_recv << std::endl;
-        std::cout << "Message: " << message.toUTF8() << std::endl;
+        std::cout << "Message: " << message.toString() << std::endl;
     };
     client.connect();
 

@@ -9,6 +9,8 @@ namespace InternetProtocol {
         }
 
         ~UDPClient() {
+            udp.context.stop();
+            consume_receive_buffer();
         }
 
         /*HOST*/
@@ -25,10 +27,10 @@ namespace InternetProtocol {
         uint8_t getTimeout() const { return timeout; }
         void setMaxAttemp(uint8_t value = 3) { maxAttemp = value; }
         uint8_t getMaxAttemp() const { return timeout; }
-        void setSendMaxBufferSize(int value = 1024) { maxSendBufferSize = value; }
-        int getSendMaxBufferSize() const { return maxSendBufferSize; }
-        void setReceiveMaxBufferSize(int value = 1024) { maxReceiveBufferSize = value; }
-        int getReceiveMaxBufferSize() const { return maxReceiveBufferSize; }
+        void setMaxSendBufferSize(int value = 1024) { maxSendBufferSize = value; }
+        int getMaxSendBufferSize() const { return maxSendBufferSize; }
+        void setMaxReceiveBufferSize(int value = 1024) { maxReceiveBufferSize = value; }
+        int getMaxReceiveBufferSize() const { return maxReceiveBufferSize; }
         void setSplitPackage(bool value = true) { splitBuffer = value; }
         bool getSplitPackage() const { return splitBuffer; }
 
@@ -203,6 +205,7 @@ namespace InternetProtocol {
         void send_to(const std::error_code &error, const size_t bytes_sent) {
             if (error) {
                 udp.error_code = error;
+                if (onError) onError(error.value(), error.message());
                 return;
             }
 

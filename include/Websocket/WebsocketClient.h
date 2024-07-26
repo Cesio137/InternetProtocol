@@ -10,6 +10,8 @@ namespace InternetProtocol {
         }
 
         ~WebsocketClient() {
+            tcp.context.stop();
+            consume_response_buffer();
         }
 
         /*HOST*/
@@ -149,11 +151,10 @@ namespace InternetProtocol {
         void post_buffer(EOpcode opcode, const std::vector<std::byte> &buffer) {
             mutexBuffer.lock();
             sDataFrame.opcode = opcode;
-            std::vector<std::byte> p_buffer = buffer;
             if (opcode == EOpcode::BINARY_FRAME) {
-                package_buffer(p_buffer);
+                package_buffer(buffer);
             } else if (opcode == EOpcode::PING || opcode == EOpcode::PONG) {
-                p_buffer = buffer;
+                std::vector<std::byte> p_buffer = buffer;
                 encode_buffer_payload(p_buffer);
                 asio::async_write(tcp.socket, asio::buffer(p_buffer.data(), p_buffer.size()),
                                   std::bind(&WebsocketClient::write, this, asio::placeholders::error,
@@ -166,8 +167,7 @@ namespace InternetProtocol {
             std::string payload;
             if (!splitBuffer || str.size() + get_frame_encode_size(str.size()) <= maxSendBufferSize) {
                 sDataFrame.fin = true;
-                payload = str;
-                encode_string_payload(payload);
+                payload = encode_string_payload(str);
                 asio::async_write(tcp.socket, asio::buffer(payload.data(), payload.size()),
                                   std::bind(&WebsocketClient::write, this, asio::placeholders::error,
                                             asio::placeholders::bytes_transferred)
@@ -182,7 +182,7 @@ namespace InternetProtocol {
                 sDataFrame.fin = string_offset < str.size();
                 size_t package_size = std::min(max_size, str.size() - string_offset);
                 payload.assign(str.begin() + string_offset, str.begin() + string_offset + package_size);
-                encode_string_payload(payload);
+                payload = encode_string_payload(payload);
                 asio::async_write(tcp.socket, asio::buffer(payload, payload.size()),
                                   std::bind(&WebsocketClient::write, this, asio::placeholders::error,
                                             asio::placeholders::bytes_transferred)
@@ -192,7 +192,7 @@ namespace InternetProtocol {
             }
         }
 
-        void encode_string_payload(std::string &payload) {
+        std::string encode_string_payload(const std::string &payload) {
             std::string string_buffer;
             uint64_t payload_length = payload.size();
 
@@ -237,15 +237,14 @@ namespace InternetProtocol {
                 }
             }
 
-            payload = string_buffer;
+            return string_buffer;
         }
 
         void package_buffer(const std::vector<std::byte> &buffer) {
             std::vector<std::byte> payload;
             if (!splitBuffer || buffer.size() + get_frame_encode_size(buffer.size()) <= maxSendBufferSize) {
-                payload = buffer;
                 sDataFrame.fin = true;
-                encode_buffer_payload(payload);
+                payload = encode_buffer_payload(buffer);
                 asio::async_write(tcp.socket, asio::buffer(payload.data(), payload.size()),
                                   std::bind(&WebsocketClient::write, this, asio::placeholders::error,
                                             asio::placeholders::bytes_transferred)
@@ -270,7 +269,7 @@ namespace InternetProtocol {
             }
         }
 
-        void encode_buffer_payload(std::vector<std::byte> &payload) {
+        std::vector<std::byte> encode_buffer_payload(const std::vector<std::byte> &payload) {
             std::vector<std::byte> buffer;
             uint64_t payload_length = payload.size();
 
@@ -315,7 +314,7 @@ namespace InternetProtocol {
                 }
             }
 
-            payload = buffer;
+            return buffer;
         }
 
         size_t get_frame_encode_size(const size_t buffer_size) {
@@ -432,6 +431,7 @@ namespace InternetProtocol {
                     onError(tcp.error_code.value(), tcp.error_code.message());
                 return;
             }
+
             // Attempt a connection to each endpoint in the list until we
             // successfully establish a connection.
             tcp.endpoints = endpoints;
@@ -450,18 +450,18 @@ namespace InternetProtocol {
             }
 
             // The connection was successful;
-            std::stringstream request;
-            request << "GET /" + handshake.path + " HTTP/" + handshake.version + "\r\n";
-            request << "Host: " + host + "\r\n";
-            request << "Upgrade: websocket\r\n";
-            request << "Connection: Upgrade\r\n";
-            request << "Sec-WebSocket-Key: " + handshake.Sec_WebSocket_Key + "\r\n";
-            request << "Origin: " + handshake.origin + "\r\n";
-            request << "Sec-WebSocket-Protocol: " + handshake.Sec_WebSocket_Protocol + "\r\n";
-            request << "Sec-WebSocket-Version: " + handshake.Sec_Websocket_Version + "\r\n";
-            request << "\r\n";
+            std::string request;
+            request = "GET /" + handshake.path + " HTTP/" + handshake.version + "\r\n";
+            request += "Host: " + host + "\r\n";
+            request += "Upgrade: websocket\r\n";
+            request += "Connection: Upgrade\r\n";
+            request += "Sec-WebSocket-Key: " + handshake.Sec_WebSocket_Key + "\r\n";
+            request += "Origin: " + handshake.origin + "\r\n";
+            request += "Sec-WebSocket-Protocol: " + handshake.Sec_WebSocket_Protocol + "\r\n";
+            request += "Sec-WebSocket-Version: " + handshake.Sec_Websocket_Version + "\r\n";
+            request += "\r\n";
             std::ostream request_stream(&request_buffer);
-            request_stream << request.str();
+            request_stream << request;
             asio::async_write(tcp.socket, request_buffer,
                               std::bind(&WebsocketClient::write_handshake, this, asio::placeholders::error,
                                         asio::placeholders::bytes_transferred)
@@ -565,8 +565,8 @@ namespace InternetProtocol {
                     pong_buffer.push_back(std::byte('\0'));
                 post_buffer(EOpcode::PONG, pong_buffer);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
-                if (onCloseNotify)
-                    onCloseNotify();
+                if (onPongReceived)
+                    onPongReceived();
             } else if (rDataFrame.data_frame.opcode == EOpcode::CONNECTION_CLOSE) {
                 if (onCloseNotify)
                     onCloseNotify();

@@ -51,9 +51,13 @@ Master branch is a versatile console aplication to do quick tests with thirdpart
 
 ---
 
-- [ ] TCP server/client
+- [ ] TCP server
 
-- [ ] UDP server/client
+- [X] TCP client
+
+- [ ] UDP server
+
+- [X] UDP client
 
 - [ ] Http server
 
@@ -61,9 +65,9 @@ Master branch is a versatile console aplication to do quick tests with thirdpart
 
 - [ ] Websocket server
 
-- [ ] Async json read/writte for big datas.
+- [X] Websocket client
 
-- [ ] Openssl support
+- [ ] SSL support
 
 ## Setup Repository
 

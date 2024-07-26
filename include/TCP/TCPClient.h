@@ -9,6 +9,8 @@ namespace InternetProtocol {
         }
 
         ~TCPClient() {
+            tcp.context.stop();
+            consume_response_buffer();
         }
 
         /*HOST*/
@@ -199,7 +201,7 @@ namespace InternetProtocol {
             }
 
             // The connection was successful;
-            response_buffer.consume(asio::buffer_size(response_buffer.data()));
+            consume_response_buffer();
             asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
                              std::bind(&TCPClient::read, this, asio::placeholders::error,
                                        asio::placeholders::bytes_transferred)
@@ -227,7 +229,7 @@ namespace InternetProtocol {
             }
 
             FTcpMessage rbuffer;
-            rbuffer.size = asio::buffer_size(response_buffer.data());
+            rbuffer.size = response_buffer.size();
             rbuffer.raw_data.resize(rbuffer.size);
             asio::buffer_copy(asio::buffer(rbuffer.raw_data, rbuffer.size), response_buffer.data());
 

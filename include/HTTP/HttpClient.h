@@ -12,6 +12,7 @@ namespace InternetProtocol {
         }
 
         ~HttpClient() {
+            tcp.context.stop();
             clearRequest();
             clearPayload();
             clearResponse();
@@ -141,11 +142,11 @@ namespace InternetProtocol {
         /*EVENTS*/
         std::function<void()> onAsyncPayloadFinished;
         std::function<void(const FResponse)> onRequestComplete;
+        std::function<void()> onRequestCanceled;
         std::function<void(int, int)> onRequestProgress;
         std::function<void(int)> onRequestWillRetry;
         std::function<void(int, const std::string &)> onRequestFail;
         std::function<void(int)> onResponseFail;
-        std::function<void()> onRequestCanceled;
 
     private:
         std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(

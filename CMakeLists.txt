@@ -9,5 +9,4 @@ add_subdirectory(thirdparty)
 target_link_libraries(${CMAKE_PROJECT_NAME}
         PUBLIC
         asio
-        Simdjson
 )
