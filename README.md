@@ -24,33 +24,27 @@ This is a development branch to implement some experimental features before merg
 
 - [ ] Mac(Help Wanted)
 
-### Features
-
----
-
-- [x] Http client
-
-- [ ] Websocket client
-
-- [x] Json
-
 ### Roadmap
 
 ---
 
-- [ ] TCP server/client
+- [ ] TCP server
 
-- [ ] UDP server/client
+- [X] TCP client
+
+- [ ] UDP server
+
+- [X] UDP client
 
 - [ ] Http server
 
-- [ ] Http client
+- [X] Http client
 
 - [ ] Websocket server
 
-- [ ] Async json read/writte for big datas.
+- [X] Websocket client
 
-- [ ] Openssl support
+- [ ] SSL support
 
 ### Bug Reporting Template:
 ```

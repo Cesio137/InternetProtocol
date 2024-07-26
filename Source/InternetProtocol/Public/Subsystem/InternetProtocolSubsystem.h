@@ -4,8 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
-#include "Http/HttpClient.h"
 #include "UDP/UDPClient.h"
+#include "TCP/TCPClient.h"
+#include "Http/HttpClient.h"
+#include "Websockets/WebsocketClient.h"
 #include "InternetProtocolSubsystem.generated.h"
 
 /**
@@ -17,9 +19,15 @@ class INTERNETPROTOCOL_API UInternetProtocolSubsystem : public UWorldSubsystem
 	GENERATED_BODY()
 public:
 	UFUNCTION(BlueprintCallable, Category="IP")
+	UUDPClient* CreateUDPClient();
+
+	UFUNCTION(BlueprintCallable, Category="IP")
+	UTCPClient* CreateTcpClient();
+
+	UFUNCTION(BlueprintCallable, Category="IP")
 	UHttpClient* CreateHttpClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP")
-	UUDPClient* CreateUDPClient();
+	UWebsocketClient* CreateWebsocketClient();
 	
 };

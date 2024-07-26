@@ -48,9 +48,11 @@ struct FResponse
 	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
 	int ContentLength;
 
-	void appendHeader(const FString& headerline) {
+	void appendHeader(const FString& headerline)
+	{
 		int32 Pos;
-		if (headerline.FindChar(TEXT(':'), Pos)) {
+		if (headerline.FindChar(TEXT(':'), Pos))
+		{
 			FString key = trimWhitespace(headerline.Left(Pos));
 			FString value = trimWhitespace(headerline.Mid(Pos + 1));
 			if (key == "Content-Length")
@@ -62,26 +64,75 @@ struct FResponse
 		}
 	}
 
-	void setContent(const FString& value) {
+	void setContent(const FString& value)
+	{
 		if (value.IsEmpty())
+		{
 			return;
+		}
 		Content = value;
 	}
 
-	void appendContent(const FString& value) {
+	void appendContent(const FString& value)
+	{
 		Content.Append(value);
 	}
 
-	void clear() {
+	void clear()
+	{
 		Headers.Empty();
 		ContentLength = 0;
 		Content.Empty();
 	}
 
 private:
-	FString trimWhitespace(const FString& str) const {
+	FString trimWhitespace(const FString& str) const
+	{
 		FString Result = str;
 		Result.TrimStartAndEndInline();
 		return Result;
 	}
+};
+
+/*WEBSOCKET*/
+USTRUCT(Blueprintable, Category = "IP")
+struct FDataFrame
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	bool fin = true;
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	bool rsv1 = false;
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	bool rsv2 = false;
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	bool rsv3 = false;
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	bool mask = true;
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	EOpcode opcode = EOpcode::TEXT_FRAME;
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	int length = 0;
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	TArray<uint8> masking_key;
+};
+
+USTRUCT(Blueprintable, Category = "IP")
+struct FHandShake
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	FString path = "chat";
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	FString version = "1.1";
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	FString Sec_WebSocket_Key = "dGhlIHNhbXBsZSBub25jZQ==";
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	FString origin = "client";
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	FString Sec_WebSocket_Protocol = "chat, superchat";
+	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	FString Sec_Websocket_Version = "13";
 };
