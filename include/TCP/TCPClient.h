@@ -10,17 +10,39 @@ namespace InternetProtocol {
 
         ~TCPClient() {
             tcp.context.stop();
+            pool->stop();
             consume_response_buffer();
         }
 
-        /*HOST*/
+        /*HOST | LOCAL*/
         void setHost(const std::string &ip, const std::string &port) {
             host = ip;
             service = port;
         }
 
-        std::string getHost() const { return host; }
-        std::string getPort() const { return service; }
+        std::string getLocalAdress() const {
+            if (isConnected())
+                return tcp.socket.local_endpoint().address().to_string();
+            return "";
+        }
+
+        std::string getLocalPort() const {
+            if (isConnected())
+                return std::to_string(tcp.socket.local_endpoint().port());
+            return "";
+        }
+
+        std::string getRemoteAdress() const {
+            if (isConnected())
+                return tcp.socket.remote_endpoint().address().to_string();
+            return host;
+        }
+        
+        std::string getRemovePort() const {
+            if (isConnected())
+                return std::to_string(tcp.socket.remote_endpoint().port());
+            return service;
+        }
 
         /*SETTINGS*/
         void setTimeout(uint8_t value = 3) { timeout = value; }
@@ -33,36 +55,40 @@ namespace InternetProtocol {
         bool getSplitPackage() const { return splitBuffer; }
 
         /*MESSAGE*/
-        void send(const std::string &message) {
+        bool send(const std::string &message) {
             if (!pool && !isConnected() && !message.empty())
-                return;
+                return false;
 
             asio::post(*pool, std::bind(&TCPClient::package_string, this, message));
+            return true;
         }
 
-        void send_buffer(const std::vector<std::byte> &buffer) {
+        bool send_buffer(const std::vector<std::byte> &buffer) {
             if (!pool && !isConnected() && !buffer.empty())
-                return;
+                return false;;
 
             asio::post(*pool, std::bind(&TCPClient::package_buffer, this, buffer));
+            return true;
         }
 
-        void async_read() {
+        bool async_read() {
             if (!isConnected())
-                return;
+                return false;
 
             asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
                              std::bind(&TCPClient::read, this, asio::placeholders::error,
                                        asio::placeholders::bytes_transferred)
             );
+            return true;
         }
 
         /*CONNECTION*/
-        void connect() {
-            if (!pool)
-                return;
+         bool connect() {
+            if (!pool && !tcp.context.stopped() && isConnected())
+                return false;
 
             asio::post(*pool, std::bind(&TCPClient::run_context_thread, this));
+            return true;
         }
 
         bool isConnected() const { return tcp.socket.is_open(); }
@@ -73,6 +99,7 @@ namespace InternetProtocol {
             if (tcp.error_code && onError) onError(tcp.error_code.value(), tcp.error_code.message());
 
             tcp.socket.close(tcp.error_code);
+            pool->join();
             if (tcp.error_code && onError) onError(tcp.error_code.value(), tcp.error_code.message());
             if (onClose) onClose();
         }

@@ -10,17 +10,38 @@ namespace InternetProtocol {
 
         ~UDPClient() {
             udp.context.stop();
+            pool->stop();
             consume_receive_buffer();
         }
 
-        /*HOST*/
+        /*HOST | LOCAL*/
         void setHost(const std::string &ip, const std::string &port) {
             host = ip;
             service = port;
         }
 
-        std::string getHost() const { return host; }
-        std::string getPort() const { return service; }
+        std::string getLocalAdress() const {
+            if (isConnected())
+                return udp.socket.local_endpoint().address().to_string();
+            return "";
+        }
+
+        std::string getLocalPort() const {
+            if (isConnected())
+                return std::to_string(udp.socket.local_endpoint().port());
+            return "";
+        }
+
+        std::string getRemoteAdress() const {
+            if (isConnected())
+                return udp.socket.remote_endpoint().address().to_string();
+            return host;
+        }
+        std::string getRemovePort() const {
+            if (isConnected())
+                return std::to_string(udp.socket.remote_endpoint().port());
+            return service;
+        }
 
         /*SETTINGS*/
         void setTimeout(uint8_t value = 3) { timeout = value; }
@@ -35,35 +56,39 @@ namespace InternetProtocol {
         bool getSplitPackage() const { return splitBuffer; }
 
         /*MESSAGE*/
-        void send(const std::string &message) {
+        bool send(const std::string &message) {
             if (!pool && !isConnected() && !message.empty())
-                return;
+                return false;
 
             asio::post(*pool, std::bind(&UDPClient::package_string, this, message));
+            return true;
         }
 
-        void sendRaw(const std::vector<std::byte> &buffer) {
+        bool sendRaw(const std::vector<std::byte> &buffer) {
             if (!pool && !isConnected() && !buffer.empty())
-                return;
+                return false;
 
             asio::post(*pool, std::bind(&UDPClient::package_buffer, this, buffer));
+            return true;
         }
 
-        void async_read() {
+        bool async_read() {
             if (!isConnected())
-                return;
+                return false;
 
             udp.socket.async_receive_from(asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), udp.endpoints,
                                           std::bind(&UDPClient::receive_from, this, asio::placeholders::error,
                                                     asio::placeholders::bytes_transferred));
+            return true;
         }
 
         /*CONNECTION*/
-        void connect() {
-            if (!pool)
-                return;
+        bool connect() {
+            if (!pool && !udp.context.stopped() && isConnected())
+                return false;
 
             asio::post(*pool, std::bind(&UDPClient::run_context_thread, this));
+            return true;
         }
 
         bool isConnected() const { return udp.socket.is_open(); }
@@ -71,6 +96,7 @@ namespace InternetProtocol {
         void close() {
             udp.context.stop();
             udp.socket.close(udp.error_code);
+            pool->join();
             if (udp.error_code && onError)
                 onError(udp.error_code.value(), udp.error_code.message());
             if (onClose)

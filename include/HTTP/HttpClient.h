@@ -13,6 +13,7 @@ namespace InternetProtocol {
 
         ~HttpClient() {
             tcp.context.stop();
+            pool->stop();
             clearRequest();
             clearPayload();
             clearResponse();
@@ -114,18 +115,19 @@ namespace InternetProtocol {
         FResponse getResponseData() const { return response; }
 
         /*CONNECTION*/
-        int processRequest() {
-            if (!pool && !payload.empty())
-                return -1;
+        bool processRequest() {
+            if (!pool && tcp.socket.is_open() && !payload.empty())
+                return false;
 
             asio::post(*pool, std::bind(&HttpClient::run_context_thread, this));
-            return 0;
+            return true;
         }
 
         void cancelRequest() {
             tcp.context.stop();
             tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both);
             tcp.socket.close(tcp.error_code);
+            pool->join();
             if (tcp.error_code && onRequestFail) onRequestFail(tcp.error_code.value(), tcp.error_code.message());
             if (onRequestCanceled) onRequestCanceled();
         }
