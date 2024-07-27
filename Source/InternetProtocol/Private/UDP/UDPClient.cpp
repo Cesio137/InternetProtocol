@@ -26,7 +26,7 @@ bool UUDPClient::sendRaw(const TArray<uint8>& buffer)
 
 bool UUDPClient::connect()
 {
-	if (!pool && udp.context.stopped() && isConnected())
+	if (!pool && isConnected())
 	{
 		return false;
 	}
@@ -128,6 +128,8 @@ void UUDPClient::run_context_thread()
 		udp.attemps_fail++;
 		std::this_thread::sleep_for(std::chrono::seconds(timeout));
 	}
+	consume_receive_buffer();
+	udp.attemps_fail = 0;
 	mutexIO.unlock();
 }
 

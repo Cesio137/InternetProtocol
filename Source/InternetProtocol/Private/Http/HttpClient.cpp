@@ -67,7 +67,7 @@ bool UHttpClient::async_preparePayload()
 
 bool UHttpClient::processRequest()
 {
-	if (!pool.IsValid() && tcp.socket.is_open() && !payload.IsEmpty())
+	if (!pool.IsValid() && !payload.IsEmpty())
 	{
 		return false;
 	}
@@ -109,6 +109,7 @@ void UHttpClient::run_context_thread()
 		std::this_thread::sleep_for(std::chrono::seconds(timeout));
 	}
 	consume_stream_buffers();
+	tcp.attemps_fail = 0;
 	mutexIO.unlock();
 }
 

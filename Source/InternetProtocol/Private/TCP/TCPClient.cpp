@@ -26,7 +26,7 @@ bool UTCPClient::sendRaw(const TArray<uint8>& buffer)
 
 bool UTCPClient::connect()
 {
-	if (pool.IsValid() && !tcp.context.stopped() && isConnected())
+	if (pool.IsValid() && isConnected())
 	{
 		return false;
 	}
@@ -141,6 +141,7 @@ void UTCPClient::run_context_thread()
 		std::this_thread::sleep_for(std::chrono::seconds(timeout));
 	}
 	consume_response_buffer();
+	tcp.attemps_fail = 0;
 	mutexIO.unlock();
 }
 
