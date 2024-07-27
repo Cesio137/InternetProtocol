@@ -116,7 +116,7 @@ namespace InternetProtocol {
 
         /*CONNECTION*/
         bool processRequest() {
-            if (!pool && tcp.socket.is_open() && !payload.empty())
+            if (!pool && !payload.empty())
                 return false;
 
             asio::post(*pool, std::bind(&HttpClient::run_context_thread, this));

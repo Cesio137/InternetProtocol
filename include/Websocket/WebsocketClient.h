@@ -120,7 +120,7 @@ namespace InternetProtocol {
 
         /*CONNECTION*/
         bool connect() {
-            if (!pool && !tcp.context.stopped() && isConnected())
+            if (!pool && isConnected())
                 return false;
 
             asio::post(*pool, std::bind(&WebsocketClient::run_context_thread, this));
@@ -447,6 +447,8 @@ namespace InternetProtocol {
                 tcp.attemps_fail++;
                 std::this_thread::sleep_for(std::chrono::seconds(timeout));
             }
+            consume_response_buffer();
+            tcp.attemps_fail = 0;
             mutexIO.unlock();
         }
 

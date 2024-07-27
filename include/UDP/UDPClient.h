@@ -84,7 +84,7 @@ namespace InternetProtocol {
 
         /*CONNECTION*/
         bool connect() {
-            if (!pool && !udp.context.stopped() && isConnected())
+            if (!pool && isConnected())
                 return false;
 
             asio::post(*pool, std::bind(&UDPClient::run_context_thread, this));
@@ -199,6 +199,8 @@ namespace InternetProtocol {
                 udp.attemps_fail++;
                 std::this_thread::sleep_for(std::chrono::seconds(timeout));
             }
+            consume_receive_buffer();
+            udp.attemps_fail = 0;
             mutexIO.unlock();
         }
 
