@@ -41,6 +41,7 @@ public:
 	virtual ~UHttpClient() override
 	{
 		tcp.context.stop();
+		pool->stop();
 		clearRequest();
 		clearPayload();
 		clearResponse();
@@ -144,7 +145,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
 	void preparePayload();
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
-	int async_preparePayload();
+	bool async_preparePayload();
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Payload")
 	FString getPayloadData() const { return payload; }
 
@@ -154,7 +155,7 @@ public:
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
-	int processRequest();
+	bool processRequest();
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
 	void cancelRequest();

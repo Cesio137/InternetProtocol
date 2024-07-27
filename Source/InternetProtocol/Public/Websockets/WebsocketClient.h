@@ -35,21 +35,45 @@ public:
 	virtual ~UWebsocketClient() override
 	{
 		tcp.context.stop();
+		pool->stop();
+		consume_response_buffer();
 	}
 
 	/*HOST*/
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Host")
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Remote")
 	void setHost(const FString& url = "localhost", const FString& port = "")
 	{
 		host = url;
 		service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Host")
-	FString getHost() const { return host; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
+	FString getLocalAdress() const {
+		if (isConnected())
+			return UTF8_TO_TCHAR(tcp.socket.local_endpoint().address().to_string().c_str());
+		return "";
+	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Host")
-	FString getPort() const { return service; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
+	FString getLocalPort() const {
+		if (isConnected())
+			return FString::FromInt(tcp.socket.local_endpoint().port());
+		return "";
+	}
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
+	FString getRemoteAdress() const {
+		if (isConnected())
+			return UTF8_TO_TCHAR(tcp.socket.remote_endpoint().address().to_string().c_str());
+		return host;
+	}
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
+	FString getRemovePort() const {
+		if (isConnected())
+			return FString::FromInt(tcp.socket.remote_endpoint().port());
+		return service;
+	}
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
@@ -141,17 +165,17 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	void send(const FString& message);
+	bool send(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	void sendRaw(const TArray<uint8> buffer);
+	bool sendRaw(const TArray<uint8> buffer);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	void sendPing();
+	bool sendPing();
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	void asyncRead();
+	bool asyncRead();
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
-	void connect();
+	bool connect();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Connection")
 	bool isConnected() const { return tcp.socket.is_open(); }
 

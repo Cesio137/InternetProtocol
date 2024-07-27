@@ -2,34 +2,37 @@
 
 #include "TCP/TCPClient.h"
 
-void UTCPClient::send(const FString& message)
+bool UTCPClient::send(const FString& message)
 {
 	if (!pool && !isConnected() && message.IsEmpty())
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, [this, message]() { package_string(message); });
+	return true;
 }
 
-void UTCPClient::sendRaw(const TArray<uint8>& buffer)
+bool UTCPClient::sendRaw(const TArray<uint8>& buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() > 0)
+	if (!pool && !isConnected() && buffer.Num() <= 0)
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, [this, buffer]() { package_buffer(buffer); });
+	return true;
 }
 
-void UTCPClient::connect()
+bool UTCPClient::connect()
 {
-	if (pool.IsValid())
+	if (pool.IsValid() && !tcp.context.stopped() && isConnected())
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, std::bind(&UTCPClient::run_context_thread, this));
+	return true;
 }
 
 void UTCPClient::close()
@@ -42,6 +45,7 @@ void UTCPClient::close()
 	}
 
 	tcp.socket.close(tcp.error_code);
+	pool->join();
 	if (tcp.error_code)
 	{
 		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().data());

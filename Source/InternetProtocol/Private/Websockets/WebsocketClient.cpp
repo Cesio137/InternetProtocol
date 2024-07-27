@@ -2,50 +2,63 @@
 
 #include "Websockets/WebsocketClient.h"
 
-void UWebsocketClient::send(const FString& message)
+bool UWebsocketClient::send(const FString& message)
 {
 	if (!pool && !isConnected() && message.IsEmpty())
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, [this, message]() { package_string(message); });
+	return true;
 }
 
-void UWebsocketClient::sendRaw(const TArray<uint8> buffer)
+bool UWebsocketClient::sendRaw(const TArray<uint8> buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() > 0)
+	if (!pool && !isConnected() && buffer.Num() <= 0)
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, [this, buffer]() { package_buffer(buffer); });
+	return true;
 }
 
-void UWebsocketClient::sendPing()
+bool UWebsocketClient::sendPing()
 {
+	if (!pool && !isConnected())
+	{
+		return false;
+	}
+
+	TArray<uint8> ping_buffer;
+	ping_buffer.Add('\0');
+	asio::post(*pool, std::bind(&UWebsocketClient::post_buffer, this, EOpcode::PING, ping_buffer));
+	return true;
 }
 
-void UWebsocketClient::asyncRead()
+bool UWebsocketClient::asyncRead()
 {
 	if (!isConnected())
 	{
-		return;
+		return false;
 	}
 
 	asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(2),
 	                 std::bind(&UWebsocketClient::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred));
+	return true;
 }
 
-void UWebsocketClient::connect()
+bool UWebsocketClient::connect()
 {
-	if (!pool && !isConnected())
+	if (!pool && !tcp.context.stopped() && !isConnected())
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, std::bind(&UWebsocketClient::run_context_thread, this));
+	return true;
 }
 
 void UWebsocketClient::close()
@@ -58,6 +71,7 @@ void UWebsocketClient::close()
 	}
 
 	tcp.socket.close(tcp.error_code);
+	pool->join();
 	if (tcp.error_code)
 	{
 		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());

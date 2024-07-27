@@ -32,24 +32,48 @@ public:
 	{
 	}
 
-	virtual ~UTCPClient() override
+	~UTCPClient()
 	{
 		tcp.context.stop();
+		pool->stop();
+		consume_response_buffer();
 	}
 
 	/*HOST*/
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Host")
+	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Remote")
 	void setHost(const FString& ip, const FString& port)
 	{
 		host = ip;
 		service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Host")
-	FString getHost() const { return host; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
+	FString getLocalAdress() const {
+		if (isConnected())
+			return UTF8_TO_TCHAR(tcp.socket.local_endpoint().address().to_string().c_str());
+		return "";
+	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Host")
-	FString getPort() const { return service; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
+	FString getLocalPort() const {
+		if (isConnected())
+			return FString::FromInt(tcp.socket.local_endpoint().port());
+		return "";
+	}
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
+	FString getRemoteAdress() const {
+		if (isConnected())
+			return UTF8_TO_TCHAR(tcp.socket.remote_endpoint().address().to_string().c_str());
+		return host;
+	}
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
+	FString getRemovePort() const {
+		if (isConnected())
+			return FString::FromInt(tcp.socket.remote_endpoint().port());
+		return service;
+	}
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
@@ -78,13 +102,13 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	void send(const FString& message);
+	bool send(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	void sendRaw(const TArray<uint8>& buffer);
+	bool sendRaw(const TArray<uint8>& buffer);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")
-	void connect();
+	bool connect();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Connection")
 	bool isConnected() const { return tcp.socket.is_open(); }
 

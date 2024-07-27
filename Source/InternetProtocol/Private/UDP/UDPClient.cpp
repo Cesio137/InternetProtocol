@@ -2,40 +2,44 @@
 
 #include "UDP/UDPClient.h"
 
-void UUDPClient::send(const FString& message)
+bool UUDPClient::send(const FString& message)
 {
 	if (!pool && !isConnected() && !message.IsEmpty())
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, [this, message]() { package_string(message); });
+	return true;
 }
 
-void UUDPClient::sendRaw(const TArray<uint8>& buffer)
+bool UUDPClient::sendRaw(const TArray<uint8>& buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() > 0)
+	if (!pool && !isConnected() && buffer.Num() <= 0)
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, [this, buffer]() { package_buffer(buffer); });
+	return true;
 }
 
-void UUDPClient::connect()
+bool UUDPClient::connect()
 {
-	if (!pool && udp.context.stopped())
+	if (!pool && udp.context.stopped() && isConnected())
 	{
-		return;
+		return false;
 	}
 
 	asio::post(*pool, std::bind(&UUDPClient::run_context_thread, this));
+	return true;
 }
 
 void UUDPClient::close()
 {
 	udp.context.stop();
 	udp.socket.close(udp.error_code);
+	pool->join();
 	if (udp.error_code)
 	{
 		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().data());

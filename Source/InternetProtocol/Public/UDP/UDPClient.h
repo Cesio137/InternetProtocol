@@ -35,21 +35,45 @@ public:
 	virtual ~UUDPClient() override
 	{
 		udp.context.stop();
+		pool->stop();
+		consume_receive_buffer();
 	}
 
 	/*HOST*/
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Host")
+	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Remote")
 	void setHost(const FString& ip, const FString& port)
 	{
 		host = ip;
 		service = port;
 	}
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
+	FString getLocalAdress() const {
+		if (isConnected())
+			return UTF8_TO_TCHAR(udp.socket.local_endpoint().address().to_string().c_str());
+		return "";
+	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Host")
-	FString getHost() const { return host; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
+	FString getLocalPort() const {
+		if (isConnected())
+			return FString::FromInt(udp.socket.local_endpoint().port());
+		return "";
+	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Host")
-	FString getPort() const { return service; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
+	FString getRemoteAdress() const {
+		if (isConnected())
+			return UTF8_TO_TCHAR(udp.socket.remote_endpoint().address().to_string().c_str());
+		return host;
+	}
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
+	FString getRemovePort() const {
+		if (isConnected())
+			return FString::FromInt(udp.socket.remote_endpoint().port());
+		return service;
+	}
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
@@ -84,14 +108,14 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	void send(const FString& message);
+	bool send(const FString& message);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	void sendRaw(const TArray<uint8>& buffer);
+	bool sendRaw(const TArray<uint8>& buffer);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
-	void connect();
+	bool connect();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Connection")
 	bool isConnected() const { return udp.socket.is_open(); }
 

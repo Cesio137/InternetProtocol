@@ -47,11 +47,11 @@ void UHttpClient::preparePayload()
 	}
 }
 
-int UHttpClient::async_preparePayload()
+bool UHttpClient::async_preparePayload()
 {
 	if (!pool.IsValid())
 	{
-		return -1;
+		return false;
 	}
 
 	asio::post(*pool, [this]()
@@ -62,18 +62,18 @@ int UHttpClient::async_preparePayload()
 		mutexPayload.unlock();
 	});
 
-	return 0;
+	return true;
 }
 
-int UHttpClient::processRequest()
+bool UHttpClient::processRequest()
 {
-	if (!pool.IsValid() && !payload.IsEmpty())
+	if (!pool.IsValid() && tcp.socket.is_open() && !payload.IsEmpty())
 	{
-		return -1;
+		return false;
 	}
 
 	asio::post(*pool, std::bind(&UHttpClient::run_context_thread, this));
-	return 0;
+	return true;
 }
 
 void UHttpClient::cancelRequest()
@@ -81,6 +81,7 @@ void UHttpClient::cancelRequest()
 	tcp.context.stop();
 	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both);
 	tcp.socket.close(tcp.error_code);
+	pool->join();
 	OnRequestCanceled.Broadcast();
 }
 
