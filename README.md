@@ -1,6 +1,6 @@
-# InternetProtocol CLI
+# InternetProtocol 
 
-Master branch is a versatile console aplication to do quick tests with thirdparty libraries before make port to the unreal-dev branch. It can also be used as a header-only library to integrate into other projects.
+InternetProtocol is a versatile header only library to use with C++ 17 projects. You can also find the port for unreal in the unreal-dev branch.
 
 ## Sponsor me
 
@@ -27,15 +27,13 @@ Master branch is a versatile console aplication to do quick tests with thirdpart
 
 - [Git](https://git-scm.com)
 
-- [CMake 3.25 or above](https://cmake.org/download/)
-
-- [VCPKG](https://vcpkg.io/en/)
+- [CMake 3.20 or above](https://cmake.org/download/)
 
 - Windows only
-  - Build With Visual Studio 2022
-    - [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/)
+  - Build With Visual Studio 2019/2022 is more recommended
+    - [Visual Studio](https://visualstudio.microsoft.com/downloads/)
     - 👇 Install the following workloads:
-    - Game Development with C++
+    - Desktop development with C++ ```Visual studio```'
     - MSVC v142 or above | x64/x86
     - C++ 2015/2022 redistributable update
 
@@ -69,6 +67,14 @@ Master branch is a versatile console aplication to do quick tests with thirdpart
 
 - [ ] SSL support
 
+## How to use
+
+- Clone the repository or download a stable tag release.
+
+- Copy content inside include folder to your project.
+
+- Add [ASIO NON-BOOST](https://sourceforge.net/projects/asio/files/asio/) header to your project.
+
 ## Setup Repository
 
 ---
@@ -77,39 +83,16 @@ Master branch is a versatile console aplication to do quick tests with thirdpart
 git clone https://github.com/Cesio137/InternetProtocol.git
 ```
 
-## Building the Engine
+## Setup project
 
 ---
 
-#### Setup Enviroment Variables
-VCPKG_ROOT
-* Setup VCPKG  
-  * Create a variable called `VCPKG_ROOT` if do not exist:
-    * ```Path
-      <Path to VCPKG>/x.x.x/
-      ```
-
-#### Windows
-
 * Setup Project.
   * Create a `build` folder and open terminal inside.
   * Commands to generate project
     * ```bash
-      cmake .. --preset=Windows_Debug-x64
-      cmake .. --preset=Windows_Release-x64
-      ```
-
-#### Linux
-
-* Setup Project.
-  
-  * Create a `build` folder and open terminal inside.
-  
-  * Commands to generate project
-    
-    * ```bash
-      cmake .. --preset=Unix_Debug-x64
-      cmake .. --preset=Unix_Release-x64
+      cmake .. --preset=debug
+      cmake .. --preset=release
       ``` 
 
 ### Bug Reporting Template:

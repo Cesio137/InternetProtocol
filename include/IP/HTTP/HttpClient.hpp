@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Net/Common.h>
+#include <IP/Net/Common.hpp>
 
 namespace InternetProtocol {
     class HttpClient {
@@ -50,13 +50,13 @@ namespace InternetProtocol {
         void appendParams(const std::string &key, const std::string &value) { request.params[key] = value; }
         void clearParams() { request.params.clear(); }
         void removeParam(const std::string &key) { request.params.erase(key); }
-        bool hasParam(const std::string &key) const { return request.params.contains(key); }
+        bool hasParam(const std::string &key) const { return request.params.find(key) != request.params.end(); }
         std::map<std::string, std::string> getParams() const { return request.params; }
 
         void AppendHeaders(const std::string &key, const std::string &value) { request.headers[key] = value; }
         void ClearHeaders() { request.headers.clear(); }
         void RemoveHeader(const std::string &key) { request.headers.erase(key); }
-        bool hasHeader(const std::string &key) const { return request.headers.contains(key); }
+        bool hasHeader(const std::string &key) const { return request.headers.find(key) != request.headers.end(); }
         std::map<std::string, std::string> GetHeaders() const { return request.headers; }
 
         void SetBody(const std::string &value) { request.body = value; }

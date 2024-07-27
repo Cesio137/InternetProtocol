@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Net/Common.h"
+#include <IP/Net/Common.hpp>
 
 namespace InternetProtocol {
     struct FUdpMessage {

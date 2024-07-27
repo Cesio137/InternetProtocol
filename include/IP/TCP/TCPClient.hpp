@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Net/Message.h>
+#include <IP/Net/Message.hpp>
 
 namespace InternetProtocol {
     class TCPClient {
