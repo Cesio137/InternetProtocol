@@ -204,7 +204,7 @@ namespace InternetProtocol {
             mutexIO.unlock();
         }
 
-        void resolve(const std::error_code &error, asio::ip::udp::resolver::results_type results) {
+        void resolve(const std::error_code &error, const asio::ip::udp::resolver::results_type& results) {
             if (error) {
                 udp.error_code = error;
                 if (onError) onError(error.value(), error.message());

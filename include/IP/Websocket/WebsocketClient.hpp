@@ -496,7 +496,7 @@ namespace InternetProtocol {
             );
         }
 
-        void write_handshake(const std::error_code &error, const std::size_t bytes_sent) {
+        void write_handshake(const std::error_code &error, const size_t bytes_sent) {
             if (error) {
                 tcp.error_code = error;
                 if (onError)
@@ -512,7 +512,7 @@ namespace InternetProtocol {
             );
         }
 
-        void read_handshake(const std::error_code &error, const std::size_t bytes_sent, std::size_t bytes_recvd) {
+        void read_handshake(const std::error_code &error, const size_t bytes_sent, size_t bytes_recvd) {
             if (error) {
                 tcp.error_code = error;
                 if (onError)
