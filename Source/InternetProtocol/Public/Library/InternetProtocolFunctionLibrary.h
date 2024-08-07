@@ -16,7 +16,7 @@ class INTERNETPROTOCOL_API UInternetProtocolFunctionLibrary : public UBlueprintF
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP||UDP||Message")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP||Buffer")
 	static FString toString(const TArray<uint8>& value);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP||HTTP||Response")

@@ -145,7 +145,7 @@ void UHttpClient::connect(const std::error_code& error)
 	);
 }
 
-void UHttpClient::write_request(const std::error_code& error, std::size_t bytes_sent)
+void UHttpClient::write_request(const std::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
@@ -163,7 +163,7 @@ void UHttpClient::write_request(const std::error_code& error, std::size_t bytes_
 	);
 }
 
-void UHttpClient::read_status_line(const std::error_code& error, std::size_t bytes_sent, std::size_t bytes_recvd)
+void UHttpClient::read_status_line(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd)
 {
 	if (error)
 	{

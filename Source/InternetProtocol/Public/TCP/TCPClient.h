@@ -61,15 +61,15 @@ public:
 		return "";
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
 	FString getRemoteAdress() const {
 		if (isConnected())
 			return UTF8_TO_TCHAR(tcp.socket.remote_endpoint().address().to_string().c_str());
 		return host;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
-	FString getRemovePort() const {
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
+	FString getRemotePort() const {
 		if (isConnected())
 			return FString::FromInt(tcp.socket.remote_endpoint().port());
 		return service;
@@ -89,10 +89,10 @@ public:
 	uint8 getMaxAttemp() const { return timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
-	void setMaxBufferSize(int value = 1400) { maxSendBufferSize = value; }
+	void setMaxSendBufferSize(int value = 1400) { maxSendBufferSize = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Settings")
-	int getMaxBufferSize() const { return maxSendBufferSize; }
+	int getMaxSendBufferSize() const { return maxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
 	void setSplitPackage(bool value = true) { splitBuffer = value; }

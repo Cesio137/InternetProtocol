@@ -61,14 +61,14 @@ public:
 		return "";
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
 	FString getRemoteAdress() const {
 		if (isConnected())
 			return UTF8_TO_TCHAR(tcp.socket.remote_endpoint().address().to_string().c_str());
 		return host;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
 	FString getRemovePort() const {
 		if (isConnected())
 			return FString::FromInt(tcp.socket.remote_endpoint().port());
@@ -174,12 +174,12 @@ public:
 	bool asyncRead();
 
 	/*CONNECTION*/
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
 	bool connect();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Connection")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Connection")
 	bool isConnected() const { return tcp.socket.is_open(); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
 	void close();
 
 	/*EVENTS*/
@@ -235,8 +235,8 @@ private:
 	void run_context_thread();
 	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
 	void conn(const std::error_code& error);
-	void write_handshake(const std::error_code& error, const std::size_t bytes_sent);
-	void read_handshake(const std::error_code& error, const std::size_t bytes_sent, std::size_t bytes_recvd);
+	void write_handshake(const std::error_code& error, const size_t bytes_sent);
+	void read_handshake(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd);
 	void consume_header_buffer(const std::error_code& error);
 	void write(const std::error_code& error, const size_t bytes_sent);
 	void read(const std::error_code& error, const size_t bytes_recvd);

@@ -69,7 +69,7 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	FString getRemovePort() const {
+	FString getRemotePort() const {
 		if (isConnected())
 			return FString::FromInt(udp.socket.remote_endpoint().port());
 		return service;
@@ -167,7 +167,7 @@ private:
 	}
 
 	void run_context_thread();
-	void resolve(const std::error_code& error, asio::ip::udp::resolver::results_type results);
+	void resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type &results);
 	void conn(const std::error_code& error);
 	void send_to(const std::error_code& error, const size_t bytes_sent);
 	void receive_from(const std::error_code& error, const size_t bytes_recvd);

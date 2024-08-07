@@ -133,7 +133,7 @@ void UUDPClient::run_context_thread()
 	mutexIO.unlock();
 }
 
-void UUDPClient::resolve(const std::error_code& error, asio::ip::udp::resolver::results_type results)
+void UUDPClient::resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type &results)
 {
 	if (error)
 	{

@@ -494,7 +494,7 @@ void UWebsocketClient::conn(const std::error_code& error)
 	                            asio::placeholders::bytes_transferred));
 }
 
-void UWebsocketClient::write_handshake(const std::error_code& error, const std::size_t bytes_sent)
+void UWebsocketClient::write_handshake(const std::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
@@ -511,8 +511,8 @@ void UWebsocketClient::write_handshake(const std::error_code& error, const std::
 	                                 bytes_sent, asio::placeholders::bytes_transferred));
 }
 
-void UWebsocketClient::read_handshake(const std::error_code& error, const std::size_t bytes_sent,
-                                      std::size_t bytes_recvd)
+void UWebsocketClient::read_handshake(const std::error_code& error, const size_t bytes_sent,
+                                      const size_t bytes_recvd)
 {
 	if (error)
 	{

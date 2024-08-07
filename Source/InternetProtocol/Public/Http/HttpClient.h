@@ -150,7 +150,7 @@ public:
 	FString getPayloadData() const { return payload; }
 
 	/*RESPONSE DATA*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Payload")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Response")
 	FResponse getResponseData() const { return response; }
 
 	/*CONNECTION*/
@@ -188,6 +188,7 @@ public:
 	FDelegateRequestRetry OnRequestWillRetry;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequestError OnRequestError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateRequest OnRequestCanceled;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
 	FDelegateResponseError OnResponseError;
@@ -229,8 +230,8 @@ private:
 	void run_context_thread();
 	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
 	void connect(const std::error_code& error);
-	void write_request(const std::error_code& error, std::size_t bytes_sent);
-	void read_status_line(const std::error_code& error, std::size_t bytes_sent, std::size_t bytes_recvd);
+	void write_request(const std::error_code& error, const size_t bytes_sent);
+	void read_status_line(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd);
 	void read_headers(const std::error_code& error);
 	void read_content(const std::error_code& error);
 };
