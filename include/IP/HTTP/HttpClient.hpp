@@ -145,10 +145,10 @@ namespace InternetProtocol {
         std::function<void()> onAsyncPayloadFinished;
         std::function<void(const FResponse)> onRequestComplete;
         std::function<void()> onRequestCanceled;
-        std::function<void(int, int)> onRequestProgress;
-        std::function<void(int)> onRequestWillRetry;
-        std::function<void(int, const std::string &)> onRequestFail;
-        std::function<void(int)> onResponseFail;
+        std::function<void(const size_t, const size_t)> onRequestProgress;
+        std::function<void(const int)> onRequestWillRetry;
+        std::function<void(const int, const std::string &)> onRequestFail;
+        std::function<void(const int)> onResponseFail;
 
     private:
         std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(

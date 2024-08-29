@@ -142,13 +142,13 @@ namespace InternetProtocol {
 
         /*EVENTS*/
         std::function<void()> onConnected;
-        std::function<void(int)> onConnectionRetry;
+        std::function<void(const int)> onConnectionRetry;
         std::function<void()> onClose;
         std::function<void()> onCloseNotify;
-        std::function<void(std::size_t)> onMessageSent;
-        std::function<void(int, const FWsMessage)> onMessageReceived;
+        std::function<void(const size_t)> onMessageSent;
+        std::function<void(const size_t, const FWsMessage)> onMessageReceived;
         std::function<void()> onPongReceived;
-        std::function<void(int, const std::string &)> onError;
+        std::function<void(const int, const std::string &)> onError;
 
     private:
         std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(
