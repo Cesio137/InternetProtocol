@@ -48,30 +48,42 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString getLocalAdress() const {
+	FString getLocalAdress() const
+	{
 		if (isConnected())
+		{
 			return UTF8_TO_TCHAR(tcp.socket.local_endpoint().address().to_string().c_str());
+		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString getLocalPort() const {
+	FString getLocalPort() const
+	{
 		if (isConnected())
+		{
 			return FString::FromInt(tcp.socket.local_endpoint().port());
+		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString getRemoteAdress() const {
+	FString getRemoteAdress() const
+	{
 		if (isConnected())
+		{
 			return UTF8_TO_TCHAR(tcp.socket.remote_endpoint().address().to_string().c_str());
+		}
 		return host;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString getRemovePort() const {
+	FString getRemovePort() const
+	{
 		if (isConnected())
+		{
 			return FString::FromInt(tcp.socket.remote_endpoint().port());
+		}
 		return service;
 	}
 

@@ -105,6 +105,8 @@ public:
 	bool send(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
 	bool sendRaw(const TArray<uint8>& buffer);
+	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
+	bool asyncRead();
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")

@@ -24,6 +24,19 @@ bool UTCPClient::sendRaw(const TArray<uint8>& buffer)
 	return true;
 }
 
+bool UTCPClient::asyncRead()
+{
+	if (!isConnected())
+	{
+		return false;
+	}
+
+	asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(2),
+					 std::bind(&UTCPClient::read, this, asio::placeholders::error,
+							   asio::placeholders::bytes_transferred));
+	return true;
+}
+
 bool UTCPClient::connect()
 {
 	if (pool.IsValid() && isConnected())

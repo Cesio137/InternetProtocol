@@ -113,6 +113,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
 	bool sendRaw(const TArray<uint8>& buffer);
 
+	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
+	bool asyncRead();
+
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
 	bool connect();

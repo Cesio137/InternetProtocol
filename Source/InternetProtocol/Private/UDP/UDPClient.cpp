@@ -24,6 +24,20 @@ bool UUDPClient::sendRaw(const TArray<uint8>& buffer)
 	return true;
 }
 
+bool UUDPClient::asyncRead()
+{
+	if (!isConnected())
+	{
+		return false;
+	}
+
+	udp.socket.async_receive_from(asio::buffer(rbuffer.RawData.GetData(), rbuffer.RawData.Num()), udp.endpoints,
+								  std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
+											asio::placeholders::bytes_transferred)
+	);
+	return true;
+}
+
 bool UUDPClient::connect()
 {
 	if (!pool && isConnected())
