@@ -78,7 +78,7 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString getRemovePort() const
+	FString getRemotePort() const
 	{
 		if (isConnected())
 		{
@@ -193,6 +193,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
 	void close();
+
+	/*ERRORS*/
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
+	int getErrorCode() const { return tcp.error_code.value(); }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
+	FString getErrorMessage() const { return tcp.error_code.message().data(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
