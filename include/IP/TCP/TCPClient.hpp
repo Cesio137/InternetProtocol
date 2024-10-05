@@ -37,7 +37,7 @@ namespace InternetProtocol {
                 return tcp.socket.remote_endpoint().address().to_string();
             return host;
         }
-        
+
         std::string getRemotePort() const {
             if (isConnected())
                 return std::to_string(tcp.socket.remote_endpoint().port());
@@ -83,7 +83,7 @@ namespace InternetProtocol {
         }
 
         /*CONNECTION*/
-         bool connect() {
+        bool connect() {
             if (!pool && isConnected())
                 return false;
 
@@ -271,15 +271,13 @@ namespace InternetProtocol {
             );
         }
     };
-    class TCPClientSsl
-    {
+
+    class TCPClientSsl {
     public:
-        TCPClientSsl()
-        {
+        TCPClientSsl() {
         }
 
-        ~TCPClientSsl()
-        {
+        ~TCPClientSsl() {
             tcp.context.stop();
             pool->stop();
             consume_response_buffer();
@@ -308,7 +306,7 @@ namespace InternetProtocol {
                 return tcp.ssl_socket.lowest_layer().remote_endpoint().address().to_string();
             return host;
         }
-        
+
         std::string getRemotePort() const {
             if (isConnected())
                 return std::to_string(tcp.ssl_socket.lowest_layer().remote_endpoint().port());
@@ -335,6 +333,7 @@ namespace InternetProtocol {
             }
             return isCALoaded;
         }
+
         bool hasCA() const { return isCALoaded; }
 
         /*MESSAGE*/
@@ -366,7 +365,7 @@ namespace InternetProtocol {
         }
 
         /*CONNECTION*/
-         bool connect() {
+        bool connect() {
             if (!pool && isConnected() && !isCALoaded)
                 return false;
 
@@ -498,8 +497,8 @@ namespace InternetProtocol {
             // Attempt a connection to each endpoint in the list until we
             // successfully establish a connection.
             tcp.endpoints = endpoints;
-            tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client, std::bind(&TCPClientSsl::ssl_handshake, this, asio::placeholders::error));
-
+            tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
+                                           std::bind(&TCPClientSsl::ssl_handshake, this, asio::placeholders::error));
         }
 
         void ssl_handshake(const std::error_code &error) {

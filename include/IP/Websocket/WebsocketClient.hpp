@@ -38,7 +38,7 @@ namespace InternetProtocol {
                 return tcp.socket.remote_endpoint().address().to_string();
             return host;
         }
-        
+
         std::string getRemotePort() const {
             if (isConnected())
                 return std::to_string(tcp.socket.remote_endpoint().port());
@@ -610,6 +610,7 @@ namespace InternetProtocol {
             );
         }
     };
+
     class WebsocketClientSsl {
     public:
         WebsocketClientSsl() {
@@ -696,6 +697,7 @@ namespace InternetProtocol {
             }
             return isCALoaded;
         }
+
         bool hasCA() const { return isCALoaded; }
 
         /*MESSAGE*/
@@ -1082,7 +1084,18 @@ namespace InternetProtocol {
             // Attempt a connection to each endpoint in the list until we
             // successfully establish a connection.
             tcp.endpoints = endpoints;
+            tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
+                                           std::bind(&WebsocketClientSsl::ssl_handshake, this,
+                                                     asio::placeholders::error));
+        }
 
+        void ssl_handshake(const std::error_code &error) {
+            if (error) {
+                tcp.error_code = error;
+                if (onError)
+                    onError(tcp.error_code.value(), tcp.error_code.message());
+                return;
+            }
             asio::async_connect(tcp.ssl_socket.lowest_layer(), tcp.endpoints,
                                 std::bind(&WebsocketClientSsl::conn, this, asio::placeholders::error)
             );
@@ -1160,7 +1173,8 @@ namespace InternetProtocol {
             }
 
             asio::async_read_until(tcp.ssl_socket.lowest_layer(), response_buffer, "\r\n\r\n",
-                                   std::bind(&WebsocketClientSsl::consume_header_buffer, this, asio::placeholders::error)
+                                   std::bind(&WebsocketClientSsl::consume_header_buffer, this,
+                                             asio::placeholders::error)
             );
         }
 

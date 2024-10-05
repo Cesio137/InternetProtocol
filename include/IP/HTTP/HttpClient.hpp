@@ -334,6 +334,7 @@ namespace InternetProtocol {
             );
         }
     };
+
     class HttpClientSsl {
     public:
         HttpClientSsl() {
@@ -406,6 +407,7 @@ namespace InternetProtocol {
             }
             return isCALoaded;
         }
+
         bool hasCA() const { return isCALoaded; }
 
         /*PAYLOAD*/
@@ -557,7 +559,8 @@ namespace InternetProtocol {
             // Attempt a connection to each endpoint in the list until we
             // successfully establish a connection.
             tcp.endpoints = endpoints;
-            tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client, std::bind(&HttpClientSsl::ssl_handshake, this, asio::placeholders::error));
+            tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
+                                           std::bind(&HttpClientSsl::ssl_handshake, this, asio::placeholders::error));
         }
 
         void ssl_handshake(const std::error_code &error) {
@@ -601,7 +604,8 @@ namespace InternetProtocol {
             if (onRequestProgress)
                 onRequestProgress(bytes_sent, 0);
             asio::async_read_until(tcp.ssl_socket.lowest_layer(), response_buffer, "\r\n",
-                                   std::bind(&HttpClientSsl::read_status_line, this, asio::placeholders::error, bytes_sent,
+                                   std::bind(&HttpClientSsl::read_status_line, this, asio::placeholders::error,
+                                             bytes_sent,
                                              asio::placeholders::bytes_transferred)
             );
         }
