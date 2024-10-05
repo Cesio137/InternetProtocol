@@ -3,7 +3,7 @@ project(InternetProtocol CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-file(GLOB_RECURSE sources "${CMAKE_SOURCE_DIR}/include/*.h")
+file(GLOB_RECURSE sources "${CMAKE_SOURCE_DIR}/include/*.hpp")
 add_library(InternetProtocol INTERFACE ${sources})
 target_include_directories(InternetProtocol INTERFACE "${CMAKE_SOURCE_DIR}/include")
 add_subdirectory(thirdparty)
