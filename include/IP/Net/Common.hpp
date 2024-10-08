@@ -1,10 +1,11 @@
 #pragma once
 
-#include <vector>
-#include <random>
-#include <map>
-#include <cstdint>
 #include <algorithm>
+#include <cstdint>
+#include <filesystem>
+#include <map>
+#include <random>
+#include <vector>
 
 #ifdef _WIN32
 #define _WIN32_WINNT 0x0A00
@@ -14,13 +15,10 @@
 #include <asio.hpp>
 #include <asio/ssl.hpp>
 
-namespace InternetProtocol
-{
+namespace InternetProtocol {
     /*UDP*/
-    struct FAsioUdp
-    {
-        FAsioUdp() : resolver(context), socket(context)
-        {
+    struct FAsioUdp {
+        FAsioUdp() : resolver(context), socket(context) {
         }
 
         asio::error_code error_code;
@@ -30,16 +28,13 @@ namespace InternetProtocol
         asio::ip::udp::resolver resolver;
         uint8_t attemps_fail = 0;
 
-        FAsioUdp(const FAsioUdp &asio) : resolver(context), socket(context)
-        {
+        FAsioUdp(const FAsioUdp &asio) : resolver(context), socket(context) {
             error_code = asio.error_code;
             endpoints = asio.endpoints;
         }
 
-        FAsioUdp &operator=(const FAsioUdp &asio)
-        {
-            if (this != &asio)
-            {
+        FAsioUdp &operator=(const FAsioUdp &asio) {
+            if (this != &asio) {
                 error_code = asio.error_code;
                 endpoints = asio.endpoints;
             }
@@ -48,10 +43,8 @@ namespace InternetProtocol
     };
 
     /*TCP*/
-    struct FAsioTcp
-    {
-        FAsioTcp() : resolver(context), socket(context)
-        {
+    struct FAsioTcp {
+        FAsioTcp() : resolver(context), socket(context) {
         }
 
         asio::error_code error_code;
@@ -61,16 +54,13 @@ namespace InternetProtocol
         asio::ip::tcp::socket socket;
         uint8_t attemps_fail = 0;
 
-        FAsioTcp(const FAsioTcp &asio) : resolver(context), socket(context)
-        {
+        FAsioTcp(const FAsioTcp &asio) : resolver(context), socket(context) {
             error_code = asio.error_code;
             endpoints = asio.endpoints;
         }
 
-        FAsioTcp &operator=(const FAsioTcp &asio)
-        {
-            if (this != &asio)
-            {
+        FAsioTcp &operator=(const FAsioTcp &asio) {
+            if (this != &asio) {
                 error_code = asio.error_code;
                 endpoints = asio.endpoints;
             }
@@ -78,10 +68,12 @@ namespace InternetProtocol
         }
     };
 
-    struct FAsioTcpSsl
-    {
-        FAsioTcpSsl() : ssl_context(asio::ssl::context::sslv23), context(), resolver(context), ssl_socket(context, ssl_context)
-        {
+    struct FAsioTcpSsl {
+        FAsioTcpSsl()
+            : ssl_context(asio::ssl::context::sslv23),
+              context(),
+              resolver(context),
+              ssl_socket(context, ssl_context) {
             ssl_context.set_verify_mode(asio::ssl::verify_peer);
         }
 
@@ -93,17 +85,18 @@ namespace InternetProtocol
         asio::ssl::stream<asio::ip::tcp::socket> ssl_socket;
         uint8_t attemps_fail = 0;
 
-        FAsioTcpSsl(const FAsioTcpSsl& asio) : ssl_context(asio::ssl::context::sslv23), context(), resolver(context), ssl_socket(context, ssl_context)
-        {
+        FAsioTcpSsl(const FAsioTcpSsl &asio)
+            : ssl_context(asio::ssl::context::sslv23),
+              context(),
+              resolver(context),
+              ssl_socket(context, ssl_context) {
             ssl_context.set_verify_mode(asio::ssl::verify_peer);
             error_code = asio.error_code;
             endpoints = asio.endpoints;
         }
 
-        FAsioTcpSsl& operator=(const FAsioTcpSsl& asio)
-        {
-            if (this != &asio)
-            {
+        FAsioTcpSsl &operator=(const FAsioTcpSsl &asio) {
+            if (this != &asio) {
                 ssl_context.set_verify_mode(asio::ssl::verify_peer);
                 error_code = asio.error_code;
                 endpoints = asio.endpoints;
@@ -113,8 +106,7 @@ namespace InternetProtocol
     };
 
     /*HTTP REQUEST*/
-    enum class EVerb : uint8_t
-    {
+    enum class EVerb : uint8_t {
         GET = 0,
         POST = 1,
         PUT = 2,
@@ -128,8 +120,7 @@ namespace InternetProtocol
         PROPFIND = 10
     };
 
-    struct FRequest
-    {
+    struct FRequest {
         std::map<std::string, std::string> params;
         EVerb verb = EVerb::GET;
         std::string path = "/";
@@ -137,8 +128,7 @@ namespace InternetProtocol
         std::map<std::string, std::string> headers;
         std::string body;
 
-        void clear()
-        {
+        void clear() {
             params.clear();
             verb = EVerb::GET;
             path = "/";
@@ -148,76 +138,63 @@ namespace InternetProtocol
         }
     };
 
-    struct FResponse
-    {
-        std::map<std::string, std::vector<std::string>> headers;
+    struct FResponse {
+        std::map<std::string, std::vector<std::string> > headers;
         int contentLenght = 0;
         std::string content;
 
-        void appendHeader(const std::string &headerline)
-        {
+        void appendHeader(const std::string &headerline) {
             size_t pos = headerline.find(':');
-            if (pos != std::string::npos)
-            {
+            if (pos != std::string::npos) {
                 std::string key = trimWhitespace(headerline.substr(0, pos));
                 std::string value = trimWhitespace(headerline.substr(pos + 1));
-                if (key == "Content-Length")
-                {
+                if (key == "Content-Length") {
                     contentLenght = std::stoi(value);
                     return;
                 }
                 std::vector<std::string> values = splitString(value, ';');
-                std::transform(values.begin(), values.end(), values.begin(), [this](const std::string &str)
-                               { return trimWhitespace(str); });
+                std::transform(
+                    values.begin(), values.end(), values.begin(),
+                    [this](const std::string &str) { return trimWhitespace(str); });
                 headers.insert_or_assign(key, values);
             }
         }
 
-        void setContent(const std::string &value)
-        {
-            if (value.empty())
-                return;
+        void setContent(const std::string &value) {
+            if (value.empty()) return;
             content = value;
         }
 
-        void appendContent(const std::string &value)
-        {
-            if (value.empty())
-                return;
+        void appendContent(const std::string &value) {
+            if (value.empty()) return;
             content.append(value);
         }
 
-        void clear()
-        {
+        void clear() {
             headers.clear();
             contentLenght = 0;
             content.clear();
         }
 
     private:
-        std::vector<std::string> splitString(const std::string &str, char delimiter)
-        {
+        std::vector<std::string> splitString(const std::string &str, char delimiter) {
             std::vector<std::string> tokens;
             std::string token;
             std::istringstream tokenStream(str);
-            while (std::getline(tokenStream, token, delimiter))
-            {
+            while (std::getline(tokenStream, token, delimiter)) {
                 tokens.push_back(token);
             }
             return tokens;
         }
 
-        std::string trimWhitespace(const std::string &str)
-        {
+        std::string trimWhitespace(const std::string &str) {
             std::string::const_iterator start = str.begin();
-            while (start != str.end() && std::isspace(*start))
-            {
+            while (start != str.end() && std::isspace(*start)) {
                 start++;
             }
 
             std::string::const_iterator end = str.end();
-            do
-            {
+            do {
                 end--;
             } while (std::distance(start, end) > 0 && std::isspace(*end));
 
@@ -226,8 +203,7 @@ namespace InternetProtocol
     };
 
     /*WEBSOCKET*/
-    enum class EOpcode : uint8_t
-    {
+    enum class EOpcode : uint8_t {
         FRAME_CON = 0x00,
         TEXT_FRAME = 0x01,
         BINARY_FRAME = 0x02,
@@ -238,15 +214,9 @@ namespace InternetProtocol
         FURTHER_FRAMES = 0x0B,
     };
 
-    enum class ERSV : uint8_t
-    {
-        RSV1 = 0x40,
-        RSV2 = 0x20,
-        RSV3 = 0x10
-    };
+    enum class ERSV : uint8_t { RSV1 = 0x40, RSV2 = 0x20, RSV3 = 0x10 };
 
-    struct FDataFrame
-    {
+    struct FDataFrame {
         bool fin = true;
         bool rsv1 = false;
         bool rsv2 = false;
@@ -257,8 +227,7 @@ namespace InternetProtocol
         std::array<std::byte, 4> masking_key;
     };
 
-    struct FHandShake
-    {
+    struct FHandShake {
         std::string path = "chat";
         std::string version = "1.1";
         std::string Sec_WebSocket_Key = "dGhlIHNhbXBsZSBub25jZQ==";
@@ -266,4 +235,4 @@ namespace InternetProtocol
         std::string Sec_WebSocket_Protocol = "chat, superchat";
         std::string Sec_Websocket_Version = "13";
     };
-} // namespace Nanometro
+} // namespace InternetProtocol

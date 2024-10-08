@@ -3,7 +3,7 @@
     "cmakeMinimumRequired":
     {
       "major": 3,
-      "minor": 20,
+      "minor": 25,
       "patch": 0
     },
     "configurePresets":
@@ -12,6 +12,8 @@
         "name": "debug",
         "displayName": "debug",
         "description": "Default build using Debug",
+        "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "architecture":{ "value": "x64", "strategy": "external" },
         "binaryDir": "${sourceDir}/build/Debug",
         "cacheVariables":
         {
@@ -22,6 +24,8 @@
         "name": "release",
         "displayName": "release",
         "description": "Default build using Release",
+        "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "architecture":{ "value": "x64", "strategy": "external" },
         "binaryDir": "${sourceDir}/build/Release",
         "cacheVariables":
         {

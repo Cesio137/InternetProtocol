@@ -37,6 +37,7 @@ namespace InternetProtocol {
                 return udp.socket.remote_endpoint().address().to_string();
             return host;
         }
+
         std::string getRemotePort() const {
             if (isConnected())
                 return std::to_string(udp.socket.remote_endpoint().port());
@@ -204,7 +205,7 @@ namespace InternetProtocol {
             mutexIO.unlock();
         }
 
-        void resolve(const std::error_code &error, const asio::ip::udp::resolver::results_type& results) {
+        void resolve(const std::error_code &error, const asio::ip::udp::resolver::results_type &results) {
             if (error) {
                 udp.error_code = error;
                 if (onError) onError(error.value(), error.message());

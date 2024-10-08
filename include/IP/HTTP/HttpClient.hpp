@@ -20,7 +20,8 @@ namespace InternetProtocol {
         }
 
         /*HTTP SETTINGS*/
-        void setHost(const std::string &url = "localhost", const std::string &port = "") {
+        void setHost(const std::string &url = "localhost",
+                     const std::string &port = "") {
             host = url;
             service = port;
         }
@@ -38,26 +39,53 @@ namespace InternetProtocol {
         void setRequest(const FRequest &value) { request = value; }
         FRequest getRequest() const { return request; }
 
-        void setRequestMethod(EVerb requestMethod = EVerb::GET) { request.verb = requestMethod; }
+        void setRequestMethod(EVerb requestMethod = EVerb::GET) {
+            request.verb = requestMethod;
+        }
+
         EVerb getRequestMethod() const { return request.verb; }
 
-        void setVersion(const std::string &version = "2.0") { request.version = version; }
+        void setVersion(const std::string &version = "2.0") {
+            request.version = version;
+        }
+
         std::string getVersion() const { return request.version; }
 
-        void setPath(const std::string &path = "/") { request.path = path.empty() ? "/" : path; }
+        void setPath(const std::string &path = "/") {
+            request.path = path.empty() ? "/" : path;
+        }
+
         std::string getPath() const { return request.path; }
 
-        void appendParams(const std::string &key, const std::string &value) { request.params[key] = value; }
+        void appendParams(const std::string &key, const std::string &value) {
+            request.params[key] = value;
+        }
+
         void clearParams() { request.params.clear(); }
         void removeParam(const std::string &key) { request.params.erase(key); }
-        bool hasParam(const std::string &key) const { return request.params.find(key) != request.params.end(); }
-        std::map<std::string, std::string> getParams() const { return request.params; }
 
-        void AppendHeaders(const std::string &key, const std::string &value) { request.headers[key] = value; }
+        bool hasParam(const std::string &key) const {
+            return request.params.find(key) != request.params.end();
+        }
+
+        std::map<std::string, std::string> getParams() const {
+            return request.params;
+        }
+
+        void AppendHeaders(const std::string &key, const std::string &value) {
+            request.headers[key] = value;
+        }
+
         void ClearHeaders() { request.headers.clear(); }
         void RemoveHeader(const std::string &key) { request.headers.erase(key); }
-        bool hasHeader(const std::string &key) const { return request.headers.find(key) != request.headers.end(); }
-        std::map<std::string, std::string> GetHeaders() const { return request.headers; }
+
+        bool hasHeader(const std::string &key) const {
+            return request.headers.find(key) != request.headers.end();
+        }
+
+        std::map<std::string, std::string> GetHeaders() const {
+            return request.headers;
+        }
 
         void SetBody(const std::string &value) { request.body = value; }
         void ClearBody() { request.body.clear(); }
@@ -67,8 +95,7 @@ namespace InternetProtocol {
 
         /*PAYLOAD*/
         void preparePayload() {
-            if (!payload.empty())
-                payload.clear();
+            if (!payload.empty()) payload.clear();
 
             payload = verb.at(request.verb) + " " + request.path;
 
@@ -91,20 +118,19 @@ namespace InternetProtocol {
                 for (const std::pair<std::string, std::string> header: request.headers) {
                     payload += header.first + ": " + header.second + "\r\n";
                 }
-                payload += "Content-Length: " + std::to_string(request.body.length()) + "\r\n";
+                payload +=
+                        "Content-Length: " + std::to_string(request.body.length()) + "\r\n";
             }
             payload += "\r\n";
 
-            if (!request.body.empty())
-                payload += "\r\n" + request.body;
+            if (!request.body.empty()) payload += "\r\n" + request.body;
         }
 
         void async_preparePayload() {
             asio::post(*pool, [this]() {
                 mutexPayload.lock();
                 preparePayload();
-                if (onAsyncPayloadFinished)
-                    onAsyncPayloadFinished();
+                if (onAsyncPayloadFinished) onAsyncPayloadFinished();
                 mutexPayload.unlock();
             });
         }
@@ -116,19 +142,27 @@ namespace InternetProtocol {
 
         /*CONNECTION*/
         bool processRequest() {
-            if (!pool && !payload.empty())
-                return false;
+            if (!pool && !payload.empty()) return false;
 
             asio::post(*pool, std::bind(&HttpClient::run_context_thread, this));
             return true;
         }
 
-        void cancelRequest() {
+        void cancelRequest(bool forceClose = false) {
             tcp.context.stop();
-            tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both);
-            tcp.socket.close(tcp.error_code);
+            if (forceClose) {
+                tcp.socket.close(tcp.error_code);
+                if (tcp.error_code && onError)
+                    onError(tcp.error_code.value(), tcp.error_code.message());
+            } else {
+                tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+                if (tcp.error_code && onError)
+                    onError(tcp.error_code.value(), tcp.error_code.message());
+                tcp.socket.close(tcp.error_code);
+                if (tcp.error_code && onError)
+                    onError(tcp.error_code.value(), tcp.error_code.message());
+            }
             pool->join();
-            if (tcp.error_code && onRequestFail) onRequestFail(tcp.error_code.value(), tcp.error_code.message());
             if (onRequestCanceled) onRequestCanceled();
         }
 
@@ -149,10 +183,11 @@ namespace InternetProtocol {
         std::function<void(const int)> onRequestWillRetry;
         std::function<void(const int, const std::string &)> onRequestFail;
         std::function<void(const int)> onResponseFail;
+        std::function<void(const int, const std::string &)> onError;
 
     private:
-        std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(
-            std::thread::hardware_concurrency());
+        std::unique_ptr<asio::thread_pool> pool =
+                std::make_unique<asio::thread_pool>(std::thread::hardware_concurrency());
         std::mutex mutexPayload;
         std::mutex mutexIO;
         std::string host = "localhost";
@@ -166,16 +201,11 @@ namespace InternetProtocol {
         asio::streambuf response_buffer;
         FResponse response;
         const std::map<EVerb, std::string> verb = {
-            {EVerb::GET, "GET"},
-            {EVerb::POST, "POST"},
-            {EVerb::PUT, "PUT"},
-            {EVerb::PATCH, "PATCH"},
-            {EVerb::DEL, "DELETE"},
-            {EVerb::COPY, "COPY"},
-            {EVerb::HEAD, "HEAD"},
-            {EVerb::OPTIONS, "OPTIONS"},
-            {EVerb::LOCK, "LOCK"},
-            {EVerb::UNLOCK, "UNLOCK"},
+            {EVerb::GET, "GET"}, {EVerb::POST, "POST"},
+            {EVerb::PUT, "PUT"}, {EVerb::PATCH, "PATCH"},
+            {EVerb::DEL, "DELETE"}, {EVerb::COPY, "COPY"},
+            {EVerb::HEAD, "HEAD"}, {EVerb::OPTIONS, "OPTIONS"},
+            {EVerb::LOCK, "LOCK"}, {EVerb::UNLOCK, "UNLOCK"},
             {EVerb::PROPFIND, "PROPFIND"},
         };
 
@@ -186,9 +216,10 @@ namespace InternetProtocol {
                     onRequestWillRetry(tcp.attemps_fail);
                 tcp.error_code.clear();
                 tcp.context.restart();
-                tcp.resolver.async_resolve(getHost(), getPort(),
-                                           std::bind(&HttpClient::resolve, this, asio::placeholders::error,
-                                                     asio::placeholders::results));
+                tcp.resolver.async_resolve(
+                    getHost(), getPort(),
+                    std::bind(&HttpClient::resolve, this, asio::placeholders::error,
+                              asio::placeholders::results));
                 tcp.context.run();
                 if (!tcp.error_code) break;
                 tcp.attemps_fail++;
@@ -203,7 +234,8 @@ namespace InternetProtocol {
             response_buffer.consume(request_buffer.size());
         }
 
-        void resolve(const std::error_code &error, const asio::ip::tcp::resolver::results_type &endpoints) {
+        void resolve(const std::error_code &error,
+                     const asio::ip::tcp::resolver::results_type &endpoints) {
             if (error) {
                 tcp.error_code = error;
                 if (onRequestFail)
@@ -214,9 +246,9 @@ namespace InternetProtocol {
             // successfully establish a connection.
             tcp.endpoints = endpoints;
 
-            asio::async_connect(tcp.socket, tcp.endpoints,
-                                std::bind(&HttpClient::connect, this, asio::placeholders::error)
-            );
+            asio::async_connect(
+                tcp.socket, tcp.endpoints,
+                std::bind(&HttpClient::connect, this, asio::placeholders::error));
         }
 
         void connect(const std::error_code &error) {
@@ -229,10 +261,10 @@ namespace InternetProtocol {
             // The connection was successful. Send the request.;
             std::ostream request_stream(&request_buffer);
             request_stream << payload;
-            asio::async_write(tcp.socket, request_buffer,
-                              std::bind(&HttpClient::write_request, this, asio::placeholders::error,
-                                        asio::placeholders::bytes_transferred)
-            );
+            asio::async_write(
+                tcp.socket, request_buffer,
+                std::bind(&HttpClient::write_request, this, asio::placeholders::error,
+                          asio::placeholders::bytes_transferred));
         }
 
         void write_request(const std::error_code &error, const size_t bytes_sent) {
@@ -245,15 +277,15 @@ namespace InternetProtocol {
             // Read the response status line. The response_ streambuf will
             // automatically grow to accommodate the entire line. The growth may be
             // limited by passing a maximum size to the streambuf constructor.
-            if (onRequestProgress)
-                onRequestProgress(bytes_sent, 0);
+            if (onRequestProgress) onRequestProgress(bytes_sent, 0);
             asio::async_read_until(tcp.socket, response_buffer, "\r\n",
-                                   std::bind(&HttpClient::read_status_line, this, asio::placeholders::error, bytes_sent,
-                                             asio::placeholders::bytes_transferred)
-            );
+                                   std::bind(&HttpClient::read_status_line, this,
+                                             asio::placeholders::error, bytes_sent,
+                                             asio::placeholders::bytes_transferred));
         }
 
-        void read_status_line(const std::error_code &error, const size_t bytes_sent, const size_t bytes_recvd) {
+        void read_status_line(const std::error_code &error, const size_t bytes_sent,
+                              const size_t bytes_recvd) {
             if (error) {
                 tcp.error_code = error;
                 if (onRequestFail)
@@ -261,8 +293,7 @@ namespace InternetProtocol {
                 return;
             }
             // Check that response is OK.
-            if (onRequestProgress)
-                onRequestProgress(bytes_sent, bytes_recvd);
+            if (onRequestProgress) onRequestProgress(bytes_sent, bytes_recvd);
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
@@ -271,20 +302,18 @@ namespace InternetProtocol {
             std::string status_message;
             std::getline(response_stream, status_message);
             if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
-                if (onResponseFail)
-                    onResponseFail(-1);
+                if (onResponseFail) onResponseFail(-1);
                 return;
             }
             if (status_code != 200) {
-                if (onResponseFail)
-                    onResponseFail(status_code);
+                if (onResponseFail) onResponseFail(status_code);
                 return;
             }
 
             // Read the response headers, which are terminated by a blank line.
-            asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
-                                   std::bind(&HttpClient::read_headers, this, asio::placeholders::error)
-            );
+            asio::async_read_until(
+                tcp.socket, response_buffer, "\r\n\r\n",
+                std::bind(&HttpClient::read_headers, this, asio::placeholders::error));
         }
 
         void read_headers(const std::error_code &error) {
@@ -310,28 +339,25 @@ namespace InternetProtocol {
             }
 
             // Start reading remaining data until EOF.
-            asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
-                             std::bind(&HttpClient::read_content, this, asio::placeholders::error)
-            );
+            asio::async_read(
+                tcp.socket, response_buffer, asio::transfer_at_least(1),
+                std::bind(&HttpClient::read_content, this, asio::placeholders::error));
         }
 
         void read_content(const std::error_code &error) {
             if (error) {
-                if (onRequestComplete)
-                    onRequestComplete(response);
+                if (onRequestComplete) onRequestComplete(response);
                 return;
             }
             // Write all of the data that has been read so far.
             std::ostringstream stream_buffer;
             stream_buffer << &response_buffer;
-            if (!stream_buffer.str().empty())
-                response.setContent(stream_buffer.str());
-
+            if (!stream_buffer.str().empty()) response.setContent(stream_buffer.str());
 
             // Continue reading remaining data until EOF.
-            asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
-                             std::bind(&HttpClient::read_content, this, asio::placeholders::error)
-            );
+            asio::async_read(
+                tcp.socket, response_buffer, asio::transfer_at_least(1),
+                std::bind(&HttpClient::read_content, this, asio::placeholders::error));
         }
     };
 
@@ -352,7 +378,8 @@ namespace InternetProtocol {
         }
 
         /*HTTP SETTINGS*/
-        void setHost(const std::string &url = "localhost", const std::string &port = "") {
+        void setHost(const std::string &url = "localhost",
+                     const std::string &port = "") {
             host = url;
             service = port;
         }
@@ -370,26 +397,53 @@ namespace InternetProtocol {
         void setRequest(const FRequest &value) { request = value; }
         FRequest getRequest() const { return request; }
 
-        void setRequestMethod(EVerb requestMethod = EVerb::GET) { request.verb = requestMethod; }
+        void setRequestMethod(EVerb requestMethod = EVerb::GET) {
+            request.verb = requestMethod;
+        }
+
         EVerb getRequestMethod() const { return request.verb; }
 
-        void setVersion(const std::string &version = "2.0") { request.version = version; }
+        void setVersion(const std::string &version = "2.0") {
+            request.version = version;
+        }
+
         std::string getVersion() const { return request.version; }
 
-        void setPath(const std::string &path = "/") { request.path = path.empty() ? "/" : path; }
+        void setPath(const std::string &path = "/") {
+            request.path = path.empty() ? "/" : path;
+        }
+
         std::string getPath() const { return request.path; }
 
-        void appendParams(const std::string &key, const std::string &value) { request.params[key] = value; }
+        void appendParams(const std::string &key, const std::string &value) {
+            request.params[key] = value;
+        }
+
         void clearParams() { request.params.clear(); }
         void removeParam(const std::string &key) { request.params.erase(key); }
-        bool hasParam(const std::string &key) const { return request.params.find(key) != request.params.end(); }
-        std::map<std::string, std::string> getParams() const { return request.params; }
 
-        void appendHeaders(const std::string &key, const std::string &value) { request.headers[key] = value; }
+        bool hasParam(const std::string &key) const {
+            return request.params.find(key) != request.params.end();
+        }
+
+        std::map<std::string, std::string> getParams() const {
+            return request.params;
+        }
+
+        void appendHeaders(const std::string &key, const std::string &value) {
+            request.headers[key] = value;
+        }
+
         void clearHeaders() { request.headers.clear(); }
         void removeHeader(const std::string &key) { request.headers.erase(key); }
-        bool hasHeader(const std::string &key) const { return request.headers.find(key) != request.headers.end(); }
-        std::map<std::string, std::string> GetHeaders() const { return request.headers; }
+
+        bool hasHeader(const std::string &key) const {
+            return request.headers.find(key) != request.headers.end();
+        }
+
+        std::map<std::string, std::string> GetHeaders() const {
+            return request.headers;
+        }
 
         void setBody(const std::string &value) { request.body = value; }
         void clearBody() { request.body.clear(); }
@@ -397,23 +451,84 @@ namespace InternetProtocol {
 
         FRequest getRequestData() const { return request; }
 
-        /*PEM FILE*/
-        bool loadVerifyFile(const std::string &filename) {
+        /*SECURITY LAYER*/
+        bool load_private_key_data(const std::string &key_data) {
             try {
-                tcp.ssl_context.load_verify_file(filename);
-                isCALoaded = true;
-            } catch (const std::exception &error) {
-                isCALoaded = false;
+                const asio::const_buffer buffer(key_data.data(), key_data.size());
+                tcp.ssl_context.use_private_key(buffer, asio::ssl::context::pem);
+            } catch (const std::exception &e) {
+                if (onError) onError(-1, e.what());
+                return false;
             }
-            return isCALoaded;
+            return true;
         }
 
-        bool hasCA() const { return isCALoaded; }
+        bool load_private_key_file(const std::string &filename) {
+            try {
+                tcp.ssl_context.use_private_key_file(filename, asio::ssl::context::pem);
+            } catch (const std::exception &e) {
+                if (onError) onError(-1, e.what());
+                return false;
+            }
+            return true;
+        }
+
+        bool load_certificate_data(const std::string &cert_data) {
+            try {
+                const asio::const_buffer buffer(cert_data.data(), cert_data.size());
+                tcp.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
+            } catch (const std::exception &e) {
+                if (onError) onError(-1, e.what());
+                return false;
+            }
+            return true;
+        }
+
+        bool load_certificate_file(const std::string &filename) {
+            try {
+                tcp.ssl_context.use_certificate_file(filename, asio::ssl::context::pem);
+            } catch (const std::exception &e) {
+                if (onError) onError(-1, e.what());
+                return false;
+            }
+            return true;
+        }
+
+        bool load_certificate_chain_data(const std::string &cert_chain_data) {
+            try {
+                const asio::const_buffer buffer(cert_chain_data.data(),
+                                                cert_chain_data.size());
+                tcp.ssl_context.use_certificate_chain(buffer);
+            } catch (const std::exception &e) {
+                if (onError) onError(-1, e.what());
+                return false;
+            }
+            return true;
+        }
+
+        bool load_certificate_chain_file(const std::string &filename) {
+            try {
+                tcp.ssl_context.use_certificate_chain_file(filename);
+            } catch (const std::exception &e) {
+                if (onError) onError(-1, e.what());
+                return false;
+            }
+            return true;
+        }
+
+        bool load_verify_file(const std::string &filename) {
+            try {
+                tcp.ssl_context.load_verify_file(filename);
+            } catch (const std::exception &e) {
+                if (onError) onError(-1, e.what());
+                return false;
+            }
+            return true;
+        }
 
         /*PAYLOAD*/
         void preparePayload() {
-            if (!payload.empty())
-                payload.clear();
+            if (!payload.empty()) payload.clear();
 
             payload = verb.at(request.verb) + " " + request.path;
 
@@ -436,20 +551,19 @@ namespace InternetProtocol {
                 for (const std::pair<std::string, std::string> header: request.headers) {
                     payload += header.first + ": " + header.second + "\r\n";
                 }
-                payload += "Content-Length: " + std::to_string(request.body.length()) + "\r\n";
+                payload +=
+                        "Content-Length: " + std::to_string(request.body.length()) + "\r\n";
             }
             payload += "\r\n";
 
-            if (!request.body.empty())
-                payload += "\r\n" + request.body;
+            if (!request.body.empty()) payload += "\r\n" + request.body;
         }
 
         void async_preparePayload() {
             asio::post(*pool, [this]() {
                 mutexPayload.lock();
                 preparePayload();
-                if (onAsyncPayloadFinished)
-                    onAsyncPayloadFinished();
+                if (onAsyncPayloadFinished) onAsyncPayloadFinished();
                 mutexPayload.unlock();
             });
         }
@@ -461,20 +575,37 @@ namespace InternetProtocol {
 
         /*CONNECTION*/
         bool processRequest() {
-            if (!pool && !payload.empty() && !isCALoaded)
-                return false;
+            if (!pool && !payload.empty()) return false;
 
             asio::post(*pool, std::bind(&HttpClientSsl::run_context_thread, this));
             return true;
         }
 
-        void cancelRequest() {
+        void cancelRequest(bool forceClose = false) {
             tcp.context.stop();
-            tcp.ssl_socket.lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both);
-            tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-            pool->join();
-            if (tcp.error_code && onRequestFail) onRequestFail(tcp.error_code.value(), tcp.error_code.message());
-            if (onRequestCanceled) onRequestCanceled();
+            tcp.ssl_socket.shutdown(tcp.error_code);
+            tcp.ssl_socket.async_shutdown([&](const std::error_code &error) {
+                if (error) {
+                    tcp.error_code = error;
+                    if (onError) onError(error.value(), error.message());
+                }
+
+                if (forceClose) {
+                    tcp.ssl_socket.lowest_layer().close(tcp.error_code);
+                    if (tcp.error_code && onError)
+                        onError(tcp.error_code.value(), tcp.error_code.message());
+                } else {
+                    tcp.ssl_socket.lowest_layer().shutdown(
+                        asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+                    if (tcp.error_code && onError)
+                        onError(tcp.error_code.value(), tcp.error_code.message());
+
+                    tcp.ssl_socket.lowest_layer().close(tcp.error_code);
+                    if (tcp.error_code && onError)
+                        onError(tcp.error_code.value(), tcp.error_code.message());
+                }
+                if (onRequestCanceled) onRequestCanceled();
+            });
         }
 
         /*MEMORY MANAGER*/
@@ -494,10 +625,11 @@ namespace InternetProtocol {
         std::function<void(const int)> onRequestWillRetry;
         std::function<void(const int, const std::string &)> onRequestFail;
         std::function<void(const int)> onResponseFail;
+        std::function<void(const int, const std::string &)> onError;
 
     private:
-        std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(
-            std::thread::hardware_concurrency());
+        std::unique_ptr<asio::thread_pool> pool =
+                std::make_unique<asio::thread_pool>(std::thread::hardware_concurrency());
         std::mutex mutexPayload;
         std::mutex mutexIO;
         std::string host = "localhost";
@@ -506,22 +638,16 @@ namespace InternetProtocol {
         uint8_t maxAttemp = 3;
         FRequest request;
         FAsioTcpSsl tcp;
-        bool isCALoaded = false;
         std::string payload;
         asio::streambuf request_buffer;
         asio::streambuf response_buffer;
         FResponse response;
         const std::map<EVerb, std::string> verb = {
-            {EVerb::GET, "GET"},
-            {EVerb::POST, "POST"},
-            {EVerb::PUT, "PUT"},
-            {EVerb::PATCH, "PATCH"},
-            {EVerb::DEL, "DELETE"},
-            {EVerb::COPY, "COPY"},
-            {EVerb::HEAD, "HEAD"},
-            {EVerb::OPTIONS, "OPTIONS"},
-            {EVerb::LOCK, "LOCK"},
-            {EVerb::UNLOCK, "UNLOCK"},
+            {EVerb::GET, "GET"}, {EVerb::POST, "POST"},
+            {EVerb::PUT, "PUT"}, {EVerb::PATCH, "PATCH"},
+            {EVerb::DEL, "DELETE"}, {EVerb::COPY, "COPY"},
+            {EVerb::HEAD, "HEAD"}, {EVerb::OPTIONS, "OPTIONS"},
+            {EVerb::LOCK, "LOCK"}, {EVerb::UNLOCK, "UNLOCK"},
             {EVerb::PROPFIND, "PROPFIND"},
         };
 
@@ -532,9 +658,10 @@ namespace InternetProtocol {
                     onRequestWillRetry(tcp.attemps_fail);
                 tcp.error_code.clear();
                 tcp.context.restart();
-                tcp.resolver.async_resolve(getHost(), getPort(),
-                                           std::bind(&HttpClientSsl::resolve, this, asio::placeholders::error,
-                                                     asio::placeholders::results));
+                tcp.resolver.async_resolve(
+                    getHost(), getPort(),
+                    std::bind(&HttpClientSsl::resolve, this, asio::placeholders::error,
+                              asio::placeholders::results));
                 tcp.context.run();
                 if (!tcp.error_code) break;
                 tcp.attemps_fail++;
@@ -549,7 +676,8 @@ namespace InternetProtocol {
             response_buffer.consume(request_buffer.size());
         }
 
-        void resolve(const std::error_code &error, const asio::ip::tcp::resolver::results_type &endpoints) {
+        void resolve(const std::error_code &error,
+                     const asio::ip::tcp::resolver::results_type &endpoints) {
             if (error) {
                 tcp.error_code = error;
                 if (onRequestFail)
@@ -559,20 +687,9 @@ namespace InternetProtocol {
             // Attempt a connection to each endpoint in the list until we
             // successfully establish a connection.
             tcp.endpoints = endpoints;
-            tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
-                                           std::bind(&HttpClientSsl::ssl_handshake, this, asio::placeholders::error));
-        }
-
-        void ssl_handshake(const std::error_code &error) {
-            if (error) {
-                tcp.error_code = error;
-                if (onRequestFail)
-                    onRequestFail(tcp.error_code.value(), tcp.error_code.message());
-                return;
-            }
-            asio::async_connect(tcp.ssl_socket.lowest_layer(), tcp.endpoints,
-                                std::bind(&HttpClientSsl::connect, this, asio::placeholders::error)
-            );
+            asio::async_connect(
+                tcp.ssl_socket.lowest_layer(), tcp.endpoints,
+                std::bind(&HttpClientSsl::connect, this, asio::placeholders::error));
         }
 
         void connect(const std::error_code &error) {
@@ -582,13 +699,25 @@ namespace InternetProtocol {
                     onRequestFail(tcp.error_code.value(), tcp.error_code.message());
                 return;
             }
-            // The connection was successful. Send the request.;
+            // The connection was successful. Send the request.
+            tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
+                                           std::bind(&HttpClientSsl::ssl_handshake,
+                                                     this, asio::placeholders::error));
+        }
+
+        void ssl_handshake(const std::error_code &error) {
+            if (error) {
+                tcp.error_code = error;
+                if (onRequestFail)
+                    onRequestFail(tcp.error_code.value(), tcp.error_code.message());
+                return;
+            }
             std::ostream request_stream(&request_buffer);
             request_stream << payload;
-            asio::async_write(tcp.ssl_socket.lowest_layer(), request_buffer,
-                              std::bind(&HttpClientSsl::write_request, this, asio::placeholders::error,
-                                        asio::placeholders::bytes_transferred)
-            );
+            asio::async_write(tcp.ssl_socket, request_buffer,
+                              std::bind(&HttpClientSsl::write_request, this,
+                                        asio::placeholders::error,
+                                        asio::placeholders::bytes_transferred));
         }
 
         void write_request(const std::error_code &error, const size_t bytes_sent) {
@@ -601,16 +730,15 @@ namespace InternetProtocol {
             // Read the response status line. The response_ streambuf will
             // automatically grow to accommodate the entire line. The growth may be
             // limited by passing a maximum size to the streambuf constructor.
-            if (onRequestProgress)
-                onRequestProgress(bytes_sent, 0);
-            asio::async_read_until(tcp.ssl_socket.lowest_layer(), response_buffer, "\r\n",
-                                   std::bind(&HttpClientSsl::read_status_line, this, asio::placeholders::error,
-                                             bytes_sent,
-                                             asio::placeholders::bytes_transferred)
-            );
+            if (onRequestProgress) onRequestProgress(bytes_sent, 0);
+            asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
+                                   std::bind(&HttpClientSsl::read_status_line, this,
+                                             asio::placeholders::error, bytes_sent,
+                                             asio::placeholders::bytes_transferred));
         }
 
-        void read_status_line(const std::error_code &error, const size_t bytes_sent, const size_t bytes_recvd) {
+        void read_status_line(const std::error_code &error, const size_t bytes_sent,
+                              const size_t bytes_recvd) {
             if (error) {
                 tcp.error_code = error;
                 if (onRequestFail)
@@ -618,8 +746,7 @@ namespace InternetProtocol {
                 return;
             }
             // Check that response is OK.
-            if (onRequestProgress)
-                onRequestProgress(bytes_sent, bytes_recvd);
+            if (onRequestProgress) onRequestProgress(bytes_sent, bytes_recvd);
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
@@ -628,20 +755,18 @@ namespace InternetProtocol {
             std::string status_message;
             std::getline(response_stream, status_message);
             if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
-                if (onResponseFail)
-                    onResponseFail(-1);
+                if (onResponseFail) onResponseFail(-1);
                 return;
             }
             if (status_code != 200) {
-                if (onResponseFail)
-                    onResponseFail(status_code);
+                if (onResponseFail) onResponseFail(status_code);
                 return;
             }
 
             // Read the response headers, which are terminated by a blank line.
-            asio::async_read_until(tcp.ssl_socket.lowest_layer(), response_buffer, "\r\n\r\n",
-                                   std::bind(&HttpClientSsl::read_headers, this, asio::placeholders::error)
-            );
+            asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n\r\n",
+                                   std::bind(&HttpClientSsl::read_headers, this,
+                                             asio::placeholders::error));
         }
 
         void read_headers(const std::error_code &error) {
@@ -667,28 +792,27 @@ namespace InternetProtocol {
             }
 
             // Start reading remaining data until EOF.
-            asio::async_read(tcp.ssl_socket.lowest_layer(), response_buffer, asio::transfer_at_least(1),
-                             std::bind(&HttpClientSsl::read_content, this, asio::placeholders::error)
-            );
+            asio::async_read(tcp.ssl_socket, response_buffer,
+                             asio::transfer_at_least(1),
+                             std::bind(&HttpClientSsl::read_content, this,
+                                       asio::placeholders::error));
         }
 
         void read_content(const std::error_code &error) {
             if (error) {
-                if (onRequestComplete)
-                    onRequestComplete(response);
+                if (onRequestComplete) onRequestComplete(response);
                 return;
             }
             // Write all of the data that has been read so far.
             std::ostringstream stream_buffer;
             stream_buffer << &response_buffer;
-            if (!stream_buffer.str().empty())
-                response.setContent(stream_buffer.str());
-
+            if (!stream_buffer.str().empty()) response.setContent(stream_buffer.str());
 
             // Continue reading remaining data until EOF.
-            asio::async_read(tcp.ssl_socket.lowest_layer(), response_buffer, asio::transfer_at_least(1),
-                             std::bind(&HttpClientSsl::read_content, this, asio::placeholders::error)
-            );
+            asio::async_read(tcp.ssl_socket, response_buffer,
+                             asio::transfer_at_least(1),
+                             std::bind(&HttpClientSsl::read_content, this,
+                                       asio::placeholders::error));
         }
     };
-}
+} // namespace InternetProtocol
