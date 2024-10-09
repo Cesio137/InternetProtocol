@@ -748,7 +748,7 @@ namespace InternetProtocol {
         void setMask(bool value = true) { sDataFrame.mask = value; }
         bool useMask() const { return sDataFrame.mask; }
 
-        /*PEM FILE*/
+        /*SECURITY LAYER*/
         bool load_private_key_data(const std::string &key_data) {
             try {
                 const asio::const_buffer buffer(key_data.data(), key_data.size());
