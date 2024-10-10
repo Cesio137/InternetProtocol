@@ -29,6 +29,8 @@ InternetProtocol is a versatile header only library to use with C++ 17 projects.
 
 - [CMake 3.20 or above](https://cmake.org/download/)
 
+- [VCPKG](https://vcpkg.io/en/index.html)
+
 - Windows only
   - Build With Visual Studio 2019/2022 is more recommended
     - [Visual Studio](https://visualstudio.microsoft.com/downloads/)
@@ -65,7 +67,7 @@ InternetProtocol is a versatile header only library to use with C++ 17 projects.
 
 - [X] Websocket client
 
-- [ ] SSL support
+- [X] SSL support
 
 ## How to use
 
@@ -86,6 +88,13 @@ git clone https://github.com/Cesio137/InternetProtocol.git
 ## Setup project
 
 ---
+
+VCPKG_ROOT
+* Setup VCPKG  
+  * Create a variable called `VCPKG_ROOT` if do not exist:
+    * ```Path
+      <Path to VCPKG>/
+      ```
 
 * Setup Project.
   * Create a `build` folder and open terminal inside.
@@ -114,4 +123,5 @@ A description of what actually happens.
 
 # Thirdparty libraries
 - [Asio non-boost 1.30.2](https://think-async.com/Asio/)
+- [Openssl 3.3.2](https://www.openssl.org/)
 
