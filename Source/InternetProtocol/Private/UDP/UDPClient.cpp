@@ -56,9 +56,9 @@ void UUDPClient::close()
 	pool->join();
 	if (udp.error_code)
 	{
-		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().data());
+		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().c_str());
 	}
-	OnConnectionClose.Broadcast();
+	OnClose.Broadcast();
 }
 
 void UUDPClient::package_string(const FString& str)
@@ -151,7 +151,7 @@ void UUDPClient::resolve(const std::error_code& error, const asio::ip::udp::reso
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().data());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 	udp.endpoints = *results;
@@ -164,7 +164,7 @@ void UUDPClient::conn(const std::error_code& error)
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().data());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
@@ -181,7 +181,7 @@ void UUDPClient::send_to(const std::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().data());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
@@ -192,7 +192,7 @@ void UUDPClient::receive_from(const std::error_code& error, const size_t bytes_r
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().data());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 

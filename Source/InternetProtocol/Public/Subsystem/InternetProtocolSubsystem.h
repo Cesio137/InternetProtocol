@@ -25,7 +25,13 @@ public:
 	UTCPClient* CreateTcpClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP")
+	UTCPClientSsl* CreateTcpClientSsl();
+
+	UFUNCTION(BlueprintCallable, Category="IP")
 	UHttpClient* CreateHttpClient();
+
+	UFUNCTION(BlueprintCallable, Category="IP")
+	UHttpClientSsl* CreateHttpClientSsl();
 
 	UFUNCTION(BlueprintCallable, Category="IP")
 	UWebsocketClient* CreateWebsocketClient();

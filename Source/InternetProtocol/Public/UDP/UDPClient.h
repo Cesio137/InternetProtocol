@@ -130,13 +130,13 @@ public:
 	int getErrorCode() const { return udp.error_code.value(); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Error")
-	FString getErrorMessage() const { return udp.error_code.message().data(); }
+	FString getErrorMessage() const { return udp.error_code.message().c_str(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpConnection OnConnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpConnection OnConnectionClose;
+	FDelegateUdpConnection OnClose;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpRetry OnConnectionWillRetry;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")

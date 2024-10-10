@@ -14,9 +14,21 @@ UTCPClient* UInternetProtocolSubsystem::CreateTcpClient()
 	return tcpClient;
 }
 
+UTCPClientSsl* UInternetProtocolSubsystem::CreateTcpClientSsl()
+{
+	UTCPClientSsl* tcpClient = NewObject<UTCPClientSsl>();
+	return tcpClient;
+}
+
 UHttpClient* UInternetProtocolSubsystem::CreateHttpClient()
 {
 	UHttpClient* httpClient = NewObject<UHttpClient>();
+	return httpClient;
+}
+
+UHttpClientSsl* UInternetProtocolSubsystem::CreateHttpClientSsl()
+{
+	UHttpClientSsl* httpClient = NewObject<UHttpClientSsl>();
 	return httpClient;
 }
 
