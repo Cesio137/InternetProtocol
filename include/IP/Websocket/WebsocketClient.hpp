@@ -639,7 +639,7 @@ namespace InternetProtocol {
                           asio::placeholders::bytes_transferred));
         }
     };
-
+#ifdef ASIO_USE_OPENSSL
     class WebsocketClientSsl {
     public:
         WebsocketClientSsl() {
@@ -1384,4 +1384,5 @@ namespace InternetProtocol {
                           asio::placeholders::bytes_transferred));
         }
     };
+#endif
 } // namespace InternetProtocol

@@ -360,7 +360,7 @@ namespace InternetProtocol {
                 std::bind(&HttpClient::read_content, this, asio::placeholders::error));
         }
     };
-
+#ifdef ASIO_USE_OPENSSL
     class HttpClientSsl {
     public:
         HttpClientSsl() {
@@ -815,4 +815,5 @@ namespace InternetProtocol {
                                        asio::placeholders::error));
         }
     };
+#endif
 } // namespace InternetProtocol

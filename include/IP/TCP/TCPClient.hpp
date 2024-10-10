@@ -271,7 +271,7 @@ namespace InternetProtocol {
                           asio::placeholders::bytes_transferred));
         }
     };
-
+#ifdef ASIO_USE_OPENSSL
     class TCPClientSsl {
     public:
         TCPClientSsl() {
@@ -644,4 +644,5 @@ namespace InternetProtocol {
                           asio::placeholders::bytes_transferred));
         }
     };
+#endif
 } // namespace InternetProtocol

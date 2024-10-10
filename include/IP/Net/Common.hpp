@@ -13,8 +13,9 @@
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
+#ifdef ASIO_USE_OPENSSL
 #include <asio/ssl.hpp>
-
+#endif
 namespace InternetProtocol {
     /*UDP*/
     struct FAsioUdp {
@@ -67,7 +68,7 @@ namespace InternetProtocol {
             return *this;
         }
     };
-
+#ifdef ASIO_USE_OPENSSL
     struct FAsioTcpSsl {
         FAsioTcpSsl()
             : ssl_context(asio::ssl::context::sslv23),
@@ -104,7 +105,7 @@ namespace InternetProtocol {
             return *this;
         }
     };
-
+#endif
     /*HTTP REQUEST*/
     enum class EVerb : uint8_t {
         GET = 0,
