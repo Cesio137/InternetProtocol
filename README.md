@@ -20,7 +20,7 @@ This is a development branch to implement some experimental features before merg
 
 - [x] Windows
 
-- [ ] Linux(Help Wanted)
+- [X] Linux(Help Wanted)
 
 - [ ] Mac(Help Wanted)
 
@@ -44,7 +44,7 @@ This is a development branch to implement some experimental features before merg
 
 - [X] Websocket client
 
-- [ ] SSL support
+- [X] SSL support
 
 ### Bug Reporting Template:
 ```
@@ -70,3 +70,4 @@ A description of what actually happens.
 
 # Thirdparty libraries
 - [Asio non-boost 1.30.2](https://think-async.com/Asio/)
+- [Openssl 3.3.2](https://www.openssl.org/)
