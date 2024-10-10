@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Core/Net/Commons.h"
 #include "Library/InternetProtocolStructLibrary.h"
 #include "Message.generated.h"
 

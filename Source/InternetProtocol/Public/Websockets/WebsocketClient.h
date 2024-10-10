@@ -4,7 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
-#include "Core/Net/Message.h"
+#include "Net/Commons.h"
+#include "Net/Message.h"
 #include "Delegates/DelegateSignatureImpl.inl"
 #include "WebsocketClient.generated.h"
 

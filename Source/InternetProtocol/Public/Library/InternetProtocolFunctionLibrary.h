@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "Core/Net/Message.h"
+#include "Net/Message.h"
 #include "InternetProtocolFunctionLibrary.generated.h"
 
 /**

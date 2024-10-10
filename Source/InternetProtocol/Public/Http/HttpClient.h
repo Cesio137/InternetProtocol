@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
-#include "Core/Net/Commons.h"
+#include "Net/Commons.h"
 #include "Library/InternetProtocolStructLibrary.h"
 #include "Delegates/DelegateSignatureImpl.inl"
 #include "HttpClient.generated.h"
