@@ -37,3 +37,9 @@ UWebsocketClient* UInternetProtocolSubsystem::CreateWebsocketClient()
 	UWebsocketClient* websocketClient = NewObject<UWebsocketClient>();
 	return websocketClient;
 }
+
+UWebsocketClientSsl* UInternetProtocolSubsystem::CreateWebsocketClientSsl()
+{
+	UWebsocketClientSsl* websocketClient = NewObject<UWebsocketClientSsl>();
+	return websocketClient;
+}

@@ -35,5 +35,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="IP")
 	UWebsocketClient* CreateWebsocketClient();
+
+	UFUNCTION(BlueprintCallable, Category="IP")
+	UWebsocketClientSsl* CreateWebsocketClientSsl();
 	
 };
