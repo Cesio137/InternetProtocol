@@ -76,28 +76,15 @@ bool UHttpClient::processRequest()
 	return true;
 }
 
-void UHttpClient::cancelRequest(bool forceClose)
+void UHttpClient::cancelRequest()
 {
 	tcp.context.stop();
-	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both);
+	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 	tcp.socket.close(tcp.error_code);
-	pool->join();
-	OnRequestCanceled.Broadcast();
-
-	tcp.context.stop();
-	if (forceClose) {
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	} else {
-		tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	pool->join();
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 	OnRequestCanceled.Broadcast();
 }
 
@@ -340,7 +327,7 @@ bool UHttpClientSsl::processRequest()
 	return true;
 }
 
-void UHttpClientSsl::cancelRequest(bool forceClose)
+void UHttpClientSsl::cancelRequest()
 {
 	tcp.context.stop();
 	tcp.ssl_socket.shutdown(tcp.error_code);
@@ -348,22 +335,15 @@ void UHttpClientSsl::cancelRequest(bool forceClose)
 		if (error) {
 			tcp.error_code = error;
 			OnError.Broadcast(error.value(), error.message().c_str());
+			tcp.error_code.clear();
 		}
-
-		if (forceClose) {
-			tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		} else {
-			tcp.ssl_socket.lowest_layer().shutdown(
+		tcp.ssl_socket.lowest_layer().shutdown(
 				asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-
-			tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+		tcp.ssl_socket.lowest_layer().close(tcp.error_code);
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 		OnRequestCanceled.Broadcast();
 	});
 }

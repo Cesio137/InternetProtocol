@@ -120,7 +120,7 @@ public:
 	bool isConnected() const { return tcp.socket.is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")
-	void close(bool forceClose = false);
+	void close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Error")
@@ -385,7 +385,7 @@ public:
 	bool isConnected() const { return tcp.ssl_socket.lowest_layer().is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")
-	void close(bool forceClose = false);
+	void close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Error")

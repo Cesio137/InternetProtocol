@@ -32,8 +32,8 @@ bool UUDPClient::asyncRead()
 	}
 
 	udp.socket.async_receive_from(asio::buffer(rbuffer.RawData.GetData(), rbuffer.RawData.Num()), udp.endpoints,
-								  std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
-											asio::placeholders::bytes_transferred)
+	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
+	                                        asio::placeholders::bytes_transferred)
 	);
 	return true;
 }
@@ -52,12 +52,12 @@ bool UUDPClient::connect()
 void UUDPClient::close()
 {
 	udp.context.stop();
-	udp.socket.close(udp.error_code);
-	pool->join();
+	udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, udp.error_code);
 	if (udp.error_code)
-	{
 		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().c_str());
-	}
+	udp.socket.close(udp.error_code);
+	if (udp.error_code)
+		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().c_str());
 	OnClose.Broadcast();
 }
 
@@ -147,7 +147,7 @@ void UUDPClient::run_context_thread()
 	mutexIO.unlock();
 }
 
-void UUDPClient::resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type &results)
+void UUDPClient::resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type& results)
 {
 	if (error)
 	{

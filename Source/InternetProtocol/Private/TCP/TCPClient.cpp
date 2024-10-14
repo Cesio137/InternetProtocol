@@ -48,25 +48,15 @@ bool UTCPClient::connect()
 	return true;
 }
 
-void UTCPClient::close(bool forceClose)
+void UTCPClient::close()
 {
 	tcp.context.stop();
-	if (forceClose)
-	{
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	else
-	{
-		tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	pool->join();
+	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	tcp.socket.close(tcp.error_code);
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 	OnClose.Broadcast();
 }
 
@@ -270,7 +260,7 @@ bool UTCPClientSsl::connect()
 	return true;
 }
 
-void UTCPClientSsl::close(bool forceClose)
+void UTCPClientSsl::close()
 {
 	tcp.context.stop();
 	tcp.ssl_socket.shutdown(tcp.error_code);
@@ -280,25 +270,15 @@ void UTCPClientSsl::close(bool forceClose)
 		{
 			tcp.error_code = error;
 			OnError.Broadcast(error.value(), error.message().c_str());
+			tcp.error_code.clear();
 		}
-
-		if (forceClose)
-		{
-			tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
-		else
-		{
-			tcp.ssl_socket.lowest_layer().shutdown(
-				asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-
-			tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
+		tcp.ssl_socket.lowest_layer().shutdown(
+			asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+		tcp.ssl_socket.lowest_layer().close(tcp.error_code);
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 		OnClose.Broadcast();
 	});
 }

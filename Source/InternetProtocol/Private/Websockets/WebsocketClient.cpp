@@ -61,27 +61,15 @@ bool UWebsocketClient::connect()
 	return true;
 }
 
-void UWebsocketClient::close(bool forceClose)
+void UWebsocketClient::close()
 {
 	tcp.context.stop();
-	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both);
+	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 	tcp.socket.close(tcp.error_code);
-	pool->join();
-
-	tcp.context.stop();
-	if (forceClose) {
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	} else {
-		tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	pool->join();
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 	OnClose.Broadcast();
 }
 
@@ -664,8 +652,8 @@ bool UWebsocketClientSsl::asyncRead()
 	}
 
 	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(2),
-					 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
-							   asio::placeholders::bytes_transferred));
+	                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
+	                           asio::placeholders::bytes_transferred));
 	return true;
 }
 
@@ -680,7 +668,7 @@ bool UWebsocketClientSsl::connect()
 	return true;
 }
 
-void UWebsocketClientSsl::close(bool forceClose)
+void UWebsocketClientSsl::close()
 {
 	tcp.context.stop();
 	tcp.ssl_socket.shutdown(tcp.error_code);
@@ -690,25 +678,15 @@ void UWebsocketClientSsl::close(bool forceClose)
 		{
 			tcp.error_code = error;
 			OnError.Broadcast(error.value(), error.message().c_str());
+			tcp.error_code.clear();
 		}
-
-		if (forceClose)
-		{
-			tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
-		else
-		{
-			tcp.ssl_socket.lowest_layer().shutdown(
-				asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-
-			tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-			if (tcp.error_code)
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
+		tcp.ssl_socket.lowest_layer().shutdown(
+			asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+		tcp.ssl_socket.lowest_layer().close(tcp.error_code);
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
 		OnClose.Broadcast();
 	});
 }
@@ -734,8 +712,8 @@ void UWebsocketClientSsl::post_buffer(EOpcode opcode, const TArray<uint8>& buffe
 		std::vector<uint8> p_buffer(buffer.GetData(), buffer.GetData() + buffer.Num());
 		encode_buffer_payload(p_buffer);
 		asio::async_write(tcp.ssl_socket, asio::buffer(p_buffer.data(), p_buffer.size()),
-						  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred));
+		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred));
 	}
 	mutexBuffer.unlock();
 }
@@ -749,8 +727,8 @@ void UWebsocketClientSsl::package_string(const FString& str)
 		payload = TCHAR_TO_UTF8(*str);
 		payload = encode_string_payload(payload);
 		asio::async_write(tcp.ssl_socket, asio::buffer(payload.data(), payload.size()),
-						  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred)
+		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred)
 		);
 		return;
 	}
@@ -766,8 +744,8 @@ void UWebsocketClientSsl::package_string(const FString& str)
 		payload = TCHAR_TO_UTF8(*strshrink);
 		payload = encode_string_payload(payload);
 		asio::async_write(tcp.ssl_socket, asio::buffer(payload, payload.size()),
-						  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred)
+		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred)
 		);
 		string_offset += package_size;
 		if (sDataFrame.opcode != EOpcode::FRAME_CON)
@@ -849,8 +827,8 @@ void UWebsocketClientSsl::package_buffer(const TArray<uint8>& buffer)
 		sDataFrame.fin = true;
 		encode_buffer_payload(payload);
 		asio::async_write(tcp.ssl_socket, asio::buffer(payload.data(), payload.size()),
-						  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred)
+		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred)
 		);
 		return;
 	}
@@ -865,8 +843,8 @@ void UWebsocketClientSsl::package_buffer(const TArray<uint8>& buffer)
 		payload.assign(buffer.GetData() + buffer_offset, buffer.GetData() + buffer_offset + package_size);
 		encode_buffer_payload(payload);
 		asio::async_write(tcp.ssl_socket, asio::buffer(payload, payload.size()),
-						  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred)
+		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred)
 		);
 		buffer_offset += package_size;
 		if (sDataFrame.opcode != EOpcode::FRAME_CON)
@@ -1068,8 +1046,8 @@ void UWebsocketClientSsl::run_context_thread()
 		tcp.error_code.clear();
 		tcp.context.restart();
 		tcp.resolver.async_resolve(TCHAR_TO_UTF8(*host), TCHAR_TO_UTF8(*service),
-								   std::bind(&UWebsocketClientSsl::resolve, this, asio::placeholders::error,
-											 asio::placeholders::results)
+		                           std::bind(&UWebsocketClientSsl::resolve, this, asio::placeholders::error,
+		                                     asio::placeholders::results)
 		);
 		tcp.context.run();
 		if (!tcp.error_code)
@@ -1097,7 +1075,7 @@ void UWebsocketClientSsl::resolve(const std::error_code& error, const asio::ip::
 	tcp.endpoints = endpoints;
 
 	asio::async_connect(tcp.ssl_socket.lowest_layer(), tcp.endpoints,
-						std::bind(&UWebsocketClientSsl::conn, this, asio::placeholders::error)
+	                    std::bind(&UWebsocketClientSsl::conn, this, asio::placeholders::error)
 	);
 }
 
@@ -1111,8 +1089,8 @@ void UWebsocketClientSsl::conn(const std::error_code& error)
 	}
 	// The connection was successful;
 	tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
-								   std::bind(&UWebsocketClientSsl::ssl_handshake, this,
-											 asio::placeholders::error));
+	                               std::bind(&UWebsocketClientSsl::ssl_handshake, this,
+	                                         asio::placeholders::error));
 }
 
 void UWebsocketClientSsl::ssl_handshake(const std::error_code& error)
@@ -1131,8 +1109,8 @@ void UWebsocketClientSsl::ssl_handshake(const std::error_code& error)
 	std::ostream request_stream(&request_buffer);
 	request_stream << TCHAR_TO_UTF8(*request);
 	asio::async_write(tcp.ssl_socket, request_buffer,
-					  std::bind(&UWebsocketClientSsl::write_handshake, this, asio::placeholders::error,
-								asio::placeholders::bytes_transferred));
+	                  std::bind(&UWebsocketClientSsl::write_handshake, this, asio::placeholders::error,
+	                            asio::placeholders::bytes_transferred));
 }
 
 void UWebsocketClientSsl::write_handshake(const std::error_code& error, const size_t bytes_sent)
@@ -1148,12 +1126,12 @@ void UWebsocketClientSsl::write_handshake(const std::error_code& error, const si
 	// automatically grow to accommodate the entire line. The growth may be
 	// limited by passing a maximum size to the streambuf constructor.
 	asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
-						   std::bind(&UWebsocketClientSsl::read_handshake, this, asio::placeholders::error,
-									 bytes_sent, asio::placeholders::bytes_transferred));
+	                       std::bind(&UWebsocketClientSsl::read_handshake, this, asio::placeholders::error,
+	                                 bytes_sent, asio::placeholders::bytes_transferred));
 }
 
 void UWebsocketClientSsl::read_handshake(const std::error_code& error, const size_t bytes_sent,
-	const size_t bytes_recvd)
+                                         const size_t bytes_recvd)
 {
 	if (error)
 	{
@@ -1184,15 +1162,15 @@ void UWebsocketClientSsl::read_handshake(const std::error_code& error, const siz
 	}
 
 	asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n\r\n",
-						   std::bind(&UWebsocketClientSsl::consume_header_buffer, this, asio::placeholders::error));
+	                       std::bind(&UWebsocketClientSsl::consume_header_buffer, this, asio::placeholders::error));
 }
 
 void UWebsocketClientSsl::consume_header_buffer(const std::error_code& error)
 {
 	consume_response_buffer();
 	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
-					 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
-							   asio::placeholders::bytes_transferred));
+	                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
+	                           asio::placeholders::bytes_transferred));
 
 	// The connection was successful
 	OnConnected.Broadcast();
@@ -1224,8 +1202,8 @@ void UWebsocketClientSsl::read(const std::error_code& error, const size_t bytes_
 	{
 		response_buffer.consume(response_buffer.size());
 		asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
-						 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
-								   asio::placeholders::bytes_transferred)
+		                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
+		                           asio::placeholders::bytes_transferred)
 		);
 		return;
 	}
@@ -1251,7 +1229,7 @@ void UWebsocketClientSsl::read(const std::error_code& error, const size_t bytes_
 
 	consume_response_buffer();
 	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
-					 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
-							   asio::placeholders::bytes_transferred)
+	                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
+	                           asio::placeholders::bytes_transferred)
 	);
 }

@@ -160,7 +160,7 @@ public:
 	bool processRequest();
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
-	void cancelRequest(bool forceClose = false);
+	void cancelRequest();
 
 	/*MEMORY MANAGER*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Memory")
@@ -490,7 +490,7 @@ public:
 	bool processRequest();
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
-	void cancelRequest(bool forceClose = false);
+	void cancelRequest();
 
 	/*MEMORY MANAGER*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Memory")
