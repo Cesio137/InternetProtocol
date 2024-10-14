@@ -7,12 +7,12 @@ const PORT: number = 3000;
 
 const server: dgram.Socket = dgram.createSocket("udp4");
 
-server.on("message", (msg: Buffer, rinfo: dgram.RemoteInfo) => {
+server.on("message", function(msg: Buffer, rinfo: dgram.RemoteInfo) {
   console.log(`Client: ${rinfo.address}:${rinfo.port}`);
   console.log(`Message: ${msg}`);
 
-  const response: string = `${msg}`;
-  server.send(response, rinfo.port, rinfo.address, (error) => {
+  const response: Buffer = msg;
+  server.send(response, rinfo.port, rinfo.address, function(error) {
     if (error) {
       console.error(`Erro trying send message: ${error.message}`);
       return;
@@ -21,12 +21,12 @@ server.on("message", (msg: Buffer, rinfo: dgram.RemoteInfo) => {
   });
 });
 
-server.on("listening", () => {
+server.on("listening", function() {
   const address: AddressInfo = server.address();
   console.log(`Listening at adress: ${address.address}:${address.port}`);
 });
 
-server.on("error", (error: Error) => {
+server.on("error", function(error: Error) {
   console.error(`Server error: ${error.message}`);
   server.close();
 });
