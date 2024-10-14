@@ -96,8 +96,10 @@ namespace InternetProtocol {
 
         void close() {
             udp.context.stop();
+            udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, udp.error_code);
+            if (udp.error_code && onError)
+                onError(udp.error_code.value(), udp.error_code.message());
             udp.socket.close(udp.error_code);
-            pool->join();
             if (udp.error_code && onError)
                 onError(udp.error_code.value(), udp.error_code.message());
             if (onClose)

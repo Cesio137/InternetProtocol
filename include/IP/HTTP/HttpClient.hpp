@@ -148,21 +148,14 @@ namespace InternetProtocol {
             return true;
         }
 
-        void cancelRequest(bool forceClose = false) {
+        void cancelRequest() {
             tcp.context.stop();
-            if (forceClose) {
-                tcp.socket.close(tcp.error_code);
-                if (tcp.error_code && onError)
-                    onError(tcp.error_code.value(), tcp.error_code.message());
-            } else {
-                tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-                if (tcp.error_code && onError)
-                    onError(tcp.error_code.value(), tcp.error_code.message());
-                tcp.socket.close(tcp.error_code);
-                if (tcp.error_code && onError)
-                    onError(tcp.error_code.value(), tcp.error_code.message());
-            }
-            pool->join();
+            tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+            if (tcp.error_code && onError)
+                onError(tcp.error_code.value(), tcp.error_code.message());
+            tcp.socket.close(tcp.error_code);
+            if (tcp.error_code && onError)
+                onError(tcp.error_code.value(), tcp.error_code.message());
             if (onRequestCanceled) onRequestCanceled();
         }
 
@@ -581,29 +574,21 @@ namespace InternetProtocol {
             return true;
         }
 
-        void cancelRequest(bool forceClose = false) {
+        void cancelRequest() {
             tcp.context.stop();
-            tcp.ssl_socket.shutdown(tcp.error_code);
             tcp.ssl_socket.async_shutdown([&](const std::error_code &error) {
                 if (error) {
                     tcp.error_code = error;
                     if (onError) onError(error.value(), error.message());
+                    tcp.error_code.clear();
                 }
-
-                if (forceClose) {
-                    tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-                    if (tcp.error_code && onError)
-                        onError(tcp.error_code.value(), tcp.error_code.message());
-                } else {
-                    tcp.ssl_socket.lowest_layer().shutdown(
-                        asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-                    if (tcp.error_code && onError)
-                        onError(tcp.error_code.value(), tcp.error_code.message());
-
-                    tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-                    if (tcp.error_code && onError)
-                        onError(tcp.error_code.value(), tcp.error_code.message());
-                }
+                tcp.ssl_socket.lowest_layer().shutdown(
+                    asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+                if (tcp.error_code && onError)
+                    onError(tcp.error_code.value(), tcp.error_code.message());
+                tcp.ssl_socket.lowest_layer().close(tcp.error_code);
+                if (tcp.error_code && onError)
+                    onError(tcp.error_code.value(), tcp.error_code.message());
                 if (onRequestCanceled) onRequestCanceled();
             });
         }
