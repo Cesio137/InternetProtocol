@@ -43,3 +43,9 @@ UWebsocketClientSsl* UInternetProtocolSubsystem::CreateWebsocketClientSsl()
 	UWebsocketClientSsl* websocketClient = NewObject<UWebsocketClientSsl>();
 	return websocketClient;
 }
+
+UJavaScriptObjectNotation* UInternetProtocolSubsystem::CreateJsonObject()
+{
+	UJavaScriptObjectNotation* Json = NewObject<UJavaScriptObjectNotation>();
+	return Json;
+}

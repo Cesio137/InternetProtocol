@@ -8,6 +8,7 @@
 #include "TCP/TCPClient.h"
 #include "Http/HttpClient.h"
 #include "Websockets/WebsocketClient.h"
+#include "Json/JavaScriptObjectNotation.h"
 #include "InternetProtocolSubsystem.generated.h"
 
 /**
@@ -38,5 +39,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="IP")
 	UWebsocketClientSsl* CreateWebsocketClientSsl();
+
+	UFUNCTION(BlueprintCallable, Category="IP")
+	UJavaScriptObjectNotation* CreateJsonObject();
 	
 };

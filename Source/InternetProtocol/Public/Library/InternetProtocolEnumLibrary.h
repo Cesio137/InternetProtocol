@@ -3,6 +3,14 @@
 #include "CoreMinimal.h"
 #include "InternetProtocolEnumLibrary.generated.h"
 
+/*Exec Pin*/
+UENUM(Blueprintable, Category="IP")
+enum EOutputExecPins
+{
+	Success,
+	Failure,
+};
+
 /*HTTP*/
 UENUM(Blueprintable, Category = "IP||HTTP")
 enum class EVerb : uint8
