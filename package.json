@@ -14,16 +14,16 @@
   "type": "module",
   "dependencies": {
     "@types/ws": "^8.5.12",
-    "express": "^4.19.2",
+    "express": "^4.21.1",
     "minimalist": "^1.0.0",
     "minimist": "^1.2.8",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.14.12",
-    "tsx": "^4.16.2",
-    "typescript": "^5.5.4"
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
   },
   "imports": {
     "#resolver": [
