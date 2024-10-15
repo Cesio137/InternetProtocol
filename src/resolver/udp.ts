@@ -1,9 +1,5 @@
-import { Address } from "cluster";
 import * as dgram from "dgram";
 import { AddressInfo } from "net";
-
-const HOST: string = "localhost";
-const PORT: number = 3000;
 
 const server: dgram.Socket = dgram.createSocket("udp4");
 
@@ -23,7 +19,7 @@ server.on("message", function(msg: Buffer, rinfo: dgram.RemoteInfo) {
 
 server.on("listening", function() {
   const address: AddressInfo = server.address();
-  console.log(`Listening at adress: ${address.address}:${address.port}`);
+  console.log(`UDP listening at adress: localhost:${address.port}`);
 });
 
 server.on("error", function(error: Error) {
@@ -31,4 +27,6 @@ server.on("error", function(error: Error) {
   server.close();
 });
 
-server.bind(PORT, HOST);
+export function resolve(port: number) {
+  server.bind(port);
+}

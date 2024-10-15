@@ -14,12 +14,12 @@ Codes to test server and client connection of asio library
 
 ---
 
-### `npm run start`
+### `npm run start <resolver>`
 
 Runs the app.\
 Use adress [http://localhost:3000](http://localhost:3000) to connect the clients.
 
-### `npm run dev`
+### `npm run dev <resolver>`
 
 Runs the app.\
 Use adress [http://localhost:3000](http://localhost:3000) to connect the clients.
@@ -34,3 +34,11 @@ It correctly bundles React in production mode and optimizes the build for the be
 
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
+
+## Resolver
+
+### `udp`, `tcp`, `http`, `ws`
+
+## OpenSSL
+
+### Just add `openssl` to command arg.
