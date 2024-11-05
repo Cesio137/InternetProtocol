@@ -42,8 +42,8 @@ public:
 
 	virtual ~UHttpClient() override
 	{
+		finishIO = true;
 		tcp.context.stop();
-		pool->stop();
 		clearRequest();
 		clearPayload();
 		clearResponse();
@@ -198,9 +198,9 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
-	std::mutex mutexPayload;
-	std::mutex mutexIO;
+	FCriticalSection mutexPayload;
+	FCriticalSection mutexIO;
+	bool finishIO = false;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;
@@ -255,8 +255,8 @@ public:
 
 	virtual ~UHttpClientSsl() override
 	{
+		finishIO = true;
 		tcp.context.stop();
-		pool->stop();
 		clearRequest();
 		clearPayload();
 		clearResponse();
@@ -528,9 +528,9 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
-	std::mutex mutexPayload;
-	std::mutex mutexIO;
+	FCriticalSection mutexPayload;
+	FCriticalSection mutexIO;
+	bool finishIO = false;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;

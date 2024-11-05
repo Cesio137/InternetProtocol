@@ -35,8 +35,8 @@ public:
 
 	virtual ~UWebsocketClient() override
 	{
+		finishIO = true;
 		tcp.context.stop();
-		pool->stop();
 		consume_response_buffer();
 	}
 
@@ -221,9 +221,9 @@ public:
 	FDelegateWsError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
-	std::mutex mutexIO;
-	std::mutex mutexBuffer;
+	FCriticalSection mutexIO;
+	FCriticalSection mutexBuffer;
+	bool finishIO = false;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;
@@ -274,8 +274,8 @@ public:
 
 	virtual ~UWebsocketClientSsl() override
 	{
+		finishIO = true;
 		tcp.context.stop();
-		pool->stop();
 		consume_response_buffer();
 	}
 
@@ -577,9 +577,9 @@ public:
 	FDelegateWsError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
-	std::mutex mutexIO;
-	std::mutex mutexBuffer;
+	FCriticalSection mutexIO;
+	FCriticalSection mutexBuffer;
+	bool finishIO = false;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;

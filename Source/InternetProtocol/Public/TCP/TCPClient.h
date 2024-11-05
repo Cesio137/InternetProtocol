@@ -33,10 +33,10 @@ public:
 	{
 	}
 
-	~UTCPClient()
+	virtual ~UTCPClient() override
 	{
+		finishIO = false;
 		tcp.context.stop();
-		pool->stop();
 		consume_response_buffer();
 	}
 
@@ -52,7 +52,9 @@ public:
 	FString getLocalAdress() const
 	{
 		if (isConnected())
+		{
 			return UTF8_TO_TCHAR(tcp.socket.local_endpoint().address().to_string().c_str());
+		}
 		return "";
 	}
 
@@ -60,7 +62,9 @@ public:
 	FString getLocalPort() const
 	{
 		if (isConnected())
+		{
 			return FString::FromInt(tcp.socket.local_endpoint().port());
+		}
 		return "";
 	}
 
@@ -68,7 +72,9 @@ public:
 	FString getRemoteAdress() const
 	{
 		if (isConnected())
+		{
 			return UTF8_TO_TCHAR(tcp.socket.remote_endpoint().address().to_string().c_str());
+		}
 		return host;
 	}
 
@@ -76,7 +82,9 @@ public:
 	FString getRemotePort() const
 	{
 		if (isConnected())
+		{
 			return FString::FromInt(tcp.socket.remote_endpoint().port());
+		}
 		return service;
 	}
 
@@ -144,9 +152,9 @@ public:
 	FDelegateTcpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
-	std::mutex mutexIO;
-	std::mutex mutexBuffer;
+	FCriticalSection mutexIO;
+	FCriticalSection mutexBuffer;
+	bool finishIO = false;
 	FAsioTcp tcp;
 	FString host = "localhost";
 	FString service;
@@ -181,10 +189,10 @@ public:
 	{
 	}
 
-	~UTCPClientSsl()
+	virtual ~UTCPClientSsl() override
 	{
+		finishIO = false;
 		tcp.context.stop();
-		pool->stop();
 		consume_response_buffer();
 	}
 
@@ -200,7 +208,9 @@ public:
 	FString getLocalAdress() const
 	{
 		if (isConnected())
+		{
 			return UTF8_TO_TCHAR(tcp.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str());
+		}
 		return "";
 	}
 
@@ -208,7 +218,9 @@ public:
 	FString getLocalPort() const
 	{
 		if (isConnected())
+		{
 			return FString::FromInt(tcp.ssl_socket.lowest_layer().local_endpoint().port());
+		}
 		return "";
 	}
 
@@ -216,7 +228,9 @@ public:
 	FString getRemoteAdress() const
 	{
 		if (isConnected())
+		{
 			return UTF8_TO_TCHAR(tcp.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str());
+		}
 		return host;
 	}
 
@@ -224,7 +238,9 @@ public:
 	FString getRemotePort() const
 	{
 		if (isConnected())
+		{
 			return FString::FromInt(tcp.ssl_socket.lowest_layer().remote_endpoint().port());
+		}
 		return service;
 	}
 
@@ -409,9 +425,9 @@ public:
 	FDelegateTcpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
-	std::mutex mutexIO;
-	std::mutex mutexBuffer;
+	FCriticalSection mutexIO;
+	FCriticalSection mutexBuffer;
+	bool finishIO = false;
 	FAsioTcpSsl tcp;
 	FString host = "localhost";
 	FString service;

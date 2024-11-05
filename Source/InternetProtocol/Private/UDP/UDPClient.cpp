@@ -4,23 +4,27 @@
 
 bool UUDPClient::send(const FString& message)
 {
-	if (!pool && !isConnected() && !message.IsEmpty())
+	if (!isConnected() && !message.IsEmpty())
 	{
 		return false;
 	}
-
-	asio::post(*pool, [this, message]() { package_string(message); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_string(message);
+	});
 	return true;
 }
 
 bool UUDPClient::sendRaw(const TArray<uint8>& buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() <= 0)
+	if (!isConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
-
-	asio::post(*pool, [this, buffer]() { package_buffer(buffer); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_buffer(buffer);
+	});
 	return true;
 }
 
@@ -40,30 +44,37 @@ bool UUDPClient::asyncRead()
 
 bool UUDPClient::connect()
 {
-	if (!pool && isConnected())
+	if (isConnected())
 	{
 		return false;
 	}
-
-	asio::post(*pool, std::bind(&UUDPClient::run_context_thread, this));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		run_context_thread();
+	});
 	return true;
 }
 
 void UUDPClient::close()
 {
+	finishIO = true;
 	udp.context.stop();
 	udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, udp.error_code);
 	if (udp.error_code)
+	{
 		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().c_str());
+	}
 	udp.socket.close(udp.error_code);
 	if (udp.error_code)
+	{
 		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().c_str());
+	}
 	OnClose.Broadcast();
 }
 
 void UUDPClient::package_string(const FString& str)
 {
-	mutexBuffer.lock();
+	mutexBuffer.Lock();
 	std::string packaged_str;
 	if (!splitBuffer || str.Len() <= maxSendBufferSize)
 	{
@@ -71,7 +82,7 @@ void UUDPClient::package_string(const FString& str)
 		udp.socket.async_send_to(asio::buffer(packaged_str.data(), packaged_str.size()), udp.endpoints,
 		                         std::bind(&UUDPClient::send_to, this, asio::placeholders::error,
 		                                   asio::placeholders::bytes_transferred));
-		mutexBuffer.unlock();
+		mutexBuffer.Unlock();
 		return;
 	}
 
@@ -87,19 +98,19 @@ void UUDPClient::package_string(const FString& str)
 		                                   asio::placeholders::bytes_transferred));
 		string_offset += package_size;
 	}
-	mutexBuffer.unlock();
+	mutexBuffer.Unlock();
 }
 
 void UUDPClient::package_buffer(const TArray<uint8>& buffer)
 {
-	mutexBuffer.lock();
+	mutexBuffer.Lock();
 	if (!splitBuffer || buffer.Num() <= maxSendBufferSize)
 	{
 		udp.socket.async_send_to(asio::buffer(buffer.GetData(), buffer.Num() * sizeof(char)), udp.endpoints,
 		                         std::bind(&UUDPClient::send_to, this, asio::placeholders::error,
 		                                   asio::placeholders::bytes_transferred)
 		);
-		mutexBuffer.unlock();
+		mutexBuffer.Unlock();
 		return;
 	}
 
@@ -116,17 +127,21 @@ void UUDPClient::package_buffer(const TArray<uint8>& buffer)
 		);
 		buffer_offset += package_size;
 	}
-	mutexBuffer.unlock();
+	mutexBuffer.Unlock();
 }
 
 void UUDPClient::run_context_thread()
 {
-	mutexIO.lock();
+	mutexIO.Lock();
 	while (udp.attemps_fail <= maxAttemp)
 	{
+		if (finishIO) return;
 		if (udp.attemps_fail > 0)
 		{
-			OnConnectionWillRetry.Broadcast(udp.attemps_fail);
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnConnectionWillRetry.Broadcast(udp.attemps_fail);
+			});
 		}
 		udp.error_code.clear();
 		udp.context.restart();
@@ -140,18 +155,22 @@ void UUDPClient::run_context_thread()
 			break;
 		}
 		udp.attemps_fail++;
-		std::this_thread::sleep_for(std::chrono::seconds(timeout));
+		FPlatformProcess::Sleep(timeout);
 	}
 	consume_receive_buffer();
 	udp.attemps_fail = 0;
-	mutexIO.unlock();
+	mutexIO.Unlock();
 }
 
 void UUDPClient::resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type& results)
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().c_str());
+		udp.error_code = error;
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
 	udp.endpoints = *results;
@@ -164,7 +183,11 @@ void UUDPClient::conn(const std::error_code& error)
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().c_str());
+		udp.error_code = error;
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
 
@@ -173,34 +196,49 @@ void UUDPClient::conn(const std::error_code& error)
 	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
 	                                        asio::placeholders::bytes_transferred)
 	);
-
-	OnConnected.Broadcast();
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnConnected.Broadcast();
+	});
 }
 
 void UUDPClient::send_to(const std::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().c_str());
+		udp.error_code = error;
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-
-	OnMessageSent.Broadcast(bytes_sent);
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageSent.Broadcast(bytes_sent);
+	});
 }
 
 void UUDPClient::receive_from(const std::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		OnError.Broadcast(error.value(), error.message().c_str());
+		udp.error_code = error;
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
 
 	udp.attemps_fail = 0;
 	rbuffer.size = bytes_recvd;
 	rbuffer.RawData.SetNum(bytes_recvd);
-	OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
-
+	FUdpMessage buffer = rbuffer;
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageReceived.Broadcast(bytes_recvd, buffer);
+	});
 	consume_receive_buffer();
 	udp.socket.async_receive_from(asio::buffer(rbuffer.RawData.GetData(), rbuffer.RawData.Num()), udp.endpoints,
 	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
