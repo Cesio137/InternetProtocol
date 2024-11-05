@@ -1,32 +1,43 @@
-import * as dgram from "dgram";
-import { AddressInfo } from "net";
+let listener: Deno.DatagramConn;
+const clients = new Set<Deno.NetAddr>();
 
-const server: dgram.Socket = dgram.createSocket("udp4");
+export async function resolve(options: ResolverOptions) {
+    listener = Deno.listenDatagram({
+        hostname: options.hostname || "127.0.0.1",
+        port: options.port || 3000,
+        transport: "udp",
+    });
+    const { hostname, port } = listener.addr as Deno.NetAddr;
+    console.log(`UDP listening at adress: ${hostname}:${port}`);
 
-server.on("message", function(msg: Buffer, rinfo: dgram.RemoteInfo) {
-  console.log(`Client: ${rinfo.address}:${rinfo.port}`);
-  console.log(`Message: ${msg}`);
-
-  const response: Buffer = msg;
-  server.send(response, rinfo.port, rinfo.address, function(error) {
-    if (error) {
-      console.error(`Erro trying send message: ${error.message}`);
-      return;
+    for await (const [msg, addr] of listener) {
+        try {
+            const client_addr = addr as Deno.NetAddr;
+            const data = new TextDecoder().decode(msg);
+            console.log(`${client_addr.port} -> ${data}`);
+            switch (data) {
+                case "login":
+                    clients.add(client_addr)
+                    continue
+                case "logout":
+                    clients.delete(client_addr)
+                    continue
+            }
+            for (const client of clients) {
+                if (client.port === client_addr.port) continue
+                await listener.send(msg, client)
+            }
+        } catch (err) {
+            if (err instanceof Error) {
+                console.error(`Error receiving message: ${err.message}`);
+            } else {
+                console.error(`Unknown error: ${err}`);
+            }
+        }
     }
-    console.log(`Message sent to ${rinfo.address}:${rinfo.port}`);
-  });
-});
+}
 
-server.on("listening", function() {
-  const address: AddressInfo = server.address();
-  console.log(`UDP listening at adress: localhost:${address.port}`);
-});
-
-server.on("error", function(error: Error) {
-  console.error(`Server error: ${error.message}`);
-  server.close();
-});
-
-export function resolve(port: number) {
-  server.bind(port);
+export function close() {
+    if (listener)
+        listener.close()
 }

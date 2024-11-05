@@ -1,30 +1,46 @@
-import express, { Express, Request, Response } from 'express'
-import https from "https";
-import { credentials } from '#settings';
+import { credentials } from "#settings";
 
-type Handle = {
-    event:string,
-    message:string
+let listener: Deno.HttpServer<Deno.NetAddr>;
+let ssl_listener: Deno.HttpServer<Deno.NetAddr>;
+
+async function handler(req: Request) {
+    if (req.method === "GET") {
+        return new Response("Hello, world!", {
+            status: 200,
+            headers: { "content-type": "text/plain" },
+        });
+    } else {
+        return new Response("Method Not Allowed", {
+            status: 405,
+            headers: { "content-type": "text/plain" },
+        });
+    }
 }
 
-const app: Express = express();
-const https_server = https.createServer(credentials, app);
-
-app.get('/', (req:Request, res:Response) => {
-    const JsonMessage: Handle = {event: 'http_request', message: 'Received request from nodejs!'};
-    res.send(JSON.stringify(JsonMessage));
-});
-
-export function resolve(port: number) {
-    app.listen(port, function(){
-        console.log(`HTTP listening at adress localhost:${port}`);
-    });
+export function resolve(options: ResolverOptions) {
+    listener = Deno.serve(
+        {
+            hostname: options.hostname || "127.0.0.1",
+            port: options.port || 3000,
+        },
+        handler
+    );
 }
 
-export function ssl_resolve(port: number) {
-    https_server.listen(port, () => {
-        console.log(`HTTP SSL listening at adress localhost:${port}`);
-    });
+export function ssl_resolve(options: ResolverOptions) {
+    const decoder = new TextDecoder("utf-8");
+    ssl_listener = Deno.serve(
+        {
+            hostname: options.hostname || "127.0.0.1",
+            port: options.port || 3000,
+            cert: decoder.decode(credentials.cert),
+            key: decoder.decode(credentials.key),
+        },
+        handler
+    );
 }
 
-
+export function close() {
+    if (listener) listener.shutdown();
+    if (ssl_listener) ssl_listener.shutdown();
+}

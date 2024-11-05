@@ -1,46 +1,65 @@
-import { RawData, WebSocket, WebSocketServer } from "ws";
-import https from "https";
 import { credentials } from "#settings";
 
-const httpsServer = https.createServer(credentials);
-let wss: WebSocketServer;
-const clients: WebSocket[] = [];
+let listener: Deno.HttpServer<Deno.NetAddr>;
+let ssl_listener: Deno.HttpServer<Deno.NetAddr>;
+const clients = new Set<WebSocket>;
 
-function connection() {
-    wss.on("connection", function connection(ws: WebSocket) {
-        if (clients.indexOf(ws) < 0) clients.push(ws);
-        console.log("connected!");
-    
-        ws.on("error", function error() {
-            if (clients.indexOf(ws) > -1) clients.splice(clients.indexOf(ws), 1);
-            console.log("closed!");
-        });
-    
-        ws.on("message", function message(data: RawData) {
-            console.log("Client message: " + data);
-            ws.send(data);
-            clients.forEach((websocket: WebSocket) => {
-                if (ws !== websocket) websocket.send(data);
-            });
-        });
-    
-        ws.on("close", function close() {
-            if (clients.indexOf(ws) > -1) clients.splice(clients.indexOf(ws), 1);
-            console.log("closed!");
-        });
+async function handler(req: Request) {
+    if (req.headers.get("upgrade") !== "websocket") {
+        return new Response(null, { status: 501 });
+    }
+    const { socket, response } = Deno.upgradeWebSocket(req);
+    clients.add(socket)
+    socket.addEventListener("open", () => {
+        console.log("Client connected.")
     });
+    socket.addEventListener("close", () => {
+        clients.delete(socket)
+        console.log("Client disconnected.")
+    })
+    socket.addEventListener("message", (event) => {
+        if (typeof event.data !== "string") {
+            return
+        }
+        const message = event.data
+        console.log(message)
+        if (message === "ping") {
+            socket.send("pong");
+            return
+        }
+        
+        for (const client of clients) {
+            if (client === socket) continue
+            client.send(message)
+        }
+    });
+    return response;
 }
 
-export function resolve(port: number) {
-    wss = new WebSocketServer({ port: port });
-    console.log(`WS listening at adress localhost:${port}`);
-    connection();
+export function resolve(options: ResolverOptions) {
+    listener = Deno.serve(
+        {
+            hostname: options.hostname || "127.0.0.1",
+            port: options.port || 3000,
+        },
+        handler
+    );
 }
 
-export function ssl_resolve(port: number) {
-    wss = new WebSocketServer({ server: httpsServer });
-    httpsServer.listen(port, () => {
-        console.log(`WS SSL listening at adress localhost:${port}`);
-    });
-    connection();
+export function ssl_resolve(options: ResolverOptions) {
+    const decoder = new TextDecoder("utf-8");
+    ssl_listener = Deno.serve(
+        {
+            hostname: options.hostname || "127.0.0.1",
+            port: options.port || 3000,
+            cert: decoder.decode(credentials.cert),
+            key: decoder.decode(credentials.key),
+        },
+        handler
+    );
+}
+
+export function close() {
+    if (listener) listener.shutdown()
+    if (ssl_listener) ssl_listener.shutdown()
 }
