@@ -4,29 +4,23 @@
 
 bool UTCPClient::send(const FString& message)
 {
-	if (!isConnected() && message.IsEmpty())
+	if (!pool && !isConnected() && message.IsEmpty())
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_string(message);
-	});
+	asio::post(*pool, [=]() { package_string(message); });
 	return true;
 }
 
 bool UTCPClient::sendRaw(const TArray<uint8>& buffer)
 {
-	if (!isConnected() && buffer.Num() <= 0)
+	if (!pool && !isConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_buffer(buffer);
-	});
+	asio::post(*pool, [=]() { package_buffer(buffer); });
 	return true;
 }
 
@@ -45,38 +39,33 @@ bool UTCPClient::asyncRead()
 
 bool UTCPClient::connect()
 {
-	if (isConnected())
+	if (pool.IsValid() && isConnected())
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		run_context_thread();
-	});
+	asio::post(*pool, std::bind(&UTCPClient::run_context_thread, this));
 	return true;
 }
 
 void UTCPClient::close()
 {
-	finishIO = true;
 	tcp.context.stop();
 	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-	if (tcp.error_code)
+	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
-		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	tcp.socket.close(tcp.error_code);
-	if (tcp.error_code)
-	{
-		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	OnClose.Broadcast();
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+		tcp.socket.close(tcp.error_code);
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+		OnClose.Broadcast();
+	});
 }
 
 void UTCPClient::package_string(const FString& str)
 {
-	mutexBuffer.Lock();
+	mutexBuffer.lock();
 	std::string packaged_str;
 	if (!splitBuffer || str.Len() <= maxSendBufferSize)
 	{
@@ -85,7 +74,7 @@ void UTCPClient::package_string(const FString& str)
 		                  std::bind(&UTCPClient::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
-		mutexBuffer.Unlock();
+		mutexBuffer.unlock();
 		return;
 	}
 
@@ -102,19 +91,19 @@ void UTCPClient::package_string(const FString& str)
 		);
 		string_offset += package_size;
 	}
-	mutexBuffer.Unlock();
+	mutexBuffer.unlock();
 }
 
 void UTCPClient::package_buffer(const TArray<uint8>& buffer)
 {
-	mutexBuffer.Lock();
+	mutexBuffer.lock();
 	if (!splitBuffer || buffer.Num() * sizeof(char) <= maxSendBufferSize)
 	{
 		asio::async_write(tcp.socket, asio::buffer(buffer.GetData(), buffer.Num() * sizeof(char)),
 		                  std::bind(&UTCPClient::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
-		mutexBuffer.Unlock();
+		mutexBuffer.unlock();
 		return;
 	}
 
@@ -135,15 +124,15 @@ void UTCPClient::package_buffer(const TArray<uint8>& buffer)
 		);
 		buffer_offset += package_size;
 	}
-	mutexBuffer.Unlock();
+	mutexBuffer.unlock();
 }
 
 void UTCPClient::run_context_thread()
 {
-	mutexIO.Lock();
+	mutexIO.lock();
 	while (tcp.attemps_fail <= maxAttemp)
 	{
-		if (finishIO) return;
+		if (ShouldStopContext) return;
 		if (tcp.attemps_fail > 0)
 		{
 			AsyncTask(ENamedThreads::GameThread, [=]()
@@ -163,11 +152,11 @@ void UTCPClient::run_context_thread()
 			break;
 		}
 		tcp.attemps_fail++;
-		FPlatformProcess::Sleep(timeout);
+		std::this_thread::sleep_for(std::chrono::seconds(timeout));
 	}
 	consume_response_buffer();
 	tcp.attemps_fail = 0;
-	mutexIO.Unlock();
+	mutexIO.unlock();
 }
 
 void UTCPClient::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
@@ -178,6 +167,7 @@ void UTCPClient::resolve(const std::error_code& error, const asio::ip::tcp::reso
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
 			OnError.Broadcast(error.value(), error.message().c_str());
+				
 		});
 		return;
 	}
@@ -224,7 +214,6 @@ void UTCPClient::write(const std::error_code& error, const size_t bytes_sent)
 		});
 		return;
 	}
-
 	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
 		OnMessageSent.Broadcast(bytes_sent);
@@ -247,7 +236,7 @@ void UTCPClient::read(const std::error_code& error, const size_t bytes_recvd)
 	rbuffer.size = response_buffer.size();
 	rbuffer.RawData.SetNum(rbuffer.size);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), rbuffer.size), response_buffer.data());
-	FTcpMessage buffer = rbuffer;
+	const FTcpMessage buffer = rbuffer;
 	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
 		OnMessageReceived.Broadcast(bytes_recvd, buffer);
@@ -261,29 +250,23 @@ void UTCPClient::read(const std::error_code& error, const size_t bytes_recvd)
 
 bool UTCPClientSsl::send(const FString& message)
 {
-	if (!isConnected() && message.IsEmpty())
+	if (!pool && !isConnected() && message.IsEmpty())
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_string(message);
-	});
+	asio::post(*pool, [=]() { package_string(message); });
 	return true;
 }
 
 bool UTCPClientSsl::sendRaw(const TArray<uint8>& buffer)
 {
-	if (!isConnected() && buffer.Num() <= 0)
+	if (!pool && !isConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_buffer(buffer);
-	});
+	asio::post(*pool, [=]() { package_buffer(buffer); });
 	return true;
 }
 
@@ -302,49 +285,50 @@ bool UTCPClientSsl::asyncRead()
 
 bool UTCPClientSsl::connect()
 {
-	if (isConnected())
-	{
-		return false;
-	}
+	if (!pool && isConnected()) return false;
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		run_context_thread();
-	});
+	asio::post(*pool, std::bind(&UTCPClientSsl::run_context_thread, this));
 	return true;
 }
 
 void UTCPClientSsl::close()
 {
-	finishIO = true;
 	tcp.context.stop();
-	tcp.ssl_socket.shutdown(tcp.error_code);
 	tcp.ssl_socket.async_shutdown([&](const std::error_code& error)
 	{
 		if (error)
 		{
 			tcp.error_code = error;
-			OnError.Broadcast(error.value(), error.message().c_str());
+			const std::error_code err = error;
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnError.Broadcast(err.value(), err.message().c_str());
+			});
 			tcp.error_code.clear();
 		}
 		tcp.ssl_socket.lowest_layer().shutdown(
 			asio::ip::tcp::socket::shutdown_both, tcp.error_code);
 		if (tcp.error_code)
-		{
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+			});
 		tcp.ssl_socket.lowest_layer().close(tcp.error_code);
 		if (tcp.error_code)
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+			});
+		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
-		OnClose.Broadcast();
+			OnClose.Broadcast();
+		});
 	});
 }
 
 void UTCPClientSsl::package_string(const FString& str)
 {
-	mutexBuffer.Lock();
+	mutexBuffer.lock();
 	std::string packaged_str;
 	if (!splitBuffer || str.Len() <= maxSendBufferSize)
 	{
@@ -353,7 +337,7 @@ void UTCPClientSsl::package_string(const FString& str)
 		                  std::bind(&UTCPClientSsl::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
-		mutexBuffer.Unlock();
+		mutexBuffer.unlock();
 		return;
 	}
 
@@ -370,19 +354,19 @@ void UTCPClientSsl::package_string(const FString& str)
 		);
 		string_offset += package_size;
 	}
-	mutexBuffer.Unlock();
+	mutexBuffer.unlock();
 }
 
 void UTCPClientSsl::package_buffer(const TArray<uint8>& buffer)
 {
-	mutexBuffer.Lock();
+	mutexBuffer.lock();
 	if (!splitBuffer || buffer.Num() * sizeof(char) <= maxSendBufferSize)
 	{
 		asio::async_write(tcp.ssl_socket, asio::buffer(buffer.GetData(), buffer.Num() * sizeof(char)),
 		                  std::bind(&UTCPClientSsl::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
-		mutexBuffer.Unlock();
+		mutexBuffer.unlock();
 		return;
 	}
 
@@ -403,18 +387,21 @@ void UTCPClientSsl::package_buffer(const TArray<uint8>& buffer)
 		);
 		buffer_offset += package_size;
 	}
-	mutexBuffer.Unlock();
+	mutexBuffer.unlock();
 }
 
 void UTCPClientSsl::run_context_thread()
 {
-	mutexIO.Lock();
+	mutexIO.lock();
 	while (tcp.attemps_fail <= maxAttemp)
 	{
-		if (finishIO) return;
+		if (ShouldStopContext) return;
 		if (tcp.attemps_fail > 0)
 		{
-			OnConnectionWillRetry.Broadcast(tcp.attemps_fail);
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnConnectionWillRetry.Broadcast(tcp.attemps_fail);
+			});
 		}
 		tcp.error_code.clear();
 		tcp.context.restart();
@@ -428,11 +415,11 @@ void UTCPClientSsl::run_context_thread()
 			break;
 		}
 		tcp.attemps_fail++;
-		FPlatformProcess::Sleep(timeout);
+		std::this_thread::sleep_for(std::chrono::seconds(timeout));
 	}
 	consume_response_buffer();
 	tcp.attemps_fail = 0;
-	mutexIO.Unlock();
+	mutexIO.unlock();
 }
 
 void UTCPClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
@@ -488,8 +475,7 @@ void UTCPClientSsl::ssl_handshake(const std::error_code& error)
 		tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
 		std::bind(&UTCPClientSsl::read, this, asio::placeholders::error,
 		          asio::placeholders::bytes_transferred));
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
 		OnConnected.Broadcast();
 	});
@@ -506,8 +492,7 @@ void UTCPClientSsl::write(const std::error_code& error, const size_t bytes_sent)
 		});
 		return;
 	}
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
 		OnMessageSent.Broadcast(bytes_sent);
 	});
@@ -529,8 +514,8 @@ void UTCPClientSsl::read(const std::error_code& error, const size_t bytes_recvd)
 	rbuffer.size = response_buffer.size();
 	rbuffer.RawData.SetNum(rbuffer.size);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), rbuffer.size), response_buffer.data());
-	FTcpMessage buffer = rbuffer;
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	const FTcpMessage buffer = rbuffer;
+	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
 		OnMessageReceived.Broadcast(bytes_recvd, buffer);
 	});

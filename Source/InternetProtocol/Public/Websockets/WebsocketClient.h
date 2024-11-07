@@ -33,11 +33,15 @@ public:
 	{
 	}
 
-	virtual ~UWebsocketClient() override
+	virtual void BeginDestroy() override
 	{
-		finishIO = true;
-		tcp.context.stop();
+		ShouldStopContext = true;
+		tcp.resolver.cancel();
+		tcp.socket.close();
+		if (isConnected()) close();
+		if (!tcp.context.stopped()) tcp.context.stop();
 		consume_response_buffer();
+		Super::BeginDestroy();
 	}
 
 	/*HOST*/
@@ -53,7 +57,7 @@ public:
 	{
 		if (isConnected())
 		{
-			return UTF8_TO_TCHAR(tcp.socket.local_endpoint().address().to_string().c_str());
+			return tcp.socket.local_endpoint().address().to_string().c_str();
 		}
 		return "";
 	}
@@ -73,7 +77,7 @@ public:
 	{
 		if (isConnected())
 		{
-			return UTF8_TO_TCHAR(tcp.socket.remote_endpoint().address().to_string().c_str());
+			return tcp.socket.remote_endpoint().address().to_string().c_str();
 		}
 		return host;
 	}
@@ -221,9 +225,10 @@ public:
 	FDelegateWsError OnError;
 
 private:
-	FCriticalSection mutexIO;
-	FCriticalSection mutexBuffer;
-	bool finishIO = false;
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	std::mutex mutexIO;
+	std::mutex mutexBuffer;
+	bool ShouldStopContext = false;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;
@@ -272,11 +277,15 @@ public:
 	{
 	}
 
-	virtual ~UWebsocketClientSsl() override
+	virtual void BeginDestroy() override
 	{
-		finishIO = true;
-		tcp.context.stop();
+		ShouldStopContext = true;
+		tcp.resolver.cancel();
+		tcp.ssl_socket.shutdown();
+		if (isConnected()) close();
+		if (!tcp.context.stopped()) tcp.context.stop();
 		consume_response_buffer();
+		Super::BeginDestroy();
 	}
 
 	/*HOST*/
@@ -292,7 +301,7 @@ public:
 	{
 		if (isConnected())
 		{
-			return UTF8_TO_TCHAR(tcp.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str());
+			return tcp.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str();
 		}
 		return "";
 	}
@@ -312,7 +321,7 @@ public:
 	{
 		if (isConnected())
 		{
-			return UTF8_TO_TCHAR(tcp.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str());
+			return tcp.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str();
 		}
 		return host;
 	}
@@ -577,9 +586,10 @@ public:
 	FDelegateWsError OnError;
 
 private:
-	FCriticalSection mutexIO;
-	FCriticalSection mutexBuffer;
-	bool finishIO = false;
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	std::mutex mutexIO;
+	std::mutex mutexBuffer;
+	bool ShouldStopContext = true;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;

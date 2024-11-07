@@ -40,13 +40,17 @@ public:
 		request.headers.Add("Connection", "close");
 	}
 
-	virtual ~UHttpClient() override
+	virtual void BeginDestroy() override
 	{
-		finishIO = true;
-		tcp.context.stop();
+		ShouldStopContext = true;
+		tcp.resolver.cancel();
+		tcp.socket.close();
+		cancelRequest();
+		if (!tcp.context.stopped()) tcp.context.stop();
 		clearRequest();
 		clearPayload();
 		clearResponse();
+		Super::BeginDestroy();
 	}
 
 	/*HTTP SETTINGS*/
@@ -90,7 +94,7 @@ public:
 	EVerb getRequestMethod() const { return request.verb; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setVersion(const FString& version = "2.0") { request.version = version; }
+	void setVersion(const FString& version = "1.1") { request.version = version; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
 	FString getVersion() const { return request.version; }
@@ -198,9 +202,10 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	FCriticalSection mutexPayload;
-	FCriticalSection mutexIO;
-	bool finishIO = false;
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	std::mutex mutexPayload;
+	std::mutex mutexIO;
+	bool ShouldStopContext = false;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;
@@ -253,13 +258,17 @@ public:
 		request.headers.Add("Connection", "close");
 	}
 
-	virtual ~UHttpClientSsl() override
+	virtual void BeginDestroy() override
 	{
-		finishIO = true;
-		tcp.context.stop();
+		ShouldStopContext = true;
+		tcp.resolver.cancel();
+		tcp.ssl_socket.shutdown();
+		cancelRequest();
+		if (!tcp.context.stopped()) tcp.context.stop();
 		clearRequest();
 		clearPayload();
 		clearResponse();
+		Super::BeginDestroy();
 	}
 
 	/*HTTP SETTINGS*/
@@ -303,7 +312,7 @@ public:
 	EVerb getRequestMethod() const { return request.verb; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setVersion(const FString& version = "2.0") { request.version = version; }
+	void setVersion(const FString& version = "1.1") { request.version = version; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
 	FString getVersion() const { return request.version; }
@@ -528,9 +537,10 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	FCriticalSection mutexPayload;
-	FCriticalSection mutexIO;
-	bool finishIO = false;
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	std::mutex mutexPayload;
+	std::mutex mutexIO;
+	bool ShouldStopContext = false;
 	FString host = "localhost";
 	FString service;
 	uint8 timeout = 3;

@@ -49,15 +49,20 @@ void UHttpClient::preparePayload()
 
 bool UHttpClient::async_preparePayload()
 {
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	if (!pool.IsValid())
 	{
-		mutexPayload.Lock();
+		return false;
+	}
+
+	asio::post(*pool, [this]()
+	{
+		mutexPayload.lock();
 		preparePayload();
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
 			OnAsyncPayloadFinished.Broadcast();
 		});
-		mutexPayload.Unlock();
+		mutexPayload.unlock();
 	});
 
 	return true;
@@ -65,40 +70,36 @@ bool UHttpClient::async_preparePayload()
 
 bool UHttpClient::processRequest()
 {
-	if (!payload.IsEmpty())
+	if (!pool.IsValid() && !payload.IsEmpty())
 	{
 		return false;
 	}
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		run_context_thread();
-	});
+
+	asio::post(*pool, std::bind(&UHttpClient::run_context_thread, this));
 	return true;
 }
 
 void UHttpClient::cancelRequest()
 {
-	finishIO = true;
 	tcp.context.stop();
 	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-	if (tcp.error_code)
+	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
-		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	tcp.socket.close(tcp.error_code);
-	if (tcp.error_code)
-	{
-		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	}
-	OnRequestCanceled.Broadcast();
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+		tcp.socket.close(tcp.error_code);
+		if (tcp.error_code)
+			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+		OnRequestCanceled.Broadcast();
+	});
 }
 
 void UHttpClient::run_context_thread()
 {
-	mutexIO.Lock();
+	mutexIO.lock();
 	while (tcp.attemps_fail <= maxAttemp)
 	{
-		if (finishIO) return;
+		if (ShouldStopContext) return;
 		if (tcp.attemps_fail > 0)
 		{
 			AsyncTask(ENamedThreads::GameThread, [=]()
@@ -118,11 +119,11 @@ void UHttpClient::run_context_thread()
 			break;
 		}
 		tcp.attemps_fail++;
-		FPlatformProcess::Sleep(timeout);
+		std::this_thread::sleep_for(std::chrono::seconds(timeout));
 	}
 	consume_stream_buffers();
 	tcp.attemps_fail = 0;
-	mutexIO.Unlock();
+	mutexIO.unlock();
 }
 
 void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
@@ -182,7 +183,6 @@ void UHttpClient::write_request(const std::error_code& error, const size_t bytes
 	{
 		OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
 	});
-
 	asio::async_read_until(tcp.socket, response_buffer, "\r\n",
 	                       std::bind(&UHttpClient::read_status_line, this, asio::placeholders::error, bytes_sent,
 	                                 asio::placeholders::bytes_transferred)
@@ -201,11 +201,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 		return;
 	}
 	// Check that response is OK.
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		OnRequestProgress.Broadcast(bytes_sent, bytes_recvd);
-	});
-
+	OnRequestProgress.Broadcast(bytes_sent, bytes_recvd);
 	std::istream response_stream(&response_buffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -227,7 +223,6 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 		{
 			OnResponseError.Broadcast(status_code);
 		});
-
 		return;
 	}
 
@@ -276,9 +271,10 @@ void UHttpClient::read_content(const std::error_code& error)
 {
 	if (error)
 	{
+		const FResponse buffer = response;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			OnRequestCompleted.Broadcast(response);
+			OnRequestCompleted.Broadcast(buffer);
 		});
 		return;
 	}
@@ -343,64 +339,72 @@ void UHttpClientSsl::preparePayload()
 
 bool UHttpClientSsl::async_preparePayload()
 {
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	if (!pool.IsValid())
 	{
-		mutexPayload.Lock();
+		return false;
+	}
+
+	asio::post(*pool, [this]()
+	{
+		mutexPayload.lock();
 		preparePayload();
-		OnAsyncPayloadFinished.Broadcast();
-		mutexPayload.Unlock();
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnAsyncPayloadFinished.Broadcast();
+		});
+		mutexPayload.unlock();
 	});
+
 	return true;
 }
 
 bool UHttpClientSsl::processRequest()
 {
-	if (!payload.IsEmpty())
+	if (!pool.IsValid() && !payload.IsEmpty())
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		run_context_thread();
-	});
+	asio::post(*pool, std::bind(&UHttpClientSsl::run_context_thread, this));
 	return true;
 }
 
 void UHttpClientSsl::cancelRequest()
 {
-	finishIO = true;
 	tcp.context.stop();
 	tcp.ssl_socket.shutdown(tcp.error_code);
-	tcp.ssl_socket.async_shutdown([&](const std::error_code& error)
-	{
-		if (error)
-		{
+	tcp.ssl_socket.async_shutdown([&](const std::error_code &error) {
+		if (error) {
 			tcp.error_code = error;
 			OnError.Broadcast(error.value(), error.message().c_str());
 			tcp.error_code.clear();
 		}
 		tcp.ssl_socket.lowest_layer().shutdown(
-			asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+				asio::ip::tcp::socket::shutdown_both, tcp.error_code);
 		if (tcp.error_code)
-		{
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+			});
 		tcp.ssl_socket.lowest_layer().close(tcp.error_code);
 		if (tcp.error_code)
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+			});
+		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		}
-		OnRequestCanceled.Broadcast();
+			OnRequestCanceled.Broadcast();
+		});
 	});
 }
 
 void UHttpClientSsl::run_context_thread()
 {
-	mutexIO.Lock();
+	mutexIO.lock();
 	while (tcp.attemps_fail <= maxAttemp)
 	{
-		if (finishIO) return;
+		if (ShouldStopContext) return;
 		if (tcp.attemps_fail > 0)
 		{
 			AsyncTask(ENamedThreads::GameThread, [=]()
@@ -411,8 +415,8 @@ void UHttpClientSsl::run_context_thread()
 		tcp.error_code.clear();
 		tcp.context.restart();
 		tcp.resolver.async_resolve(TCHAR_TO_UTF8(*getHost()), TCHAR_TO_UTF8(*getPort()),
-		                           std::bind(&UHttpClientSsl::resolve, this, asio::placeholders::error,
-		                                     asio::placeholders::results)
+								   std::bind(&UHttpClientSsl::resolve, this, asio::placeholders::error,
+											 asio::placeholders::results)
 		);
 		tcp.context.run();
 		if (!tcp.error_code)
@@ -420,11 +424,11 @@ void UHttpClientSsl::run_context_thread()
 			break;
 		}
 		tcp.attemps_fail++;
-		FPlatformProcess::Sleep(timeout);
+		std::this_thread::sleep_for(std::chrono::seconds(timeout));
 	}
 	consume_stream_buffers();
 	tcp.attemps_fail = 0;
-	mutexIO.Unlock();
+	mutexIO.unlock();
 }
 
 void UHttpClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
@@ -441,7 +445,7 @@ void UHttpClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::
 	// Attempt a connection to each endpoint in the list until we
 	// successfully establish a connection.
 	asio::async_connect(tcp.ssl_socket.lowest_layer(), endpoints,
-	                    std::bind(&UHttpClientSsl::connect, this, asio::placeholders::error)
+						std::bind(&UHttpClientSsl::connect, this, asio::placeholders::error)
 	);
 }
 
@@ -458,8 +462,8 @@ void UHttpClientSsl::connect(const std::error_code& error)
 	}
 	// The connection was successful.
 	tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
-	                               std::bind(&UHttpClientSsl::ssl_handshake,
-	                                         this, asio::placeholders::error));
+										   std::bind(&UHttpClientSsl::ssl_handshake,
+													 this, asio::placeholders::error));
 }
 
 void UHttpClientSsl::ssl_handshake(const std::error_code& error)
@@ -477,8 +481,8 @@ void UHttpClientSsl::ssl_handshake(const std::error_code& error)
 	std::ostream request_stream(&request_buffer);
 	request_stream << TCHAR_TO_UTF8(*payload);
 	asio::async_write(tcp.ssl_socket, request_buffer,
-	                  std::bind(&UHttpClientSsl::write_request, this, asio::placeholders::error,
-	                            asio::placeholders::bytes_transferred)
+					  std::bind(&UHttpClientSsl::write_request, this, asio::placeholders::error,
+								asio::placeholders::bytes_transferred)
 	);
 }
 
@@ -496,13 +500,10 @@ void UHttpClientSsl::write_request(const std::error_code& error, const size_t by
 	// Read the response status line. The response_ streambuf will
 	// automatically grow to accommodate the entire line. The growth may be
 	// limited by passing a maximum size to the streambuf constructor.
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
-	});
+	OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
 	asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
-	                       std::bind(&UHttpClientSsl::read_status_line, this, asio::placeholders::error, bytes_sent,
-	                                 asio::placeholders::bytes_transferred)
+						   std::bind(&UHttpClientSsl::read_status_line, this, asio::placeholders::error, bytes_sent,
+									 asio::placeholders::bytes_transferred)
 	);
 }
 
@@ -545,7 +546,7 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 
 	// Read the response headers, which are terminated by a blank line.
 	asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n\r\n",
-	                       std::bind(&UHttpClientSsl::read_headers, this, asio::placeholders::error)
+						   std::bind(&UHttpClientSsl::read_headers, this, asio::placeholders::error)
 	);
 }
 
@@ -580,7 +581,7 @@ void UHttpClientSsl::read_headers(const std::error_code& error)
 
 	// Start reading remaining data until EOF.
 	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
-	                 std::bind(&UHttpClientSsl::read_content, this, asio::placeholders::error)
+					 std::bind(&UHttpClientSsl::read_content, this, asio::placeholders::error)
 	);
 }
 
@@ -588,9 +589,10 @@ void UHttpClientSsl::read_content(const std::error_code& error)
 {
 	if (error)
 	{
+		const FResponse buffer = response;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			OnRequestCompleted.Broadcast(response);
+			OnRequestCompleted.Broadcast(buffer);
 		});
 		return;
 	}
@@ -604,6 +606,6 @@ void UHttpClientSsl::read_content(const std::error_code& error)
 
 	// Continue reading remaining data until EOF.
 	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
-	                 std::bind(&UHttpClientSsl::read_content, this, asio::placeholders::error)
+					 std::bind(&UHttpClientSsl::read_content, this, asio::placeholders::error)
 	);
 }

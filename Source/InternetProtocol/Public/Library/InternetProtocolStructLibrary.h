@@ -20,7 +20,7 @@ struct FRequest
 	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
 	FString path = "/";
 	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
-	FString version = "2.0";
+	FString version = "1.1";
 	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
 	TMap<FString, FString> headers;
 	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")

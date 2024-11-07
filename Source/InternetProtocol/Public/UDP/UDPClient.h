@@ -19,7 +19,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpRetry, const int, attemp
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageSent, const int, size);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessageReceived, int, size, const FUdpMessage, message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessageReceived, const int, size, const FUdpMessage, message);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpError, const int, code, const FString&, exception);
 
@@ -29,15 +29,15 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 	GENERATED_BODY()
 
 public:
-	UUDPClient()
+	virtual void BeginDestroy() override
 	{
-	}
-
-	virtual ~UUDPClient() override
-	{
-		finishIO = true;
-		udp.context.stop();
+		ShouldStopContext = true;
+		udp.resolver.cancel();
+		udp.socket.close();
+		if (isConnected()) close();
+		if (!udp.context.stopped()) udp.context.stop();
 		consume_receive_buffer();
+		Super::BeginDestroy();
 	}
 
 	/*HOST*/
@@ -47,44 +47,32 @@ public:
 		host = ip;
 		service = port;
 	}
-
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
-	FString getLocalAdress() const
-	{
+	FString getLocalAdress() const {
 		if (isConnected())
-		{
-			return UTF8_TO_TCHAR(udp.socket.local_endpoint().address().to_string().c_str());
-		}
+			return udp.socket.local_endpoint().address().to_string().c_str();
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
-	FString getLocalPort() const
-	{
+	FString getLocalPort() const {
 		if (isConnected())
-		{
 			return FString::FromInt(udp.socket.local_endpoint().port());
-		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	FString getRemoteAdress() const
-	{
+	FString getRemoteAdress() const {
 		if (isConnected())
-		{
-			return UTF8_TO_TCHAR(udp.socket.remote_endpoint().address().to_string().c_str());
-		}
+			return udp.socket.remote_endpoint().address().to_string().c_str();
 		return host;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	FString getRemotePort() const
-	{
+	FString getRemotePort() const {
 		if (isConnected())
-		{
 			return FString::FromInt(udp.socket.remote_endpoint().port());
-		}
 		return service;
 	}
 
@@ -160,9 +148,10 @@ public:
 	FDelegateUdpError OnError;
 
 private:
-	FCriticalSection mutexIO;
-	FCriticalSection mutexBuffer;
-	bool finishIO = false;
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	std::mutex mutexIO;
+	std::mutex mutexBuffer;
+	bool ShouldStopContext = false;
 	FAsioUdp udp;
 	FString host = "localhost";
 	FString service;
@@ -181,12 +170,12 @@ private:
 		if (rbuffer.RawData.Num())
 		{
 			rbuffer.RawData.Empty();
-		}
-		rbuffer.RawData.SetNum(maxReceiveBufferSize);
+			rbuffer.RawData.SetNum(maxReceiveBufferSize);
+		}		
 	}
 
 	void run_context_thread();
-	void resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type& results);
+	void resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type &results);
 	void conn(const std::error_code& error);
 	void send_to(const std::error_code& error, const size_t bytes_sent);
 	void receive_from(const std::error_code& error, const size_t bytes_recvd);
