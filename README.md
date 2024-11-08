@@ -1,6 +1,6 @@
-# InternetProtocol | 4.27 to 5.4 |
+# InternetProtocol Example Project
 
-The InternetProtocol plugin is a versatile networking solution designed for Unreal Engine, enabling developers to seamlessly establish and manage HTTP, WebSocket, TCP, and UDP connections. This powerful plugin caters to the creation of both clients and servers, providing a robust framework for real-time data exchange and online interaction. Whether you’re developing multiplayer games, interactive applications, or complex networked systems, the InternetProtocol plugin offers the essential tools to bring your project’s connectivity to the next level.
+This is an example project for Unreal Engine designed to test the capabilities of UDP connections.
 
 
 ## Sponsor me
@@ -11,42 +11,6 @@ The InternetProtocol plugin is a versatile networking solution designed for Unre
 <p align="center">
   <a href="https://nubank.com.br/pagar/1bcou4/5D6eezlHdm"><img src="https://logodownload.org/wp-content/uploads/2020/02/pix-bc-logo.png" width="128"></a>
 </p>
-
-### Suported Platforms
-
----
-
-- [x] Windows
-
-- [ ] Linux(Help Wanted)
-
-- [ ] Mac(Help Wanted)
-
-### Features
-
----
-
-- [x] Http client
-
-- [x] Websocket client
-
-- [x] Json
-
-### Roadmap
-
----
-
-- [ ] TCP server/client
-
-- [ ] UDP server/client
-
-- [ ] Http server
-
-- [ ] Websocket server
-
-- [ ] Async json read/writte for big datas.
-
-- [ ] Openssl support
 
 ### Bug Reporting Template:
 ```
@@ -67,5 +31,5 @@ A description of what actually happens.
 
 # Setting Up Your Project
 - Clone the repository or download the latest release.
-- Create a C++ empty class if your project is blueprint based.
+- Download the latest version of plugin.
 - Extract/Move `InternetProtocol` folder into your project's `Plugin` folder.
