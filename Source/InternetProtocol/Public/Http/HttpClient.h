@@ -44,9 +44,7 @@ public:
 	{
 		ShouldStopContext = true;
 		tcp.resolver.cancel();
-		tcp.socket.close();
-		cancelRequest();
-		if (!tcp.context.stopped()) tcp.context.stop();
+		if (!tcp.context.stopped() || tcp.socket.is_open()) cancelRequest();
 		clearRequest();
 		clearPayload();
 		clearResponse();
@@ -262,9 +260,7 @@ public:
 	{
 		ShouldStopContext = true;
 		tcp.resolver.cancel();
-		tcp.ssl_socket.shutdown();
-		cancelRequest();
-		if (!tcp.context.stopped()) tcp.context.stop();
+		if (!tcp.context.stopped() || tcp.ssl_socket.lowest_layer().is_open()) cancelRequest();
 		clearRequest();
 		clearPayload();
 		clearResponse();

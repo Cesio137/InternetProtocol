@@ -294,6 +294,20 @@ bool UTCPClientSsl::connect()
 void UTCPClientSsl::close()
 {
 	tcp.context.stop();
+	if (ShouldStopContext)
+	{
+		tcp.ssl_socket.shutdown(tcp.error_code);
+		AsyncTask(ENamedThreads::GameThread, [=]() 
+		{
+			if (tcp.error_code)
+			{
+				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+				return;
+			}
+			OnClose.Broadcast();
+		});
+		return;
+	}
 	tcp.ssl_socket.async_shutdown([&](const std::error_code& error)
 	{
 		if (error)

@@ -33,9 +33,7 @@ public:
 	{
 		ShouldStopContext = true;
 		udp.resolver.cancel();
-		udp.socket.close();
 		if (isConnected()) close();
-		if (!udp.context.stopped()) udp.context.stop();
 		consume_receive_buffer();
 		Super::BeginDestroy();
 	}

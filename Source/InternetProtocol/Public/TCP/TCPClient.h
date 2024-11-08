@@ -37,9 +37,7 @@ public:
 	{
 		ShouldStopContext = true;
 		tcp.resolver.cancel();
-		tcp.socket.close();
 		if (isConnected()) close();
-		if (!tcp.context.stopped()) tcp.context.stop();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
@@ -190,9 +188,7 @@ public:
 	{
 		ShouldStopContext = true;
 		tcp.resolver.cancel();
-		tcp.ssl_socket.shutdown();
 		if (isConnected()) close();
-		if (!tcp.context.stopped()) tcp.context.stop();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
