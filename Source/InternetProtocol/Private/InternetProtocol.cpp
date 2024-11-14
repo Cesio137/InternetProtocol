@@ -1,4 +1,4 @@
-//© Nathan Miguel, 2024. All Rights Reserved.
+//ï¿½ Nathan Miguel, 2024. All Rights Reserved.
 
 #include "InternetProtocol.h"
 #include "Core.h"
@@ -10,7 +10,7 @@
 void FInternetProtocolModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
-	
+	/*
 	// Get the base directory of this plugin
 	FString BaseDir = IPluginManager::Get().FindPlugin("InternetProtocol")->GetBaseDir();
 
@@ -40,12 +40,14 @@ void FInternetProtocolModule::StartupModule()
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("openssl library error!", "Failed to load libssl-3-x64."));
 	}
+	*/
 }
 
 void FInternetProtocolModule::ShutdownModule()
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	// we call this function before unloading the module.
+	/*
 	FPlatformProcess::FreeDllHandle(LegacyLibraryHandle);
 	LegacyLibraryHandle = nullptr;
 
@@ -54,6 +56,7 @@ void FInternetProtocolModule::ShutdownModule()
 
 	FPlatformProcess::FreeDllHandle(Libssl3LibraryHandle);
 	Libssl3LibraryHandle = nullptr;
+	*/
 }
 
 #undef LOCTEXT_NAMESPACE

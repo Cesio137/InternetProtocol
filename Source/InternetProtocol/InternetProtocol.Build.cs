@@ -12,7 +12,6 @@ public class InternetProtocol : ModuleRules
 			new string[] {
 				// ... add public include paths required here ...
 				"$(PluginDir)/Source/ThirdParty/asio/Public",
-				"$(PluginDir)/Source/ThirdParty/OpensslLibrary/Public"
             }
 			);
 				
@@ -36,9 +35,7 @@ public class InternetProtocol : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"OpensslLibrary",
-                "WebSockets",
-                "HTTP",
+				"OpenSSL",
                 "Json",
                 "JsonUtilities",
                 "Projects",

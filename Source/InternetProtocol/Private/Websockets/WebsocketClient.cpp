@@ -4,36 +4,44 @@
 
 bool UWebsocketClient::send(const FString& message)
 {
-	if (!pool && !isConnected() && message.IsEmpty())
+	if (!isConnected() && message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(*pool, [this, message]() { package_string(message); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_string(message);
+	});
 	return true;
 }
 
 bool UWebsocketClient::sendRaw(const TArray<uint8> buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() <= 0)
+	if (!isConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	asio::post(*pool, [this, buffer]() { package_buffer(buffer); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_buffer(buffer);
+	});
 	return true;
 }
 
 bool UWebsocketClient::sendPing()
 {
-	if (!pool && !isConnected())
+	if (!isConnected())
 	{
 		return false;
 	}
 
-	TArray<uint8> ping_buffer;
-	ping_buffer.Add('\0');
-	asio::post(*pool, std::bind(&UWebsocketClient::post_buffer, this, EOpcode::PING, ping_buffer));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		TArray<uint8> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
+		post_buffer(EOpcode::PING, ping_buffer);
+	});
 	return true;
 }
 
@@ -52,12 +60,15 @@ bool UWebsocketClient::asyncRead()
 
 bool UWebsocketClient::connect()
 {
-	if (!pool && !isConnected())
+	if (!isConnected())
 	{
 		return false;
 	}
 
-	asio::post(*pool, std::bind(&UWebsocketClient::run_context_thread, this));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		run_context_thread();
+	});
 	return true;
 }
 
@@ -65,15 +76,13 @@ void UWebsocketClient::close()
 {
 	tcp.context.stop();
 	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		OnClose.Broadcast();
-	});
+	if (ShouldStopContext) return;
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	tcp.socket.close(tcp.error_code);
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	OnClose.Broadcast();
 }
 
 void UWebsocketClient::post_string(const FString& str)
@@ -622,8 +631,7 @@ void UWebsocketClient::read(const std::error_code& error, const size_t bytes_rec
 
 	if (rDataFrame.DataFrame.opcode == EOpcode::PING)
 	{
-		TArray<uint8> pong_buffer;
-		pong_buffer.Add('\n');
+		TArray<uint8> pong_buffer = {'p', 'o', 'n', 'g', '\0'};
 		post_buffer(EOpcode::PONG, pong_buffer);
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::PONG)
@@ -642,9 +650,10 @@ void UWebsocketClient::read(const std::error_code& error, const size_t bytes_rec
 	}
 	else
 	{
+		const FWsMessage buffer = rDataFrame;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			OnMessageReceived.Broadcast(rDataFrame);
+			OnMessageReceived.Broadcast(buffer);
 		});
 	}
 
@@ -657,36 +666,44 @@ void UWebsocketClient::read(const std::error_code& error, const size_t bytes_rec
 
 bool UWebsocketClientSsl::send(const FString& message)
 {
-	if (!pool && !isConnected() && message.IsEmpty())
+	if (!isConnected() && message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(*pool, [this, message]() { package_string(message); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_string(message);
+	});
 	return true;
 }
 
 bool UWebsocketClientSsl::sendRaw(const TArray<uint8> buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() <= 0)
+	if (!isConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	asio::post(*pool, [this, buffer]() { package_buffer(buffer); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_buffer(buffer);
+	});
 	return true;
 }
 
 bool UWebsocketClientSsl::sendPing()
 {
-	if (!pool && !isConnected())
+	if (!isConnected())
 	{
 		return false;
 	}
 
-	TArray<uint8> ping_buffer;
-	ping_buffer.Add('\0');
-	asio::post(*pool, std::bind(&UWebsocketClientSsl::post_buffer, this, EOpcode::PING, ping_buffer));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		TArray<uint8> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
+		post_buffer(EOpcode::PING, ping_buffer);
+	});
 	return true;
 }
 
@@ -705,12 +722,15 @@ bool UWebsocketClientSsl::asyncRead()
 
 bool UWebsocketClientSsl::connect()
 {
-	if (!pool && !isConnected())
+	if (!isConnected())
 	{
 		return false;
 	}
 
-	asio::post(*pool, std::bind(&UWebsocketClientSsl::run_context_thread, this));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		run_context_thread();
+	});
 	return true;
 }
 
@@ -1315,8 +1335,7 @@ void UWebsocketClientSsl::read(const std::error_code& error, const size_t bytes_
 
 	if (rDataFrame.DataFrame.opcode == EOpcode::PING)
 	{
-		TArray<uint8> pong_buffer;
-		pong_buffer.Add('\n');
+		TArray<uint8> pong_buffer = {'p', 'o', 'n', 'g', '\0'};
 		post_buffer(EOpcode::PONG, pong_buffer);
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::PONG)

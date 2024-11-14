@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
+
 #include "CoreMinimal.h"
 #define UI UI_ST
 THIRD_PARTY_INCLUDES_START
@@ -9,14 +10,14 @@ THIRD_PARTY_INCLUDES_START
 #include <map>
 #include <cstdint>
 #include <algorithm>
-
-#ifdef _WIN32
-#define _WIN32_WINNT 0x0A00
-#endif
+#include <iostream>
 
 #define ASIO_STANDALONE
+#define ASIO_NO_DEPRECATED
+#define ASIO_NO_EXCEPTIONS
 #include <asio.hpp>
 #include <asio/ssl.hpp>
+
 THIRD_PARTY_INCLUDES_END
 #undef UI
 #include "Commons.generated.h"

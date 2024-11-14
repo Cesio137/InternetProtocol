@@ -1,4 +1,4 @@
-//© Nathan Miguel, 2024. All Rights Reserved.
+//ï¿½ Nathan Miguel, 2024. All Rights Reserved.
 
 #pragma once
 
@@ -14,7 +14,7 @@ public:
 
 private:
 	/** Handle to the test dll we will load */
-	void*	LegacyLibraryHandle;
+	/*void*	LegacyLibraryHandle;
 	void*	LibcryptoLibraryHandle;
-	void*	Libssl3LibraryHandle;
+	void*	Libssl3LibraryHandle;*/
 };

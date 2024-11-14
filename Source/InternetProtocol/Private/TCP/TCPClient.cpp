@@ -4,23 +4,29 @@
 
 bool UTCPClient::send(const FString& message)
 {
-	if (!pool && !isConnected() && message.IsEmpty())
+	if (!isConnected() && message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(*pool, [=]() { package_string(message); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_string(message);
+	});
 	return true;
 }
 
 bool UTCPClient::sendRaw(const TArray<uint8>& buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() <= 0)
+	if (!isConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
-
-	asio::post(*pool, [=]() { package_buffer(buffer); });
+	
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_buffer(buffer);
+	});
 	return true;
 }
 
@@ -39,12 +45,15 @@ bool UTCPClient::asyncRead()
 
 bool UTCPClient::connect()
 {
-	if (pool.IsValid() && isConnected())
+	if (isConnected())
 	{
 		return false;
 	}
 
-	asio::post(*pool, std::bind(&UTCPClient::run_context_thread, this));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		run_context_thread();
+	});
 	return true;
 }
 
@@ -52,15 +61,13 @@ void UTCPClient::close()
 {
 	tcp.context.stop();
 	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		OnClose.Broadcast();
-	});
+	if (ShouldStopContext) return;
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	tcp.socket.close(tcp.error_code);
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	OnClose.Broadcast();
 }
 
 void UTCPClient::package_string(const FString& str)
@@ -250,23 +257,29 @@ void UTCPClient::read(const std::error_code& error, const size_t bytes_recvd)
 
 bool UTCPClientSsl::send(const FString& message)
 {
-	if (!pool && !isConnected() && message.IsEmpty())
+	if (!isConnected() && message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(*pool, [=]() { package_string(message); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_string(message);
+	});
 	return true;
 }
 
 bool UTCPClientSsl::sendRaw(const TArray<uint8>& buffer)
 {
-	if (!pool && !isConnected() && buffer.Num() <= 0)
+	if (!isConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	asio::post(*pool, [=]() { package_buffer(buffer); });
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		package_buffer(buffer);
+	});
 	return true;
 }
 
@@ -285,9 +298,12 @@ bool UTCPClientSsl::asyncRead()
 
 bool UTCPClientSsl::connect()
 {
-	if (!pool && isConnected()) return false;
+	if (isConnected()) return false;
 
-	asio::post(*pool, std::bind(&UTCPClientSsl::run_context_thread, this));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		run_context_thread();
+	});
 	return true;
 }
 
@@ -297,15 +313,6 @@ void UTCPClientSsl::close()
 	if (ShouldStopContext)
 	{
 		tcp.ssl_socket.shutdown(tcp.error_code);
-		AsyncTask(ENamedThreads::GameThread, [=]() 
-		{
-			if (tcp.error_code)
-			{
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-				return;
-			}
-			OnClose.Broadcast();
-		});
 		return;
 	}
 	tcp.ssl_socket.async_shutdown([&](const std::error_code& error)

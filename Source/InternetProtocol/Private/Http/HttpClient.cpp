@@ -49,12 +49,7 @@ void UHttpClient::preparePayload()
 
 bool UHttpClient::async_preparePayload()
 {
-	if (!pool.IsValid())
-	{
-		return false;
-	}
-
-	asio::post(*pool, [this]()
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
 	{
 		mutexPayload.lock();
 		preparePayload();
@@ -64,18 +59,20 @@ bool UHttpClient::async_preparePayload()
 		});
 		mutexPayload.unlock();
 	});
-
 	return true;
 }
 
 bool UHttpClient::processRequest()
 {
-	if (!pool.IsValid() && !payload.IsEmpty())
+	if (!payload.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(*pool, std::bind(&UHttpClient::run_context_thread, this));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		run_context_thread();
+	});
 	return true;
 }
 
@@ -83,15 +80,13 @@ void UHttpClient::cancelRequest()
 {
 	tcp.context.stop();
 	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		tcp.socket.close(tcp.error_code);
-		if (tcp.error_code)
-			OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-		OnRequestCanceled.Broadcast();
-	});
+	if (ShouldStopContext) return;
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	tcp.socket.close(tcp.error_code);
+	if (tcp.error_code)
+		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	OnRequestCanceled.Broadcast();
 }
 
 void UHttpClient::run_context_thread()
@@ -339,12 +334,7 @@ void UHttpClientSsl::preparePayload()
 
 bool UHttpClientSsl::async_preparePayload()
 {
-	if (!pool.IsValid())
-	{
-		return false;
-	}
-
-	asio::post(*pool, [this]()
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
 	{
 		mutexPayload.lock();
 		preparePayload();
@@ -354,18 +344,20 @@ bool UHttpClientSsl::async_preparePayload()
 		});
 		mutexPayload.unlock();
 	});
-
 	return true;
 }
 
 bool UHttpClientSsl::processRequest()
 {
-	if (!pool.IsValid() && !payload.IsEmpty())
+	if (!payload.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(*pool, std::bind(&UHttpClientSsl::run_context_thread, this));
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
+	{
+		run_context_thread();
+	});
 	return true;
 }
 
@@ -375,15 +367,6 @@ void UHttpClientSsl::cancelRequest()
 	if (ShouldStopContext)
 	{
 		tcp.ssl_socket.shutdown(tcp.error_code);
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			if (tcp.error_code)
-			{
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-				return;
-			}
-			OnRequestCanceled.Broadcast();
-		});
 		return;
 	}
 	tcp.ssl_socket.async_shutdown([&](const std::error_code &error) {

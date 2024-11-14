@@ -146,7 +146,6 @@ public:
 	FDelegateUdpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	std::mutex mutexIO;
 	std::mutex mutexBuffer;
 	bool ShouldStopContext = false;

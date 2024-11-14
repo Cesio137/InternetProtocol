@@ -200,7 +200,6 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	std::mutex mutexPayload;
 	std::mutex mutexIO;
 	bool ShouldStopContext = false;
@@ -365,15 +364,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
 	bool load_private_key_data(const FString& key_data)
 	{
-		try
+		if (key_data.IsEmpty()) return false;
+		asio::error_code ec;
+		std::string key = TCHAR_TO_UTF8(*key_data);
+		const asio::const_buffer buffer(key.data(), key.size());
+		tcp.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ec);
+		if (ec)
 		{
-			std::string key = TCHAR_TO_UTF8(*key_data);
-			const asio::const_buffer buffer(key.data(), key.size());
-			tcp.ssl_context.use_private_key(buffer, asio::ssl::context::pem);
-		}
-		catch (const std::exception& e)
-		{
-			OnError.Broadcast(-1, e.what());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
+			OnError.Broadcast(ec.value(), ec.message().c_str());
 			return false;
 		}
 		return true;
@@ -382,14 +383,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
 	bool load_private_key_file(const FString& filename)
 	{
-		try
+		if (filename.IsEmpty()) return false;
+		asio::error_code ec;
+		std::string file = TCHAR_TO_UTF8(*filename);
+		tcp.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ec);
+		if (ec)
 		{
-			std::string file = TCHAR_TO_UTF8(*filename);
-			tcp.ssl_context.use_private_key_file(file, asio::ssl::context::pem);
-		}
-		catch (const std::exception& e)
-		{
-			OnError.Broadcast(-1, e.what());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
+			OnError.Broadcast(ec.value(), ec.message().c_str());
 			return false;
 		}
 		return true;
@@ -398,15 +401,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
 	bool load_certificate_data(const FString& cert_data)
 	{
-		try
+		if (cert_data.IsEmpty()) return false;
+		asio::error_code ec;
+		std::string cert = TCHAR_TO_UTF8(*cert_data);
+		const asio::const_buffer buffer(cert.data(), cert.size());
+		tcp.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
+		if (ec)
 		{
-			std::string cert = TCHAR_TO_UTF8(*cert_data);
-			const asio::const_buffer buffer(cert.data(), cert.size());
-			tcp.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
-		}
-		catch (const std::exception& e)
-		{
-			OnError.Broadcast(-1, e.what());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
+			OnError.Broadcast(ec.value(), ec.message().c_str());
 			return false;
 		}
 		return true;
@@ -415,14 +420,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
 	bool load_certificate_file(const FString& filename)
 	{
-		try
+		if (filename.IsEmpty()) return false;
+		asio::error_code ec;
+		std::string file = TCHAR_TO_UTF8(*filename);
+		tcp.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ec);
+		if (ec)
 		{
-			std::string file = TCHAR_TO_UTF8(*filename);
-			tcp.ssl_context.use_certificate_file(file, asio::ssl::context::pem);
-		}
-		catch (const std::exception& e)
-		{
-			OnError.Broadcast(-1, e.what());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
+			OnError.Broadcast(ec.value(), ec.message().c_str());
 			return false;
 		}
 		return true;
@@ -431,16 +438,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
 	bool load_certificate_chain_data(const FString& cert_chain_data)
 	{
-		try
+		if (cert_chain_data.IsEmpty()) return false;
+		asio::error_code ec;
+		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
+		const asio::const_buffer buffer(cert_chain.data(),
+										cert_chain.size());
+		tcp.ssl_context.use_certificate_chain(buffer, ec);
+		if (ec)
 		{
-			std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
-			const asio::const_buffer buffer(cert_chain.data(),
-			                                cert_chain.size());
-			tcp.ssl_context.use_certificate_chain(buffer);
-		}
-		catch (const std::exception& e)
-		{
-			OnError.Broadcast(-1, e.what());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
+			OnError.Broadcast(ec.value(), ec.message().c_str());
 			return false;
 		}
 		return true;
@@ -449,14 +458,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
 	bool load_certificate_chain_file(const FString& filename)
 	{
-		try
+		if (filename.IsEmpty()) return false;
+		asio::error_code ec;
+		std::string file = TCHAR_TO_UTF8(*filename);
+		tcp.ssl_context.use_certificate_chain_file(file, ec);
+		if (ec)
 		{
-			std::string file = TCHAR_TO_UTF8(*filename);
-			tcp.ssl_context.use_certificate_chain_file(file);
-		}
-		catch (const std::exception& e)
-		{
-			OnError.Broadcast(-1, e.what());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
+			OnError.Broadcast(ec.value(), ec.message().c_str());
 			return false;
 		}
 		return true;
@@ -465,14 +476,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
 	bool load_verify_file(const FString& filename)
 	{
-		try
+		if (filename.IsEmpty()) return false;
+		asio::error_code ec;
+		std::string file = TCHAR_TO_UTF8(*filename);
+		tcp.ssl_context.load_verify_file(file, ec);
+		if (ec)
 		{
-			std::string file = TCHAR_TO_UTF8(*filename);
-			tcp.ssl_context.load_verify_file(file);
-		}
-		catch (const std::exception& e)
-		{
-			OnError.Broadcast(-1, e.what());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
+			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
+			OnError.Broadcast(ec.value(), ec.message().c_str());
 			return false;
 		}
 		return true;
@@ -533,7 +546,6 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	std::mutex mutexPayload;
 	std::mutex mutexIO;
 	bool ShouldStopContext = false;
