@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "UDP/UDPClient.h"
+#include "Net/Throw_Exception.h"
 
 bool UUDPClient::send(const FString& message)
 {
@@ -65,11 +66,13 @@ void UUDPClient::close()
 	if (ShouldStopContext) return;
 	if (udp.error_code)
 	{
+		ensureMsgf(!udp.error_code, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), udp.error_code.value(), udp.error_code.message().c_str());
 		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().c_str());
 	}
 	udp.socket.close(udp.error_code);
 	if (udp.error_code)
 	{
+		ensureMsgf(!udp.error_code, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), udp.error_code.value(), udp.error_code.message().c_str());
 		OnError.Broadcast(udp.error_code.value(), udp.error_code.message().c_str());
 	}
 	OnClose.Broadcast();
@@ -172,7 +175,7 @@ void UUDPClient::resolve(const std::error_code& error, const asio::ip::udp::reso
 		udp.error_code = error;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			ensureMsgf(!error, TEXT("%hs"), error.message().c_str());
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(), error.message().c_str());			
 			OnError.Broadcast(error.value(), error.message().c_str());
 		});
 		return;
@@ -190,7 +193,7 @@ void UUDPClient::conn(const std::error_code& error)
 		udp.error_code = error;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			ensureMsgf(!error, TEXT("%hs"), error.message().c_str());
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(), error.message().c_str());
 			OnError.Broadcast(error.value(), error.message().c_str());
 		});
 		return;
@@ -215,7 +218,7 @@ void UUDPClient::send_to(const std::error_code& error, const size_t bytes_sent)
 		udp.error_code = error;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			ensureMsgf(!error, TEXT("%hs"), error.message().c_str());
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(), error.message().c_str());
 			OnError.Broadcast(error.value(), error.message().c_str());
 		});
 		return;
@@ -228,12 +231,12 @@ void UUDPClient::send_to(const std::error_code& error, const size_t bytes_sent)
 
 void UUDPClient::receive_from(const std::error_code& error, const size_t bytes_recvd)
 {
-	if (ensureMsgf(error, TEXT("Error code: %hs"), error.message().c_str()))
+	if (error)
 	{
 		udp.error_code = error;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
-			ensureMsgf(!error, TEXT("%hs"), error.message().c_str());
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(), error.message().c_str());
 			OnError.Broadcast(error.value(), error.message().c_str());
 		});
 		return;
