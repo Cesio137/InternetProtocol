@@ -1,7 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "Net/Commons.h"
@@ -28,13 +27,12 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 {
 	GENERATED_BODY()
 
-public:
+public:	
 	virtual void BeginDestroy() override
 	{
 		ShouldStopContext = true;
 		udp.resolver.cancel();
 		if (isConnected()) close();
-		consume_receive_buffer();
 		Super::BeginDestroy();
 	}
 
@@ -146,6 +144,7 @@ public:
 	FDelegateUdpError OnError;
 
 private:
+	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	std::mutex mutexIO;
 	std::mutex mutexBuffer;
 	bool ShouldStopContext = false;
@@ -172,8 +171,8 @@ private:
 	}
 
 	void run_context_thread();
-	void resolve(const std::error_code& error, const asio::ip::udp::resolver::results_type &results);
-	void conn(const std::error_code& error);
-	void send_to(const std::error_code& error, const size_t bytes_sent);
-	void receive_from(const std::error_code& error, const size_t bytes_recvd);
+	void resolve(const asio::error_code& error, const asio::ip::udp::resolver::results_type &results);
+	void conn(const asio::error_code& error);
+	void send_to(const asio::error_code& error, const size_t bytes_sent);
+	void receive_from(const asio::error_code& error, const size_t bytes_recvd);
 };

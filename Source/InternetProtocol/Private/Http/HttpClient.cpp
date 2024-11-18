@@ -121,7 +121,7 @@ void UHttpClient::run_context_thread()
 	mutexIO.unlock();
 }
 
-void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
+void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints) noexcept
 {
 	if (error)
 	{
@@ -140,7 +140,7 @@ void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::res
 	);
 }
 
-void UHttpClient::connect(const std::error_code& error)
+void UHttpClient::connect(const std::error_code& error) noexcept
 {
 	if (error)
 	{
@@ -160,7 +160,7 @@ void UHttpClient::connect(const std::error_code& error)
 	);
 }
 
-void UHttpClient::write_request(const std::error_code& error, const size_t bytes_sent)
+void UHttpClient::write_request(const std::error_code& error, const size_t bytes_sent) noexcept
 {
 	if (error)
 	{
@@ -184,7 +184,7 @@ void UHttpClient::write_request(const std::error_code& error, const size_t bytes
 	);
 }
 
-void UHttpClient::read_status_line(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd)
+void UHttpClient::read_status_line(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd) noexcept
 {
 	if (error)
 	{
@@ -227,7 +227,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 	);
 }
 
-void UHttpClient::read_headers(const std::error_code& error)
+void UHttpClient::read_headers(const std::error_code& error) noexcept
 {
 	if (error)
 	{
@@ -262,7 +262,7 @@ void UHttpClient::read_headers(const std::error_code& error)
 	);
 }
 
-void UHttpClient::read_content(const std::error_code& error)
+void UHttpClient::read_content(const std::error_code& error) noexcept
 {
 	if (error)
 	{

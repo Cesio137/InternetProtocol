@@ -14,11 +14,8 @@ THIRD_PARTY_INCLUDES_START
 
 #define ASIO_STANDALONE
 #define ASIO_NO_DEPRECATED
-//#define ASIO_DISABLE_STD_EXCEPTION_PTR
-#define ASIO_DISABLE_STD_SYSTEM_ERROR
 #define ASIO_NO_EXCEPTIONS
-//#define ASIO_HAS_NOEXCEPT
-//#define ASIO_HAS_NOEXCEPT_FUNCTION_TYPE
+#define ASIO_DISABLE_CXX11_MACROS
 #include <asio.hpp>
 #include <asio/ssl.hpp>
 
@@ -104,6 +101,11 @@ struct FAsioUdp
 	GENERATED_BODY()
 	FAsioUdp() : socket(context), resolver(context)
 	{
+	}
+
+	~FAsioUdp()
+	{
+		
 	}
 
 	asio::error_code error_code;

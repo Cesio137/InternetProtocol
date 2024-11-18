@@ -7,7 +7,7 @@ public class InternetProtocol : ModuleRules
 	public InternetProtocol(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		bEnableExceptions = true;
+		CppStandard = CppStandardVersion.Cpp17;
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...

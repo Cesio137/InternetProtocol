@@ -11,6 +11,11 @@ struct FUdpMessage
 {
 	GENERATED_BODY()
 	FUdpMessage() { RawData.SetNum(1024); }
+	~FUdpMessage()
+	{
+		if (RawData.Num() > 0)
+			RawData.Empty();
+	}
 	UPROPERTY(BlueprintReadWrite, Category="IP||UDP")
 	TArray<uint8> RawData;
 	UPROPERTY(BlueprintReadWrite, Category="IP||UDP")

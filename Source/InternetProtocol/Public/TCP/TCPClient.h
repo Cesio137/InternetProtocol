@@ -167,10 +167,10 @@ private:
 	}
 
 	void run_context_thread();
-	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
-	void conn(const std::error_code& error);
-	void write(const std::error_code& error, const size_t bytes_sent);
-	void read(const std::error_code& error, const size_t bytes_recvd);
+	void resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
+	void conn(const asio::error_code& error);
+	void write(const asio::error_code& error, const size_t bytes_sent);
+	void read(const asio::error_code& error, const size_t bytes_recvd);
 };
 
 UCLASS(Blueprintable, BlueprintType)
@@ -259,7 +259,7 @@ public:
 
 	/*SECURITY LAYER*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_private_key_data(const FString& key_data)
+	bool load_private_key_data(const FString& key_data) noexcept
 	{
 		if (key_data.IsEmpty()) return false;
 		asio::error_code ec;
@@ -448,9 +448,9 @@ private:
 	}
 
 	void run_context_thread();
-	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
-	void conn(const std::error_code& error);
-	void ssl_handshake(const std::error_code& error);
-	void write(const std::error_code& error, const size_t bytes_sent);
-	void read(const std::error_code& error, const size_t bytes_recvd);
+	void resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
+	void conn(const asio::error_code& error);
+	void ssl_handshake(const asio::error_code& error);
+	void write(const asio::error_code& error, const size_t bytes_sent);
+	void read(const asio::error_code& error, const size_t bytes_recvd);
 };

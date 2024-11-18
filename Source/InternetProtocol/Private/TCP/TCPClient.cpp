@@ -166,7 +166,7 @@ void UTCPClient::run_context_thread()
 	mutexIO.unlock();
 }
 
-void UTCPClient::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
+void UTCPClient::resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
 {
 	if (error)
 	{
@@ -187,7 +187,7 @@ void UTCPClient::resolve(const std::error_code& error, const asio::ip::tcp::reso
 	);
 }
 
-void UTCPClient::conn(const std::error_code& error)
+void UTCPClient::conn(const asio::error_code& error)
 {
 	if (error)
 	{
@@ -210,7 +210,7 @@ void UTCPClient::conn(const std::error_code& error)
 	});
 }
 
-void UTCPClient::write(const std::error_code& error, const size_t bytes_sent)
+void UTCPClient::write(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
@@ -227,7 +227,7 @@ void UTCPClient::write(const std::error_code& error, const size_t bytes_sent)
 	});
 }
 
-void UTCPClient::read(const std::error_code& error, const size_t bytes_recvd)
+void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
@@ -315,12 +315,12 @@ void UTCPClientSsl::close()
 		tcp.ssl_socket.shutdown(tcp.error_code);
 		return;
 	}
-	tcp.ssl_socket.async_shutdown([&](const std::error_code& error)
+	tcp.ssl_socket.async_shutdown([&](const asio::error_code& error)
 	{
 		if (error)
 		{
 			tcp.error_code = error;
-			const std::error_code err = error;
+			const asio::error_code err = error;
 			AsyncTask(ENamedThreads::GameThread, [=]()
 			{
 				OnError.Broadcast(err.value(), err.message().c_str());
@@ -443,7 +443,7 @@ void UTCPClientSsl::run_context_thread()
 	mutexIO.unlock();
 }
 
-void UTCPClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
+void UTCPClientSsl::resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
 {
 	if (error)
 	{
@@ -463,7 +463,7 @@ void UTCPClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::r
 	);
 }
 
-void UTCPClientSsl::conn(const std::error_code& error)
+void UTCPClientSsl::conn(const asio::error_code& error)
 {
 	if (error)
 	{
@@ -480,7 +480,7 @@ void UTCPClientSsl::conn(const std::error_code& error)
 	                                         asio::placeholders::error));
 }
 
-void UTCPClientSsl::ssl_handshake(const std::error_code& error)
+void UTCPClientSsl::ssl_handshake(const asio::error_code& error)
 {
 	if (error)
 	{
@@ -502,7 +502,7 @@ void UTCPClientSsl::ssl_handshake(const std::error_code& error)
 	});
 }
 
-void UTCPClientSsl::write(const std::error_code& error, const size_t bytes_sent)
+void UTCPClientSsl::write(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
@@ -519,7 +519,7 @@ void UTCPClientSsl::write(const std::error_code& error, const size_t bytes_sent)
 	});
 }
 
-void UTCPClientSsl::read(const std::error_code& error, const size_t bytes_recvd)
+void UTCPClientSsl::read(const asio::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{

@@ -234,12 +234,12 @@ private:
 	}
 
 	void run_context_thread();
-	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
-	void connect(const std::error_code& error);
-	void write_request(const std::error_code& error, const size_t bytes_sent);
-	void read_status_line(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd);
-	void read_headers(const std::error_code& error);
-	void read_content(const std::error_code& error);
+	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints) noexcept;
+	void connect(const std::error_code& error) noexcept;
+	void write_request(const std::error_code& error, const size_t bytes_sent) noexcept;
+	void read_status_line(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd) noexcept;
+	void read_headers(const std::error_code& error) noexcept;
+	void read_content(const std::error_code& error) noexcept;
 };
 
 UCLASS(Blueprintable, BlueprintType)
