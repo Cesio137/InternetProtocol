@@ -9,9 +9,10 @@ namespace InternetProtocol {
         }
 
         ~UDPClient() {
-            udp.context.stop();
-            pool->stop();
-            consume_receive_buffer();
+            pool->wait();
+            if (isConnected()) close();
+            rbuffer.raw_data.clear();
+            rbuffer.raw_data.resize(0);
         }
 
         /*HOST | LOCAL*/
@@ -77,7 +78,7 @@ namespace InternetProtocol {
             if (!isConnected())
                 return false;
 
-            udp.socket.async_receive_from(asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), udp.endpoints,
+            udp.socket.async_receive_from(asio::buffer(rbuffer.raw_data, rbuffer.raw_data.size()), udp.endpoints,
                                           std::bind(&UDPClient::receive_from, this, asio::placeholders::error,
                                                     asio::placeholders::bytes_transferred));
             return true;
@@ -95,13 +96,18 @@ namespace InternetProtocol {
         bool isConnected() const { return udp.socket.is_open(); }
 
         void close() {
+            asio::error_code ec;
             udp.context.stop();
-            udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, udp.error_code);
-            if (udp.error_code && onError)
-                onError(udp.error_code.value(), udp.error_code.message());
-            udp.socket.close(udp.error_code);
-            if (udp.error_code && onError)
-                onError(udp.error_code.value(), udp.error_code.message());
+            udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, ec);
+            if (ec && onError) {
+                onError(ec);
+                return;
+            }
+            udp.socket.close(ec);
+            if (ec && onError) {
+                onError(ec);
+                return;
+            }
             if (onClose)
                 onClose();
         }
@@ -116,7 +122,7 @@ namespace InternetProtocol {
         std::function<void(int)> onConnectionRetry;
         std::function<void(const size_t)> onMessageSent;
         std::function<void(const size_t, const FUdpMessage)> onMessageReceived;
-        std::function<void(const int, const std::string &)> onError;
+        std::function<void(const asio::error_code &)> onError;
 
     private:
         std::unique_ptr<asio::thread_pool> pool = std::make_unique<asio::thread_pool>(
@@ -182,23 +188,24 @@ namespace InternetProtocol {
         }
 
         void consume_receive_buffer() {
-            rbuffer.rawData.clear();
-            rbuffer.rawData.resize(maxReceiveBufferSize);
+            rbuffer.raw_data.clear();
+            rbuffer.raw_data.resize(maxReceiveBufferSize);
         }
 
         /*ASYNC HANDLER FUNCTIONS*/
         void run_context_thread() {
             mutexIO.lock();
+            udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
+                                       std::bind(&UDPClient::resolve, this, asio::placeholders::error,
+                                                 asio::placeholders::results));
             while (udp.attemps_fail <= maxAttemp) {
                 if (onConnectionRetry && udp.attemps_fail > 0)
                     onConnectionRetry(udp.attemps_fail);
                 udp.error_code.clear();
                 udp.context.restart();
-                udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
-                                           std::bind(&UDPClient::resolve, this, asio::placeholders::error,
-                                                     asio::placeholders::results));
                 udp.context.run();
-                if (!udp.error_code) break;
+                if (!udp.error_code)
+                    break;
                 udp.attemps_fail++;
                 std::this_thread::sleep_for(std::chrono::seconds(timeout));
             }
@@ -207,25 +214,27 @@ namespace InternetProtocol {
             mutexIO.unlock();
         }
 
-        void resolve(const std::error_code &error, const asio::ip::udp::resolver::results_type &results) {
+        void resolve(const asio::error_code &error, const asio::ip::udp::resolver::results_type &results) {
             if (error) {
                 udp.error_code = error;
-                if (onError) onError(error.value(), error.message());
+                if (onError)
+                    onError(error);
                 return;
             }
-            udp.endpoints = *results;
+            udp.endpoints = *results.begin();
             udp.socket.async_connect(udp.endpoints,
                                      std::bind(&UDPClient::conn, this, asio::placeholders::error));
         }
 
-        void conn(const std::error_code &error) {
+        void conn(const asio::error_code &error) {
             if (error) {
                 udp.error_code = error;
-                if (onError) onError(error.value(), error.message());
+                if (onError)
+                    onError(error);
                 return;
             }
             consume_receive_buffer();
-            udp.socket.async_receive_from(asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), udp.endpoints,
+            udp.socket.async_receive_from(asio::buffer(rbuffer.raw_data, rbuffer.raw_data.size()), udp.endpoints,
                                           std::bind(&UDPClient::receive_from, this, asio::placeholders::error,
                                                     asio::placeholders::bytes_transferred));
 
@@ -233,10 +242,11 @@ namespace InternetProtocol {
                 onConnected();
         }
 
-        void send_to(const std::error_code &error, const size_t bytes_sent) {
+        void send_to(const asio::error_code &error, const size_t bytes_sent) {
             if (error) {
                 udp.error_code = error;
-                if (onError) onError(error.value(), error.message());
+                if (onError)
+                    onError(error);
                 return;
             }
 
@@ -244,21 +254,22 @@ namespace InternetProtocol {
                 onMessageSent(bytes_sent);
         }
 
-        void receive_from(const std::error_code &error, const size_t bytes_recvd) {
+        void receive_from(const asio::error_code &error, const size_t bytes_recvd) {
             if (error) {
                 udp.error_code = error;
-                if (onError) onError(error.value(), error.message());
+                if (onError)
+                    onError(error);
                 return;
             }
 
             udp.attemps_fail = 0;
             rbuffer.size = bytes_recvd;
-            rbuffer.rawData.resize(bytes_recvd);
+            rbuffer.raw_data.resize(bytes_recvd);
             if (onMessageReceived)
                 onMessageReceived(bytes_recvd, rbuffer);
 
             consume_receive_buffer();
-            udp.socket.async_receive_from(asio::buffer(rbuffer.rawData, rbuffer.rawData.size()), udp.endpoints,
+            udp.socket.async_receive_from(asio::buffer(rbuffer.raw_data, rbuffer.raw_data.size()), udp.endpoints,
                                           std::bind(&UDPClient::receive_from, this, asio::placeholders::error,
                                                     asio::placeholders::bytes_transferred));
         }

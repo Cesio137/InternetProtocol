@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.20)
 project(InternetProtocol CXX)
 
 set(CMAKE_CXX_STANDARD 20)
-
 find_package(OpenSSL REQUIRED)
 
 file(GLOB_RECURSE sources "${CMAKE_SOURCE_DIR}/include/*.h")

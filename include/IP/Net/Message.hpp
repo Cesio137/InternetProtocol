@@ -4,20 +4,28 @@
 
 namespace InternetProtocol {
     struct FUdpMessage {
-        FUdpMessage() { rawData.resize(1024); }
-        std::vector<std::byte> rawData;
+        FUdpMessage() { raw_data.resize(1024); }
+        ~FUdpMessage() { 
+            raw_data.clear();
+            raw_data.shrink_to_fit();
+        }
+        std::vector<std::byte> raw_data;
         size_t size = 0;
 
         std::string toString() const {
             std::string str;
             str.resize(size);
-            std::transform(rawData.begin(), rawData.end(), str.begin(),
+            std::transform(raw_data.begin(), raw_data.end(), str.begin(),
                            [](std::byte byte) { return static_cast<char>(byte); });
             return str;
         }
     };
 
     struct FTcpMessage {
+        ~FTcpMessage() { 
+            raw_data.clear();
+            raw_data.shrink_to_fit();
+        }
         std::vector<std::byte> raw_data;
         uint32_t size = 0;
 
@@ -31,6 +39,10 @@ namespace InternetProtocol {
     };
 
     struct FWsMessage {
+        ~FWsMessage() {
+            payload.clear();
+            payload.shrink_to_fit();
+        }
         FDataFrame data_frame;
         std::vector<std::byte> payload;
 
