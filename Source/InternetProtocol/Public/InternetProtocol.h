@@ -14,7 +14,4 @@ public:
 
 private:
 	/** Handle to the test dll we will load */
-	/*void*	LegacyLibraryHandle;
-	void*	LibcryptoLibraryHandle;
-	void*	Libssl3LibraryHandle;*/
 };
