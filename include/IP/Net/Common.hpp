@@ -73,8 +73,8 @@ namespace InternetProtocol {
 #ifdef ASIO_USE_OPENSSL
     struct FAsioTcpSsl {
         FAsioTcpSsl()
-            : ssl_context(asio::ssl::context::sslv23),
-              context(),
+            : context(),
+              ssl_context(asio::ssl::context::sslv23),
               resolver(context),
               ssl_socket(context, ssl_context) {
             ssl_context.set_verify_mode(asio::ssl::verify_peer);
@@ -89,8 +89,8 @@ namespace InternetProtocol {
         uint8_t attemps_fail = 0;
 
         FAsioTcpSsl(const FAsioTcpSsl &asio)
-            : ssl_context(asio::ssl::context::sslv23),
-              context(),
+            : context(),
+              ssl_context(asio::ssl::context::sslv23),
               resolver(context),
               ssl_socket(context, ssl_context) {
             ssl_context.set_verify_mode(asio::ssl::verify_peer);

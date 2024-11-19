@@ -1,3 +1,4 @@
+#define ASIO_USE_OPENSSL
 #include <IP/InternetProtocol.hpp>
 #include <iostream>
 
