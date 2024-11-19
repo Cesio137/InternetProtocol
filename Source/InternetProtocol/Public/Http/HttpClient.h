@@ -35,151 +35,152 @@ class INTERNETPROTOCOL_API UHttpClient : public UObject
 public:
 	UHttpClient()
 	{
-		request.headers.Add("Accept", "*/*");
-		request.headers.Add("User-Agent", "ASIO 2.30.2");
-		request.headers.Add("Connection", "close");
+		Request.headers.Add("Accept", "*/*");
+		Request.headers.Add("User-Agent", "ASIO 2.30.2");
+		Request.headers.Add("Connection", "close");
 	}
 
 	virtual void BeginDestroy() override
 	{
 		ShouldStopContext = true;
-		tcp.resolver.cancel();
-		if (!tcp.context.stopped() || tcp.socket.is_open()) cancelRequest();
-		clearRequest();
-		clearPayload();
-		clearResponse();
+		TCP.resolver.cancel();
+		if (!TCP.context.stopped() || TCP.socket.is_open()) CancelRequest();
+		ThreadPool->wait();
+		ClearRequest();
+		ClearPayload();
+		ClearResponse();
 		Super::BeginDestroy();
 	}
 
 	/*HTTP SETTINGS*/
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
-	void setHost(const FString& url = "localhost", const FString& port = "")
+	void SetHost(const FString& url = "localhost", const FString& port = "")
 	{
-		host = url;
-		service = port;
+		Host = url;
+		Service = port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Settings")
-	FString getHost() const { return host; }
+	FString GetHost() const { return Host; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Settings")
-	FString getPort() const { return service; }
+	FString GetPort() const { return Service; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
-	void setTimeout(int value = 3) { timeout = value; }
+	void SetTimeout(int value = 3) { Timeout = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Settings")
-	int getTimeout() const { return timeout; }
+	int GetTimeout() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||SETTINGS")
-	void setMaxAttemp(int value = 3) { maxAttemp = value; }
+	void SetMaxAttemp(int value = 3) { MaxAttemp = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||SETTINGS")
-	int getMaxAttemp() const { return maxAttemp; }
+	int GetMaxAttemp() const { return MaxAttemp; }
 
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setRequest(const FRequest& value) { request = value; }
+	void SetRequest(const FRequest& value) { Request = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FRequest getRequest() const { return request; }
+	FRequest GetRequest() const { return Request; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setRequestMethod(EVerb requestMethod = EVerb::GET) { request.verb = requestMethod; }
+	void SetRequestMethod(EVerb requestMethod = EVerb::GET) { Request.verb = requestMethod; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	EVerb getRequestMethod() const { return request.verb; }
+	EVerb GetRequestMethod() const { return Request.verb; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setVersion(const FString& version = "1.1") { request.version = version; }
+	void SetVersion(const FString& version = "1.1") { Request.version = version; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FString getVersion() const { return request.version; }
+	FString GetVersion() const { return Request.version; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setPath(const FString& path = "/") { request.path = path.IsEmpty() ? "/" : path; }
+	void SetPath(const FString& path = "/") { Request.path = path.IsEmpty() ? "/" : path; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FString getPath() const { return request.path; }
+	FString GetPath() const { return Request.path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void appendParams(const FString& key, const FString& value) { request.params.Add(key, value); }
+	void AppendParams(const FString& key, const FString& value) { Request.params.Add(key, value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void clearParams() { request.params.Empty(); }
+	void ClearParams() { Request.params.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void removeParam(const FString& key) { request.params.Remove(key); }
+	void RemoveParam(const FString& key) { Request.params.Remove(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	bool hasParam(const FString& key) const { return request.params.Contains(key); }
+	bool HasParam(const FString& key) const { return Request.params.Contains(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	TMap<FString, FString> getParams() const { return request.params; }
+	TMap<FString, FString> GetParams() const { return Request.params; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void AppendHeaders(const FString& key, const FString& value) { request.headers.Add(key, value); }
+	void AppendHeaders(const FString& key, const FString& value) { Request.headers.Add(key, value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void ClearHeaders() { request.headers.Empty(); }
+	void ClearHeaders() { Request.headers.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void RemoveHeader(const FString& key) { request.headers.Remove(key); }
+	void RemoveHeader(const FString& key) { Request.headers.Remove(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	bool hasHeader(const FString& key) const { return request.headers.Contains(key); }
+	bool HasHeader(const FString& key) const { return Request.headers.Contains(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	TMap<FString, FString> GetHeaders() const { return request.headers; }
+	TMap<FString, FString> GetHeaders() const { return Request.headers; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void SetBody(const FString& value) { request.body = value; }
+	void SetBody(const FString& value) { Request.body = value; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void ClearBody() { request.body.Empty(); }
+	void ClearBody() { Request.body.Empty(); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FString GetBody() const { return request.body; }
+	FString GetBody() const { return Request.body; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	FRequest getRequestData() const { return request; }
+	FRequest GetRequestData() const { return Request; }
 
 	/*PAYLOAD*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
-	void preparePayload();
+	void PreparePayload();
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
-	bool async_preparePayload();
+	bool AsyncPreparePayload();
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Payload")
-	FString getPayloadData() const { return payload; }
+	FString GetPayloadData() const { return Payload; }
 
 	/*RESPONSE DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Response")
-	FResponse getResponseData() const { return response; }
+	FResponse GetResponseData() const { return Response; }
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
-	bool processRequest();
+	bool ProcessRequest();
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
-	void cancelRequest();
+	void CancelRequest();
 
 	/*MEMORY MANAGER*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Memory")
-	void clearRequest() { request.clear(); }
+	void ClearRequest() { Request.clear(); }
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
-	void clearPayload() { payload.Empty(); }
+	void ClearPayload() { Payload.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
-	void clearResponse() { response.clear(); }
+	void ClearResponse() { Response.clear(); }
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
-	int getErrorCode() const { return tcp.error_code.value(); }
+	int GetErrorCode() const { return TCP.error_code.value(); }
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
-	FString getErrorMessage() const { return tcp.error_code.message().c_str(); }
+	FString GetErrorMessage() const { return TCP.error_code.message().c_str(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
@@ -200,20 +201,21 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	std::mutex mutexPayload;
-	std::mutex mutexIO;
+	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	FCriticalSection MutexIO;
+	FCriticalSection MutexPayload;
 	bool ShouldStopContext = false;
-	FString host = "localhost";
-	FString service;
-	uint8 timeout = 3;
-	uint8 maxAttemp = 3;
-	FRequest request;
-	FAsioTcp tcp;
-	FString payload;
-	asio::streambuf request_buffer;
-	asio::streambuf response_buffer;
-	FResponse response;
-	const TMap<EVerb, FString> verb = {
+	FString Host = "localhost";
+	FString Service;
+	uint8 Timeout = 3;
+	uint8 MaxAttemp = 3;
+	FRequest Request;
+	FAsioTcp TCP;
+	FString Payload;
+	asio::streambuf RequestBuffer;
+	asio::streambuf ResponseBuffer;
+	FResponse Response;
+	const TMap<EVerb, FString> Verb = {
 		{EVerb::GET, "GET"},
 		{EVerb::POST, "POST"},
 		{EVerb::PUT, "PUT"},
@@ -229,8 +231,8 @@ private:
 
 	void consume_stream_buffers()
 	{
-		request_buffer.consume(request_buffer.size());
-		response_buffer.consume(request_buffer.size());
+		RequestBuffer.consume(RequestBuffer.size());
+		ResponseBuffer.consume(RequestBuffer.size());
 	}
 
 	void run_context_thread();
@@ -250,125 +252,126 @@ class INTERNETPROTOCOL_API UHttpClientSsl : public UObject
 public:
 	UHttpClientSsl()
 	{
-		request.headers.Add("Accept", "*/*");
-		request.headers.Add("User-Agent", "ASIO 2.30.2");
-		request.headers.Add("Connection", "close");
+		Request.headers.Add("Accept", "*/*");
+		Request.headers.Add("User-Agent", "ASIO 2.30.2");
+		Request.headers.Add("Connection", "close");
 	}
 
 	virtual void BeginDestroy() override
 	{
 		ShouldStopContext = true;
-		tcp.resolver.cancel();
-		if (!tcp.context.stopped() || tcp.ssl_socket.lowest_layer().is_open()) cancelRequest();
-		clearRequest();
-		clearPayload();
-		clearResponse();
+		TCP.resolver.cancel();
+		if (!TCP.context.stopped() || TCP.ssl_socket.lowest_layer().is_open()) CancelRequest();
+		ThreadPool->wait();
+		ClearRequest();
+		ClearPayload();
+		ClearResponse();
 		Super::BeginDestroy();
 	}
 
 	/*HTTP SETTINGS*/
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
-	void setHost(const FString& url = "localhost", const FString& port = "")
+	void SetHost(const FString& url = "localhost", const FString& port = "")
 	{
-		host = url;
-		service = port;
+		Host = url;
+		Service = port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Settings")
-	FString getHost() const { return host; }
+	FString GetHost() const { return Host; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Settings")
-	FString getPort() const { return service; }
+	FString GetPort() const { return Service; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
-	void setTimeout(int value = 3) { timeout = value; }
+	void SetTimeout(int value = 3) { Timeout = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Settings")
-	int getTimeout() const { return timeout; }
+	int GetTimeout() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||SETTINGS")
-	void setMaxAttemp(int value = 3) { maxAttemp = value; }
+	void SetMaxAttemp(int value = 3) { MaxAttemp = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||SETTINGS")
-	int getMaxAttemp() const { return maxAttemp; }
+	int GetMaxAttemp() const { return MaxAttemp; }
 
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setRequest(const FRequest& value) { request = value; }
+	void SetRequest(const FRequest& value) { Request = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FRequest getRequest() const { return request; }
+	FRequest GetRequest() const { return Request; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setRequestMethod(EVerb requestMethod = EVerb::GET) { request.verb = requestMethod; }
+	void SetRequestMethod(EVerb requestMethod = EVerb::GET) { Request.verb = requestMethod; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	EVerb getRequestMethod() const { return request.verb; }
+	EVerb GetRequestMethod() const { return Request.verb; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setVersion(const FString& version = "1.1") { request.version = version; }
+	void SetVersion(const FString& version = "1.1") { Request.version = version; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FString getVersion() const { return request.version; }
+	FString GetVersion() const { return Request.version; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void setPath(const FString& path = "/") { request.path = path.IsEmpty() ? "/" : path; }
+	void SetPath(const FString& path = "/") { Request.path = path.IsEmpty() ? "/" : path; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FString getPath() const { return request.path; }
+	FString GetPath() const { return Request.path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void appendParams(const FString& key, const FString& value) { request.params.Add(key, value); }
+	void AppendParams(const FString& key, const FString& value) { Request.params.Add(key, value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void clearParams() { request.params.Empty(); }
+	void ClearParams() { Request.params.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void removeParam(const FString& key) { request.params.Remove(key); }
+	void RemoveParam(const FString& key) { Request.params.Remove(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	bool hasParam(const FString& key) const { return request.params.Contains(key); }
+	bool HasParam(const FString& key) const { return Request.params.Contains(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	TMap<FString, FString> getParams() const { return request.params; }
+	TMap<FString, FString> GetParams() const { return Request.params; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void AppendHeaders(const FString& key, const FString& value) { request.headers.Add(key, value); }
+	void AppendHeaders(const FString& key, const FString& value) { Request.headers.Add(key, value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void ClearHeaders() { request.headers.Empty(); }
+	void ClearHeaders() { Request.headers.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void RemoveHeader(const FString& key) { request.headers.Remove(key); }
+	void RemoveHeader(const FString& key) { Request.headers.Remove(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	bool hasHeader(const FString& key) const { return request.headers.Contains(key); }
+	bool HasHeader(const FString& key) const { return Request.headers.Contains(key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	TMap<FString, FString> GetHeaders() const { return request.headers; }
+	TMap<FString, FString> GetHeaders() const { return Request.headers; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void SetBody(const FString& value) { request.body = value; }
+	void SetBody(const FString& value) { Request.body = value; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	void ClearBody() { request.body.Empty(); }
+	void ClearBody() { Request.body.Empty(); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
-	FString GetBody() const { return request.body; }
+	FString GetBody() const { return Request.body; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
-	FRequest getRequestData() const { return request; }
+	FRequest GetRequestData() const { return Request; }
 
 	/*SECURITY LAYER*/
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_private_key_data(const FString& key_data)
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	bool LoadPrivateKeyData(const FString& key_data) noexcept
 	{
 		if (key_data.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string key = TCHAR_TO_UTF8(*key_data);
 		const asio::const_buffer buffer(key.data(), key.size());
-		tcp.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ec);
+		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -380,13 +383,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_private_key_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	bool LoadPrivateKeyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ec);
+		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -398,14 +401,14 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_data(const FString& cert_data)
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	bool LoadCertificateData(const FString& cert_data)
 	{
 		if (cert_data.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string cert = TCHAR_TO_UTF8(*cert_data);
 		const asio::const_buffer buffer(cert.data(), cert.size());
-		tcp.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
+		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -417,13 +420,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	bool LoadCertificateFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ec);
+		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -435,15 +438,15 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_chain_data(const FString& cert_chain_data)
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	bool LoadCertificateChainData(const FString& cert_chain_data)
 	{
 		if (cert_chain_data.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
 		const asio::const_buffer buffer(cert_chain.data(),
 										cert_chain.size());
-		tcp.ssl_context.use_certificate_chain(buffer, ec);
+		TCP.ssl_context.use_certificate_chain(buffer, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -455,13 +458,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_chain_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	bool LoadCertificateChainFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.use_certificate_chain_file(file, ec);
+		TCP.ssl_context.use_certificate_chain_file(file, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -473,13 +476,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_verify_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	bool LoadVerifyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.load_verify_file(file, ec);
+		TCP.ssl_context.load_verify_file(file, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -493,39 +496,39 @@ public:
 
 	/*PAYLOAD*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
-	void preparePayload();
+	void PreparePayload();
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
-	bool async_preparePayload();
+	bool AsyncPreparePayload();
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Payload")
-	FString getPayloadData() const { return payload; }
+	FString GetPayloadData() const { return Payload; }
 
 	/*RESPONSE DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Response")
-	FResponse getResponseData() const { return response; }
+	FResponse GetResponseData() const { return Response; }
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
-	bool processRequest();
+	bool ProcessRequest();
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
-	void cancelRequest();
+	void CancelRequest();
 
 	/*MEMORY MANAGER*/
 	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Memory")
-	void clearRequest() { request.clear(); }
+	void ClearRequest() { Request.clear(); }
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
-	void clearPayload() { payload.Empty(); }
+	void ClearPayload() { Payload.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
-	void clearResponse() { response.clear(); }
+	void ClearResponse() { Response.clear(); }
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
-	int getErrorCode() const { return tcp.error_code.value(); }
+	int GetErrorCode() const { return TCP.error_code.value(); }
 
 	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
-	FString getErrorMessage() const { return tcp.error_code.message().c_str(); }
+	FString GetErrorMessage() const { return TCP.error_code.message().c_str(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
@@ -546,20 +549,21 @@ public:
 	FDelegateHttpError OnError;
 
 private:
-	std::mutex mutexPayload;
-	std::mutex mutexIO;
+	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	FCriticalSection MutexIO;
+	FCriticalSection MutexPayload;
 	bool ShouldStopContext = false;
-	FString host = "localhost";
-	FString service;
-	uint8 timeout = 3;
-	uint8 maxAttemp = 3;
-	FRequest request;
-	FAsioTcpSsl tcp;
-	FString payload;
-	asio::streambuf request_buffer;
-	asio::streambuf response_buffer;
-	FResponse response;
-	const TMap<EVerb, FString> verb = {
+	FString Host = "localhost";
+	FString Service;
+	uint8 Timeout = 3;
+	uint8 MaxAttemp = 3;
+	FRequest Request;
+	FAsioTcpSsl TCP;
+	FString Payload;
+	asio::streambuf RequestBuffer;
+	asio::streambuf ResponseBuffer;
+	FResponse Response;
+	const TMap<EVerb, FString> Verb = {
 		{EVerb::GET, "GET"},
 		{EVerb::POST, "POST"},
 		{EVerb::PUT, "PUT"},
@@ -575,8 +579,8 @@ private:
 
 	void consume_stream_buffers()
 	{
-		request_buffer.consume(request_buffer.size());
-		response_buffer.consume(request_buffer.size());
+		RequestBuffer.consume(RequestBuffer.size());
+		ResponseBuffer.consume(RequestBuffer.size());
 	}
 
 	void run_context_thread();

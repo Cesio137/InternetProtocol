@@ -29,180 +29,177 @@ class INTERNETPROTOCOL_API UWebsocketClient : public UObject
 	GENERATED_BODY()
 
 public:
-	UWebsocketClient()
-	{
-	}
-
 	virtual void BeginDestroy() override
 	{
 		ShouldStopContext = true;
-		tcp.resolver.cancel();
-		if (isConnected()) close();
+		TCP.resolver.cancel();
+		if (IsConnected()) Close();
+		ThreadPool->wait();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Remote")
-	void setHost(const FString& url = "localhost", const FString& port = "")
+	void SetHost(const FString& url = "localhost", const FString& port = "")
 	{
-		host = url;
-		service = port;
+		Host = url;
+		Service = port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString getLocalAdress() const
+	FString GetLocalAdress() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return tcp.socket.local_endpoint().address().to_string().c_str();
+			return TCP.socket.local_endpoint().address().to_string().c_str();
 		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString getLocalPort() const
+	FString GetLocalPort() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return FString::FromInt(tcp.socket.local_endpoint().port());
+			return FString::FromInt(TCP.socket.local_endpoint().port());
 		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString getRemoteAdress() const
+	FString GetRemoteAdress() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return tcp.socket.remote_endpoint().address().to_string().c_str();
+			return TCP.socket.remote_endpoint().address().to_string().c_str();
 		}
-		return host;
+		return Host;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString getRemotePort() const
+	FString GetRemotePort() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return FString::FromInt(tcp.socket.remote_endpoint().port());
+			return FString::FromInt(TCP.socket.remote_endpoint().port());
 		}
-		return service;
+		return Service;
 	}
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setTimeout(uint8 value = 3) { timeout = value; }
+	void SetTimeout(uint8 value = 3) { Timeout = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 getTimeout() const { return timeout; }
+	uint8 GetTimeout() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setMaxAttemp(uint8 value = 3) { maxAttemp = value; }
+	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 getMaxAttemp() const { return timeout; }
+	uint8 GetMaxAttemp() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setMaxSendBufferSize(int value = 1400) { maxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	int getMaxSendBufferSize() const { return maxSendBufferSize; }
+	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setSplitPackage(bool value = true) { splitBuffer = value; }
+	void SetSplitPackage(bool value = true) { SplitBuffer = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	bool getSplitPackage() const { return splitBuffer; }
+	bool GetSplitPackage() const { return SplitBuffer; }
 
 
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setPath(const FString& value = "chat") { handshake.path = value; }
+	void SetPath(const FString& value = "chat") { Handshake.path = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getPath() const { return handshake.path; }
+	FString GetPath() const { return Handshake.path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setVersion(const FString& value = "1.1") { handshake.version = value; }
+	void SetVersion(const FString& value = "1.1") { Handshake.version = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getVersion() const { return handshake.version; }
+	FString GetVersion() const { return Handshake.version; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setKey(const FString& value = "dGhlIHNhbXBsZSBub25jZQ==") { handshake.Sec_WebSocket_Key = value; }
+	void SetKey(const FString& value = "dGhlIHNhbXBsZSBub25jZQ==") { Handshake.Sec_WebSocket_Key = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getKey() const { return handshake.Sec_WebSocket_Key; }
+	FString GetKey() const { return Handshake.Sec_WebSocket_Key; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setOrigin(const FString& value = "client") { handshake.origin = value; }
+	void SetOrigin(const FString& value = "client") { Handshake.origin = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getOrigin() const { return handshake.origin; }
+	FString GetOrigin() const { return Handshake.origin; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setSecProtocol(const FString& value = "chat, superchat") { handshake.Sec_WebSocket_Protocol = value; }
+	void SetSetProtocol(const FString& value = "chat, superchat") { Handshake.Sec_WebSocket_Protocol = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getSecProtocol() const { return handshake.Sec_WebSocket_Protocol; }
+	FString GetSecProtocol() const { return Handshake.Sec_WebSocket_Protocol; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setSecVersion(const FString& value = "13") { handshake.Sec_Websocket_Version = value; }
+	void SetSetVersion(const FString& value = "13") { Handshake.Sec_Websocket_Version = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getSecVersion() const { return handshake.Sec_Websocket_Version; }
+	FString GetSecVersion() const { return Handshake.Sec_Websocket_Version; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setRSV1(bool value = false) { sDataFrame.rsv1 = value; }
+	void SetRSV1(bool value = false) { SDataFrame.rsv1 = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useRSV1() const { return sDataFrame.rsv1; }
+	bool UseRSV1() const { return SDataFrame.rsv1; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setRSV2(bool value = false) { sDataFrame.rsv2 = value; }
+	void SetRSV2(bool value = false) { SDataFrame.rsv2 = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useRSV2() const { return sDataFrame.rsv2; }
+	bool UseRSV2() const { return SDataFrame.rsv2; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setRSV3(bool value = false) { sDataFrame.rsv3 = value; }
+	void SetRSV3(bool value = false) { SDataFrame.rsv3 = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useRSV3() const { return sDataFrame.rsv3; }
+	bool UseRSV3() const { return SDataFrame.rsv3; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setMask(bool value = true) { sDataFrame.mask = value; }
+	void SetMask(bool value = true) { SDataFrame.mask = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useMask() const { return sDataFrame.mask; }
+	bool UseMask() const { return SDataFrame.mask; }
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool send(const FString& message);
+	bool Send(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool sendRaw(const TArray<uint8> buffer);
+	bool SendRaw(const TArray<uint8> buffer);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool sendPing();
+	bool SendPing();
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool asyncRead();
+	bool AsyncRead();
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
-	bool connect();
+	bool Connect();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Connection")
-	bool isConnected() const { return tcp.socket.is_open(); }
+	bool IsConnected() const { return TCP.socket.is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
-	void close();
+	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	int getErrorCode() const { return tcp.error_code.value(); }
+	int GetErrorCode() const { return TCP.error_code.value(); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	FString getErrorMessage() const { return tcp.error_code.message().c_str(); }
+	FString GetErrorMessage() const { return TCP.error_code.message().c_str(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
@@ -223,20 +220,21 @@ public:
 	FDelegateWsError OnError;
 
 private:
-	std::mutex mutexIO;
-	std::mutex mutexBuffer;
+	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	FCriticalSection MutexIO;
+	FCriticalSection MutexBuffer;
 	bool ShouldStopContext = false;
-	FString host = "localhost";
-	FString service;
-	uint8 timeout = 3;
-	uint8 maxAttemp = 3;
-	bool splitBuffer = false;
-	int maxSendBufferSize = 1400;
-	FAsioTcp tcp;
-	asio::streambuf request_buffer;
-	asio::streambuf response_buffer;
-	FHandShake handshake;
-	FDataFrame sDataFrame;
+	FString Host = "localhost";
+	FString Service;
+	uint8 Timeout = 3;
+	uint8 MaxAttemp = 3;
+	bool SplitBuffer = false;
+	int MaxSendBufferSize = 1400;
+	FAsioTcp TCP;
+	asio::streambuf RequestBuffer;
+	asio::streambuf ResponseBuffer;
+	FHandShake Handshake;
+	FDataFrame SDataFrame;
 
 	void post_string(const FString& str);
 	void post_buffer(EOpcode opcode, const TArray<uint8>& buffer);
@@ -250,8 +248,8 @@ private:
 
 	void consume_response_buffer()
 	{
-		request_buffer.consume(request_buffer.size());
-		response_buffer.consume(response_buffer.size());
+		RequestBuffer.consume(RequestBuffer.size());
+		ResponseBuffer.consume(ResponseBuffer.size());
 	}
 
 	void run_context_thread();
@@ -270,164 +268,161 @@ class INTERNETPROTOCOL_API UWebsocketClientSsl : public UObject
 	GENERATED_BODY()
 
 public:
-	UWebsocketClientSsl()
-	{
-	}
-
 	virtual void BeginDestroy() override
 	{
 		ShouldStopContext = true;
-		tcp.resolver.cancel();
-		if (isConnected()) close();
+		TCP.resolver.cancel();
+		if (IsConnected()) Close();
+		ThreadPool->wait();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Remote")
-	void setHost(const FString& url = "localhost", const FString& port = "")
+	void SetHost(const FString& url = "localhost", const FString& port = "")
 	{
-		host = url;
-		service = port;
+		Host = url;
+		Service = port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString getLocalAdress() const
+	FString GetLocalAdress() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return tcp.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str();
+			return TCP.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str();
 		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString getLocalPort() const
+	FString GetLocalPort() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return FString::FromInt(tcp.ssl_socket.lowest_layer().local_endpoint().port());
+			return FString::FromInt(TCP.ssl_socket.lowest_layer().local_endpoint().port());
 		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString getRemoteAdress() const
+	FString GetRemoteAdress() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return tcp.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str();
+			return TCP.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str();
 		}
-		return host;
+		return Host;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString getRemotePort() const
+	FString GetRemotePort() const
 	{
-		if (isConnected())
+		if (IsConnected())
 		{
-			return FString::FromInt(tcp.ssl_socket.lowest_layer().remote_endpoint().port());
+			return FString::FromInt(TCP.ssl_socket.lowest_layer().remote_endpoint().port());
 		}
-		return service;
+		return Service;
 	}
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setTimeout(uint8 value = 3) { timeout = value; }
+	void SetTimeout(uint8 value = 3) { Timeout = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 getTimeout() const { return timeout; }
+	uint8 GetTimeout() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setMaxAttemp(uint8 value = 3) { maxAttemp = value; }
+	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 getMaxAttemp() const { return timeout; }
+	uint8 GetMaxAttemp() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setMaxSendBufferSize(int value = 1400) { maxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	int getMaxSendBufferSize() const { return maxSendBufferSize; }
+	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void setSplitPackage(bool value = true) { splitBuffer = value; }
+	void SetSplitPackage(bool value = true) { SplitBuffer = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	bool getSplitPackage() const { return splitBuffer; }
+	bool GetSplitPackage() const { return SplitBuffer; }
 
 
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setPath(const FString& value = "chat") { handshake.path = value; }
+	void SetPath(const FString& value = "chat") { Handshake.path = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getPath() const { return handshake.path; }
+	FString GetPath() const { return Handshake.path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setVersion(const FString& value = "1.1") { handshake.version = value; }
+	void SetVersion(const FString& value = "1.1") { Handshake.version = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getVersion() const { return handshake.version; }
+	FString GetVersion() const { return Handshake.version; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setKey(const FString& value = "dGhlIHNhbXBsZSBub25jZQ==") { handshake.Sec_WebSocket_Key = value; }
+	void SetKey(const FString& value = "dGhlIHNhbXBsZSBub25jZQ==") { Handshake.Sec_WebSocket_Key = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getKey() const { return handshake.Sec_WebSocket_Key; }
+	FString GetKey() const { return Handshake.Sec_WebSocket_Key; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setOrigin(const FString& value = "client") { handshake.origin = value; }
+	void SetOrigin(const FString& value = "client") { Handshake.origin = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getOrigin() const { return handshake.origin; }
+	FString GetOrigin() const { return Handshake.origin; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setSecProtocol(const FString& value = "chat, superchat") { handshake.Sec_WebSocket_Protocol = value; }
+	void SetSecProtocol(const FString& value = "chat, superchat") { Handshake.Sec_WebSocket_Protocol = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getSecProtocol() const { return handshake.Sec_WebSocket_Protocol; }
+	FString GetSecProtocol() const { return Handshake.Sec_WebSocket_Protocol; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void setSecVersion(const FString& value = "13") { handshake.Sec_Websocket_Version = value; }
+	void SetSecVersion(const FString& value = "13") { Handshake.Sec_Websocket_Version = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString getSecVersion() const { return handshake.Sec_Websocket_Version; }
+	FString GetSecVersion() const { return Handshake.Sec_Websocket_Version; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setRSV1(bool value = false) { sDataFrame.rsv1 = value; }
+	void SetRSV1(bool value = false) { SDataFrame.rsv1 = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useRSV1() const { return sDataFrame.rsv1; }
+	bool UseRSV1() const { return SDataFrame.rsv1; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setRSV2(bool value = false) { sDataFrame.rsv2 = value; }
+	void SetRSV2(bool value = false) { SDataFrame.rsv2 = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useRSV2() const { return sDataFrame.rsv2; }
+	bool UseRSV2() const { return SDataFrame.rsv2; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setRSV3(bool value = false) { sDataFrame.rsv3 = value; }
+	void SetRSV3(bool value = false) { SDataFrame.rsv3 = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useRSV3() const { return sDataFrame.rsv3; }
+	bool UseRSV3() const { return SDataFrame.rsv3; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
-	void setMask(bool value = true) { sDataFrame.mask = value; }
+	void SetMask(bool value = true) { SDataFrame.mask = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Dataframe")
-	bool useMask() const { return sDataFrame.mask; }
+	bool UseMask() const { return SDataFrame.mask; }
 
 	/*SECURITY LAYER*/
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_private_key_data(const FString& key_data)
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Security Layer")
+	bool LoadPrivateKeyData(const FString& key_data) noexcept
 	{
 		if (key_data.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string key = TCHAR_TO_UTF8(*key_data);
 		const asio::const_buffer buffer(key.data(), key.size());
-		tcp.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ec);
+		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -439,13 +434,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_private_key_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Security Layer")
+	bool LoadPrivateKeyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ec);
+		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -457,14 +452,14 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_data(const FString& cert_data)
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Security Layer")
+	bool LoadCertificateData(const FString& cert_data)
 	{
 		if (cert_data.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string cert = TCHAR_TO_UTF8(*cert_data);
 		const asio::const_buffer buffer(cert.data(), cert.size());
-		tcp.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
+		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -476,13 +471,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Security Layer")
+	bool LoadCertificateFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ec);
+		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -494,15 +489,15 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_chain_data(const FString& cert_chain_data)
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Security Layer")
+	bool LoadCertificateChainData(const FString& cert_chain_data)
 	{
 		if (cert_chain_data.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
 		const asio::const_buffer buffer(cert_chain.data(),
 										cert_chain.size());
-		tcp.ssl_context.use_certificate_chain(buffer, ec);
+		TCP.ssl_context.use_certificate_chain(buffer, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -514,13 +509,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_certificate_chain_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Security Layer")
+	bool LoadCertificateChainFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.use_certificate_chain_file(file, ec);
+		TCP.ssl_context.use_certificate_chain_file(file, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -532,13 +527,13 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Security Layer")
-	bool load_verify_file(const FString& filename)
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Security Layer")
+	bool LoadVerifyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		tcp.ssl_context.load_verify_file(file, ec);
+		TCP.ssl_context.load_verify_file(file, ec);
 		if (ec)
 		{
 			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
@@ -552,29 +547,29 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool send(const FString& message);
+	bool Send(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool sendRaw(const TArray<uint8> buffer);
+	bool SendRaw(const TArray<uint8> buffer);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool sendPing();
+	bool SendPing();
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool asyncRead();
+	bool AsyncRead();
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
-	bool connect();
+	bool Connect();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Connection")
-	bool isConnected() const { return tcp.ssl_socket.lowest_layer().is_open(); }
+	bool IsConnected() const { return TCP.ssl_socket.lowest_layer().is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
-	void close();
+	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	int getErrorCode() const { return tcp.error_code.value(); }
+	int GetErrorCode() const { return TCP.error_code.value(); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	FString getErrorMessage() const { return tcp.error_code.message().c_str(); }
+	FString GetErrorMessage() const { return TCP.error_code.message().c_str(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
@@ -595,20 +590,21 @@ public:
 	FDelegateWsError OnError;
 
 private:
-	std::mutex mutexIO;
-	std::mutex mutexBuffer;
+	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	FCriticalSection MutexIO;
+	FCriticalSection MutexBuffer;
 	bool ShouldStopContext = true;
-	FString host = "localhost";
-	FString service;
-	uint8 timeout = 3;
-	uint8 maxAttemp = 3;
-	bool splitBuffer = false;
-	int maxSendBufferSize = 1400;
-	FAsioTcpSsl tcp;
-	asio::streambuf request_buffer;
-	asio::streambuf response_buffer;
-	FHandShake handshake;
-	FDataFrame sDataFrame;
+	FString Host = "localhost";
+	FString Service;
+	uint8 Timeout = 3;
+	uint8 MaxAttemp = 3;
+	bool SplitBuffer = false;
+	int MaxSendBufferSize = 1400;
+	FAsioTcpSsl TCP;
+	asio::streambuf RequestBuffer;
+	asio::streambuf ResponseBuffer;
+	FHandShake Handshake;
+	FDataFrame SDataFrame;
 
 	void post_string(const FString& str);
 	void post_buffer(EOpcode opcode, const TArray<uint8>& buffer);
@@ -622,8 +618,8 @@ private:
 
 	void consume_response_buffer()
 	{
-		request_buffer.consume(request_buffer.size());
-		response_buffer.consume(response_buffer.size());
+		RequestBuffer.consume(RequestBuffer.size());
+		ResponseBuffer.consume(ResponseBuffer.size());
 	}
 
 	void run_context_thread();

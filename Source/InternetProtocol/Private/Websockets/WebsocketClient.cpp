@@ -2,101 +2,99 @@
 
 #include "Websockets/WebsocketClient.h"
 
-bool UWebsocketClient::send(const FString& message)
+bool UWebsocketClient::Send(const FString& message)
 {
-	if (!isConnected() && message.IsEmpty())
+	if (!IsConnected() && message.IsEmpty())
 	{
 		return false;
 	}
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_string(message);
-	});
+	
+	asio::post(*ThreadPool, std::bind(&UWebsocketClient::post_string, this, message));
 	return true;
 }
 
-bool UWebsocketClient::sendRaw(const TArray<uint8> buffer)
+bool UWebsocketClient::SendRaw(const TArray<uint8> buffer)
 {
-	if (!isConnected() && buffer.Num() <= 0)
+	if (!IsConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_buffer(buffer);
-	});
+	asio::post(*ThreadPool, std::bind(&UWebsocketClient::post_buffer, this, EOpcode::BINARY_FRAME, buffer));
 	return true;
 }
 
-bool UWebsocketClient::sendPing()
+bool UWebsocketClient::SendPing()
 {
-	if (!isConnected())
+	if (!IsConnected())
 	{
 		return false;
 	}
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		TArray<uint8> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
-		post_buffer(EOpcode::PING, ping_buffer);
-	});
+	
+	TArray<uint8> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
+	asio::post(*ThreadPool, std::bind(&UWebsocketClient::post_buffer, this, EOpcode::PING, ping_buffer));
 	return true;
 }
 
-bool UWebsocketClient::asyncRead()
+bool UWebsocketClient::AsyncRead()
 {
-	if (!isConnected())
+	if (!IsConnected())
 	{
 		return false;
 	}
 
-	asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(2),
+	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(2),
 	                 std::bind(&UWebsocketClient::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred));
 	return true;
 }
 
-bool UWebsocketClient::connect()
+bool UWebsocketClient::Connect()
 {
-	if (!isConnected())
+	if (!IsConnected())
 	{
 		return false;
 	}
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		run_context_thread();
-	});
+	
+	asio::post(*ThreadPool, std::bind(&UWebsocketClient::run_context_thread, this));
 	return true;
 }
 
-void UWebsocketClient::close()
+void UWebsocketClient::Close()
 {
-	tcp.context.stop();
-	tcp.socket.shutdown(asio::ip::tcp::socket::shutdown_both, tcp.error_code);
+	asio::error_code ec_shutdown;
+	asio::error_code ec_close;
+	TCP.context.stop();
+	TCP.socket.shutdown(asio::ip::tcp::socket::shutdown_both, ec_shutdown);
+	TCP.socket.close(ec_close);
 	if (ShouldStopContext) return;
-	if (tcp.error_code)
-		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-	tcp.socket.close(tcp.error_code);
-	if (tcp.error_code)
-		OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
+	if (ec_shutdown)
+	{
+		ensureMsgf(!ec_shutdown, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_shutdown.value(),
+				   ec_shutdown.message().c_str());
+		OnError.Broadcast(ec_shutdown.value(), ec_shutdown.message().c_str());
+	}
+	if (ec_close)
+	{
+		ensureMsgf(!ec_close, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_close.value(),
+				   ec_close.message().c_str());
+		OnError.Broadcast(ec_close.value(), ec_close.message().c_str());
+	}
 	OnClose.Broadcast();
 }
 
 void UWebsocketClient::post_string(const FString& str)
 {
-	mutexBuffer.lock();
-	sDataFrame.opcode = EOpcode::TEXT_FRAME;
+	MutexBuffer.Lock();
+	SDataFrame.opcode = EOpcode::TEXT_FRAME;
 	package_string(str);
-	mutexBuffer.unlock();
+	MutexBuffer.Unlock();
 }
 
 void UWebsocketClient::post_buffer(EOpcode opcode, const TArray<uint8>& buffer)
 {
-	mutexBuffer.lock();
-	sDataFrame.opcode = opcode;
+	MutexBuffer.Lock();
+	SDataFrame.opcode = opcode;
 	if (opcode == EOpcode::BINARY_FRAME)
 	{
 		package_buffer(buffer);
@@ -105,46 +103,46 @@ void UWebsocketClient::post_buffer(EOpcode opcode, const TArray<uint8>& buffer)
 	{
 		std::vector<uint8> p_buffer(buffer.GetData(), buffer.GetData() + buffer.Num());
 		encode_buffer_payload(p_buffer);
-		asio::async_write(tcp.socket, asio::buffer(p_buffer.data(), p_buffer.size()),
+		asio::async_write(TCP.socket, asio::buffer(p_buffer.data(), p_buffer.size()),
 		                  std::bind(&UWebsocketClient::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred));
 	}
-	mutexBuffer.unlock();
+	MutexBuffer.Unlock();
 }
 
 void UWebsocketClient::package_string(const FString& str)
 {
 	std::string payload;
-	if (!splitBuffer || str.Len() /*+ get_frame_encode_size(str.size())*/ <= maxSendBufferSize)
+	if (!SplitBuffer || str.Len() /*+ get_frame_encode_size(str.size())*/ <= MaxSendBufferSize)
 	{
-		sDataFrame.fin = true;
+		SDataFrame.fin = true;
 		payload = TCHAR_TO_UTF8(*str);
 		payload = encode_string_payload(payload);
-		asio::async_write(tcp.socket, asio::buffer(payload.data(), payload.size()),
+		asio::async_write(TCP.socket, asio::buffer(payload.data(), payload.size()),
 		                  std::bind(&UWebsocketClient::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		return;
 	}
 
-	sDataFrame.fin = true;
+	SDataFrame.fin = true;
 	size_t string_offset = 0;
-	const size_t max_size = maxSendBufferSize - get_frame_encode_size(str.Len());
+	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(str.Len());
 	while (string_offset < str.Len())
 	{
-		sDataFrame.fin = string_offset < str.Len();
+		SDataFrame.fin = string_offset < str.Len();
 		size_t package_size = std::min(max_size, str.Len() - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		payload = TCHAR_TO_UTF8(*strshrink);
 		payload = encode_string_payload(payload);
-		asio::async_write(tcp.socket, asio::buffer(payload, payload.size()),
+		asio::async_write(TCP.socket, asio::buffer(payload, payload.size()),
 		                  std::bind(&UWebsocketClient::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		string_offset += package_size;
-		if (sDataFrame.opcode != EOpcode::FRAME_CON)
+		if (SDataFrame.opcode != EOpcode::FRAME_CON)
 		{
-			sDataFrame.opcode = EOpcode::FRAME_CON;
+			SDataFrame.opcode = EOpcode::FRAME_CON;
 		}
 	}
 }
@@ -155,15 +153,15 @@ std::string UWebsocketClient::encode_string_payload(const std::string& payload)
 	uint64 payload_length = payload.size();
 
 	// FIN, RSV, Opcode
-	uint8 byte1 = sDataFrame.fin ? 0x80 : 0x00;
-	byte1 |= sDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
-	byte1 |= sDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
-	byte1 |= sDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
-	byte1 |= (uint8)sDataFrame.opcode & 0x0F;
+	uint8 byte1 = SDataFrame.fin ? 0x80 : 0x00;
+	byte1 |= SDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
+	byte1 |= SDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
+	byte1 |= SDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
+	byte1 |= (uint8)SDataFrame.opcode & 0x0F;
 	string_buffer.push_back(byte1);
 
 	// Mask and payload size
-	uint8 byte2 = sDataFrame.mask ? 0x80 : 0x00;
+	uint8 byte2 = SDataFrame.mask ? 0x80 : 0x00;
 	if (payload_length <= 125)
 	{
 		byte2 |= payload_length;
@@ -187,7 +185,7 @@ std::string UWebsocketClient::encode_string_payload(const std::string& payload)
 	}
 
 	std::array<uint8, 4> masking_key;
-	if (sDataFrame.mask)
+	if (SDataFrame.mask)
 	{
 		masking_key = mask_gen();
 		for (uint8 key : masking_key)
@@ -199,7 +197,7 @@ std::string UWebsocketClient::encode_string_payload(const std::string& payload)
 	// payload data and mask
 	for (size_t i = 0; i < payload.size(); ++i)
 	{
-		if (sDataFrame.mask)
+		if (SDataFrame.mask)
 		{
 			string_buffer.push_back(payload[i] ^ static_cast<uint8_t>(masking_key[i % 4]));
 		}
@@ -215,35 +213,35 @@ std::string UWebsocketClient::encode_string_payload(const std::string& payload)
 void UWebsocketClient::package_buffer(const TArray<uint8>& buffer)
 {
 	std::vector<uint8> payload;
-	if (!splitBuffer || buffer.Num() + get_frame_encode_size(buffer.Num()) <= maxSendBufferSize)
+	if (!SplitBuffer || buffer.Num() + get_frame_encode_size(buffer.Num()) <= MaxSendBufferSize)
 	{
 		payload.assign(buffer.GetData(), buffer.GetData() + buffer.Num());
-		sDataFrame.fin = true;
+		SDataFrame.fin = true;
 		encode_buffer_payload(payload);
-		asio::async_write(tcp.socket, asio::buffer(payload.data(), payload.size()),
+		asio::async_write(TCP.socket, asio::buffer(payload.data(), payload.size()),
 		                  std::bind(&UWebsocketClient::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		return;
 	}
 
-	sDataFrame.fin = false;
+	SDataFrame.fin = false;
 	size_t buffer_offset = 0;
-	const size_t max_size = maxSendBufferSize - get_frame_encode_size(buffer.Num());
+	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(buffer.Num());
 	while (buffer_offset < buffer.Num())
 	{
-		sDataFrame.fin = buffer_offset < buffer.Num();
+		SDataFrame.fin = buffer_offset < buffer.Num();
 		size_t package_size = std::min(max_size, buffer.Num() - buffer_offset);
 		payload.assign(buffer.GetData() + buffer_offset, buffer.GetData() + buffer_offset + package_size);
 		encode_buffer_payload(payload);
-		asio::async_write(tcp.socket, asio::buffer(payload, payload.size()),
+		asio::async_write(TCP.socket, asio::buffer(payload, payload.size()),
 		                  std::bind(&UWebsocketClient::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		buffer_offset += package_size;
-		if (sDataFrame.opcode != EOpcode::FRAME_CON)
+		if (SDataFrame.opcode != EOpcode::FRAME_CON)
 		{
-			sDataFrame.opcode = EOpcode::FRAME_CON;
+			SDataFrame.opcode = EOpcode::FRAME_CON;
 		}
 	}
 }
@@ -254,15 +252,15 @@ std::vector<uint8> UWebsocketClient::encode_buffer_payload(const std::vector<uin
 	uint64 payload_length = payload.size();
 
 	// FIN, RSV, Opcode
-	uint8 byte1 = sDataFrame.fin ? 0x80 : 0x00;
-	byte1 |= sDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
-	byte1 |= sDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
-	byte1 |= sDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
-	byte1 |= (uint8)sDataFrame.opcode & 0x0F;
+	uint8 byte1 = SDataFrame.fin ? 0x80 : 0x00;
+	byte1 |= SDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
+	byte1 |= SDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
+	byte1 |= SDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
+	byte1 |= (uint8)SDataFrame.opcode & 0x0F;
 	buffer.push_back(byte1);
 
 	// Mask and payload size
-	uint8 byte2 = sDataFrame.mask ? 0x80 : 0x00;
+	uint8 byte2 = SDataFrame.mask ? 0x80 : 0x00;
 	if (payload_length <= 125)
 	{
 		byte2 |= payload_length;
@@ -286,7 +284,7 @@ std::vector<uint8> UWebsocketClient::encode_buffer_payload(const std::vector<uin
 	}
 
 	std::array<uint8, 4> masking_key;
-	if (sDataFrame.mask)
+	if (SDataFrame.mask)
 	{
 		masking_key = mask_gen();
 		for (uint8 key : masking_key)
@@ -298,7 +296,7 @@ std::vector<uint8> UWebsocketClient::encode_buffer_payload(const std::vector<uin
 	// payload data and mask
 	for (size_t i = 0; i < payload.size(); ++i)
 	{
-		if (sDataFrame.mask)
+		if (SDataFrame.mask)
 		{
 			buffer.push_back(payload[i] ^ masking_key[i % 4]);
 		}
@@ -327,7 +325,7 @@ size_t UWebsocketClient::get_frame_encode_size(const size_t buffer_size)
 		size += 8;
 	}
 
-	if (sDataFrame.mask)
+	if (SDataFrame.mask)
 	{
 		size += 4;
 	}
@@ -352,15 +350,15 @@ std::array<uint8, 4> UWebsocketClient::mask_gen()
 
 bool UWebsocketClient::decode_payload(FWsMessage& data_frame)
 {
-	if (response_buffer.size() < 2)
+	if (ResponseBuffer.size() < 2)
 	{
 		return false;
 	}
 
-	size_t size = response_buffer.size();
+	size_t size = ResponseBuffer.size();
 	std::vector<uint8> encoded_buffer;
 	encoded_buffer.resize(size);
-	asio::buffer_copy(asio::buffer(encoded_buffer, encoded_buffer.size()), response_buffer.data());
+	asio::buffer_copy(asio::buffer(encoded_buffer, encoded_buffer.size()), ResponseBuffer.data());
 	size_t pos = 0;
 
 	// FIN, RSV, Opcode
@@ -430,52 +428,47 @@ bool UWebsocketClient::decode_payload(FWsMessage& data_frame)
 
 void UWebsocketClient::run_context_thread()
 {
-	mutexIO.lock();
-	while (tcp.attemps_fail <= maxAttemp)
+	MutexIO.Lock();
+	while (TCP.attemps_fail <= MaxAttemp && !ShouldStopContext)
 	{
-		if (ShouldStopContext) return;
-		if (tcp.attemps_fail > 0)
+		if (TCP.attemps_fail > 0)
 		{
-			AsyncTask(ENamedThreads::GameThread, [=]()
-			{
-				OnConnectionWillRetry.Broadcast(tcp.attemps_fail);
-			});
+			OnConnectionWillRetry.Broadcast(TCP.attemps_fail);
 		}
-		tcp.error_code.clear();
-		tcp.context.restart();
-		tcp.resolver.async_resolve(TCHAR_TO_UTF8(*host), TCHAR_TO_UTF8(*service),
+		TCP.error_code.clear();
+		TCP.context.restart();
+		TCP.resolver.async_resolve(TCHAR_TO_UTF8(*Host), TCHAR_TO_UTF8(*Service),
 		                           std::bind(&UWebsocketClient::resolve, this, asio::placeholders::error,
 		                                     asio::placeholders::endpoint));
-		tcp.context.run();
-		if (!tcp.error_code)
+		TCP.context.run();
+		if (!TCP.error_code)
 		{
 			break;
 		}
-		tcp.attemps_fail++;
-		std::this_thread::sleep_for(std::chrono::seconds(timeout));
+		TCP.attemps_fail++;
+		std::this_thread::sleep_for(std::chrono::seconds(Timeout));
 	}
 	consume_response_buffer();
-	tcp.attemps_fail = 0;
-	mutexIO.unlock();
+	TCP.attemps_fail = 0;
+	MutexIO.Unlock();
 }
 
 void UWebsocketClient::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	// Attempt a connection to each endpoint in the list until we
 	// successfully establish a connection.
-	tcp.endpoints = endpoints;
+	TCP.endpoints = endpoints;
 
-	asio::async_connect(tcp.socket, tcp.endpoints,
+	asio::async_connect(TCP.socket, TCP.endpoints,
 	                    std::bind(&UWebsocketClient::conn, this, asio::placeholders::error)
 	);
 }
@@ -484,28 +477,27 @@ void UWebsocketClient::conn(const std::error_code& error)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	// The connection was successful;
 	FString request;
-	request = "GET /" + handshake.path + " HTTP/" + handshake.version + "\r\n";
-	request += "Host: " + host + "\r\n";
+	request = "GET /" + Handshake.path + " HTTP/" + Handshake.version + "\r\n";
+	request += "Host: " + Host + "\r\n";
 	request += "Upgrade: websocket\r\n";
 	request += "Connection: Upgrade\r\n";
-	request += "Sec-WebSocket-Key: " + handshake.Sec_WebSocket_Key + "\r\n";
-	request += "Origin: " + handshake.origin + "\r\n";
-	request += "Sec-WebSocket-Protocol: " + handshake.Sec_WebSocket_Protocol + "\r\n";
-	request += "Sec-WebSocket-Version: " + handshake.Sec_Websocket_Version + "\r\n";
+	request += "Sec-WebSocket-Key: " + Handshake.Sec_WebSocket_Key + "\r\n";
+	request += "Origin: " + Handshake.origin + "\r\n";
+	request += "Sec-WebSocket-Protocol: " + Handshake.Sec_WebSocket_Protocol + "\r\n";
+	request += "Sec-WebSocket-Version: " + Handshake.Sec_Websocket_Version + "\r\n";
 	request += "\r\n";
-	std::ostream request_stream(&request_buffer);
+	std::ostream request_stream(&RequestBuffer);
 	request_stream << TCHAR_TO_UTF8(*request);
-	asio::async_write(tcp.socket, request_buffer,
+	asio::async_write(TCP.socket, RequestBuffer,
 	                  std::bind(&UWebsocketClient::write_handshake, this, asio::placeholders::error,
 	                            asio::placeholders::bytes_transferred));
 }
@@ -514,18 +506,17 @@ void UWebsocketClient::write_handshake(const std::error_code& error, const size_
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	// Read the response status line. The response_ streambuf will
 	// automatically grow to accommodate the entire line. The growth may be
 	// limited by passing a maximum size to the streambuf constructor.
-	asio::async_read_until(tcp.socket, response_buffer, "\r\n",
+	asio::async_read_until(TCP.socket, ResponseBuffer, "\r\n",
 	                       std::bind(&UWebsocketClient::read_handshake, this, asio::placeholders::error,
 	                                 bytes_sent, asio::placeholders::bytes_transferred));
 }
@@ -535,16 +526,15 @@ void UWebsocketClient::read_handshake(const std::error_code& error, const size_t
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	// Check that response is OK.
-	std::istream response_stream(&response_buffer);
+	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
 	response_stream >> http_version;
 	unsigned int status_code;
@@ -553,76 +543,61 @@ void UWebsocketClient::read_handshake(const std::error_code& error, const size_t
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(-1, "Invalid response.");
-		});
-		close();
+		OnError.Broadcast(-1, "Invalid response.");
+		Close();
 		return;
 	}
 	if (status_code != 101)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(status_code, "Invalid status code.");
-			close();
-		});
+		OnError.Broadcast(status_code, "Invalid status code.");
+		Close();
 		return;
 	}
 
-	asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
+	asio::async_read_until(TCP.socket, ResponseBuffer, "\r\n\r\n",
 	                       std::bind(&UWebsocketClient::consume_header_buffer, this, asio::placeholders::error));
 }
 
 void UWebsocketClient::consume_header_buffer(const std::error_code& error)
 {
 	consume_response_buffer();
-	asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
+	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UWebsocketClient::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred));
 
 	// The connection was successful
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		OnConnected.Broadcast();
-	});
+	OnConnected.Broadcast();
 }
 
 void UWebsocketClient::write(const std::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
-
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		OnMessageSent.Broadcast(bytes_sent);
-	});
+	OnMessageSent.Broadcast(bytes_sent);
 }
 
 void UWebsocketClient::read(const std::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	FWsMessage rDataFrame;
 	if (!decode_payload(rDataFrame))
 	{
-		response_buffer.consume(response_buffer.size());
-		asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
+		ResponseBuffer.consume(ResponseBuffer.size());
+		asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 		                 std::bind(&UWebsocketClient::read, this, asio::placeholders::error,
 		                           asio::placeholders::bytes_transferred)
 		);
@@ -636,164 +611,117 @@ void UWebsocketClient::read(const std::error_code& error, const size_t bytes_rec
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::PONG)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnPongReceived.Broadcast();
-		});
+		OnPongReceived.Broadcast();
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::CONNECTION_CLOSE)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnCloseNotify.Broadcast();
-		});
+		OnCloseNotify.Broadcast();
 	}
 	else
 	{
-		const FWsMessage buffer = rDataFrame;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnMessageReceived.Broadcast(buffer);
-		});
+		OnMessageReceived.Broadcast(rDataFrame);
 	}
 
 	consume_response_buffer();
-	asio::async_read(tcp.socket, response_buffer, asio::transfer_at_least(1),
+	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UWebsocketClient::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred)
 	);
 }
 
-bool UWebsocketClientSsl::send(const FString& message)
+bool UWebsocketClientSsl::Send(const FString& message)
 {
-	if (!isConnected() && message.IsEmpty())
+	if (!IsConnected() && message.IsEmpty())
 	{
 		return false;
 	}
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_string(message);
-	});
+	
+	asio::post(*ThreadPool, std::bind(&UWebsocketClientSsl::post_string, this, message));
 	return true;
 }
 
-bool UWebsocketClientSsl::sendRaw(const TArray<uint8> buffer)
+bool UWebsocketClientSsl::SendRaw(const TArray<uint8> buffer)
 {
-	if (!isConnected() && buffer.Num() <= 0)
+	if (!IsConnected() && buffer.Num() <= 0)
 	{
 		return false;
 	}
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		package_buffer(buffer);
-	});
+	
+	asio::post(*ThreadPool, std::bind(&UWebsocketClientSsl::post_buffer, this, EOpcode::BINARY_FRAME, buffer));
 	return true;
 }
 
-bool UWebsocketClientSsl::sendPing()
+bool UWebsocketClientSsl::SendPing()
 {
-	if (!isConnected())
+	if (!IsConnected())
 	{
 		return false;
 	}
-
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		TArray<uint8> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
-		post_buffer(EOpcode::PING, ping_buffer);
-	});
+	
+	TArray<uint8> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
+	asio::post(*ThreadPool, std::bind(&UWebsocketClientSsl::post_buffer, this, EOpcode::PONG, ping_buffer));
 	return true;
 }
 
-bool UWebsocketClientSsl::asyncRead()
+bool UWebsocketClientSsl::AsyncRead()
 {
-	if (!isConnected())
+	if (!IsConnected())
 	{
 		return false;
 	}
 
-	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(2),
+	asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(2),
 	                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred));
 	return true;
 }
 
-bool UWebsocketClientSsl::connect()
+bool UWebsocketClientSsl::Connect()
 {
-	if (!isConnected())
+	if (!IsConnected())
 	{
 		return false;
 	}
 
-	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [=]()
-	{
-		run_context_thread();
-	});
+	asio::post(*ThreadPool, std::bind(&UWebsocketClientSsl::run_context_thread, this));
 	return true;
 }
 
-void UWebsocketClientSsl::close()
+void UWebsocketClientSsl::Close()
 {
-	tcp.context.stop();
-	if (ShouldStopContext)
+	TCP.context.stop();
+	asio::error_code ec_shutdown;
+	asio::error_code ec_close;
+	TCP.ssl_socket.shutdown(ec_shutdown);
+	TCP.ssl_socket.lowest_layer().close(ec_close);
+	if (ShouldStopContext) return;
+	if (ec_shutdown)
 	{
-		tcp.ssl_socket.shutdown(tcp.error_code);
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			if (tcp.error_code)
-			{
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-				return;
-			}
-			OnClose.Broadcast();
-		});
-		return;
+		ensureMsgf(!ec_shutdown, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_shutdown.value(),
+				   ec_shutdown.message().c_str());
+		OnError.Broadcast(ec_shutdown.value(), ec_shutdown.message().c_str());
 	}
-	tcp.ssl_socket.async_shutdown([&](const std::error_code& error)
+	if (ec_close)
 	{
-		if (error)
-		{
-			tcp.error_code = error;
-			AsyncTask(ENamedThreads::GameThread, [=]()
-			{
-				OnError.Broadcast(error.value(), error.message().c_str());
-			});
-			tcp.error_code.clear();
-		}
-		tcp.ssl_socket.lowest_layer().shutdown(
-			asio::ip::tcp::socket::shutdown_both, tcp.error_code);
-		if (tcp.error_code)
-			AsyncTask(ENamedThreads::GameThread, [=]()
-			{
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-			});
-		tcp.ssl_socket.lowest_layer().close(tcp.error_code);
-		if (tcp.error_code)
-			AsyncTask(ENamedThreads::GameThread, [=]()
-			{
-				OnError.Broadcast(tcp.error_code.value(), tcp.error_code.message().c_str());
-			});
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnClose.Broadcast();
-		});
-	});
+		ensureMsgf(!ec_close, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_close.value(),
+				   ec_close.message().c_str());
+		OnError.Broadcast(ec_close.value(), ec_close.message().c_str());
+	}
+	OnClose.Broadcast();
 }
 
 void UWebsocketClientSsl::post_string(const FString& str)
 {
-	mutexBuffer.lock();
-	sDataFrame.opcode = EOpcode::TEXT_FRAME;
+	MutexBuffer.Lock();
+	SDataFrame.opcode = EOpcode::TEXT_FRAME;
 	package_string(str);
-	mutexBuffer.unlock();
+	MutexBuffer.Unlock();
 }
 
 void UWebsocketClientSsl::post_buffer(EOpcode opcode, const TArray<uint8>& buffer)
 {
-	mutexBuffer.lock();
-	sDataFrame.opcode = opcode;
+	MutexBuffer.Lock();
+	SDataFrame.opcode = opcode;
 	if (opcode == EOpcode::BINARY_FRAME)
 	{
 		package_buffer(buffer);
@@ -802,46 +730,46 @@ void UWebsocketClientSsl::post_buffer(EOpcode opcode, const TArray<uint8>& buffe
 	{
 		std::vector<uint8> p_buffer(buffer.GetData(), buffer.GetData() + buffer.Num());
 		encode_buffer_payload(p_buffer);
-		asio::async_write(tcp.ssl_socket, asio::buffer(p_buffer.data(), p_buffer.size()),
+		asio::async_write(TCP.ssl_socket, asio::buffer(p_buffer.data(), p_buffer.size()),
 		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred));
 	}
-	mutexBuffer.unlock();
+	MutexBuffer.Unlock();
 }
 
 void UWebsocketClientSsl::package_string(const FString& str)
 {
 	std::string payload;
-	if (!splitBuffer || str.Len() /*+ get_frame_encode_size(str.size())*/ <= maxSendBufferSize)
+	if (!SplitBuffer || str.Len() /*+ get_frame_encode_size(str.size())*/ <= MaxSendBufferSize)
 	{
-		sDataFrame.fin = true;
+		SDataFrame.fin = true;
 		payload = TCHAR_TO_UTF8(*str);
 		payload = encode_string_payload(payload);
-		asio::async_write(tcp.ssl_socket, asio::buffer(payload.data(), payload.size()),
+		asio::async_write(TCP.ssl_socket, asio::buffer(payload.data(), payload.size()),
 		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		return;
 	}
 
-	sDataFrame.fin = true;
+	SDataFrame.fin = true;
 	size_t string_offset = 0;
-	const size_t max_size = maxSendBufferSize - get_frame_encode_size(str.Len());
+	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(str.Len());
 	while (string_offset < str.Len())
 	{
-		sDataFrame.fin = string_offset < str.Len();
+		SDataFrame.fin = string_offset < str.Len();
 		size_t package_size = std::min(max_size, str.Len() - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		payload = TCHAR_TO_UTF8(*strshrink);
 		payload = encode_string_payload(payload);
-		asio::async_write(tcp.ssl_socket, asio::buffer(payload, payload.size()),
+		asio::async_write(TCP.ssl_socket, asio::buffer(payload, payload.size()),
 		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		string_offset += package_size;
-		if (sDataFrame.opcode != EOpcode::FRAME_CON)
+		if (SDataFrame.opcode != EOpcode::FRAME_CON)
 		{
-			sDataFrame.opcode = EOpcode::FRAME_CON;
+			SDataFrame.opcode = EOpcode::FRAME_CON;
 		}
 	}
 }
@@ -852,15 +780,15 @@ std::string UWebsocketClientSsl::encode_string_payload(const std::string& payloa
 	uint64 payload_length = payload.size();
 
 	// FIN, RSV, Opcode
-	uint8 byte1 = sDataFrame.fin ? 0x80 : 0x00;
-	byte1 |= sDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
-	byte1 |= sDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
-	byte1 |= sDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
-	byte1 |= (uint8)sDataFrame.opcode & 0x0F;
+	uint8 byte1 = SDataFrame.fin ? 0x80 : 0x00;
+	byte1 |= SDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
+	byte1 |= SDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
+	byte1 |= SDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
+	byte1 |= (uint8)SDataFrame.opcode & 0x0F;
 	string_buffer.push_back(byte1);
 
 	// Mask and payload size
-	uint8 byte2 = sDataFrame.mask ? 0x80 : 0x00;
+	uint8 byte2 = SDataFrame.mask ? 0x80 : 0x00;
 	if (payload_length <= 125)
 	{
 		byte2 |= payload_length;
@@ -884,7 +812,7 @@ std::string UWebsocketClientSsl::encode_string_payload(const std::string& payloa
 	}
 
 	std::array<uint8, 4> masking_key;
-	if (sDataFrame.mask)
+	if (SDataFrame.mask)
 	{
 		masking_key = mask_gen();
 		for (uint8 key : masking_key)
@@ -896,7 +824,7 @@ std::string UWebsocketClientSsl::encode_string_payload(const std::string& payloa
 	// payload data and mask
 	for (size_t i = 0; i < payload.size(); ++i)
 	{
-		if (sDataFrame.mask)
+		if (SDataFrame.mask)
 		{
 			string_buffer.push_back(payload[i] ^ static_cast<uint8_t>(masking_key[i % 4]));
 		}
@@ -912,35 +840,35 @@ std::string UWebsocketClientSsl::encode_string_payload(const std::string& payloa
 void UWebsocketClientSsl::package_buffer(const TArray<uint8>& buffer)
 {
 	std::vector<uint8> payload;
-	if (!splitBuffer || buffer.Num() + get_frame_encode_size(buffer.Num()) <= maxSendBufferSize)
+	if (!SplitBuffer || buffer.Num() + get_frame_encode_size(buffer.Num()) <= MaxSendBufferSize)
 	{
 		payload.assign(buffer.GetData(), buffer.GetData() + buffer.Num());
-		sDataFrame.fin = true;
+		SDataFrame.fin = true;
 		encode_buffer_payload(payload);
-		asio::async_write(tcp.ssl_socket, asio::buffer(payload.data(), payload.size()),
+		asio::async_write(TCP.ssl_socket, asio::buffer(payload.data(), payload.size()),
 		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		return;
 	}
 
-	sDataFrame.fin = false;
+	SDataFrame.fin = false;
 	size_t buffer_offset = 0;
-	const size_t max_size = maxSendBufferSize - get_frame_encode_size(buffer.Num());
+	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(buffer.Num());
 	while (buffer_offset < buffer.Num())
 	{
-		sDataFrame.fin = buffer_offset < buffer.Num();
+		SDataFrame.fin = buffer_offset < buffer.Num();
 		size_t package_size = std::min(max_size, buffer.Num() - buffer_offset);
 		payload.assign(buffer.GetData() + buffer_offset, buffer.GetData() + buffer_offset + package_size);
 		encode_buffer_payload(payload);
-		asio::async_write(tcp.ssl_socket, asio::buffer(payload, payload.size()),
+		asio::async_write(TCP.ssl_socket, asio::buffer(payload, payload.size()),
 		                  std::bind(&UWebsocketClientSsl::write, this, asio::placeholders::error,
 		                            asio::placeholders::bytes_transferred)
 		);
 		buffer_offset += package_size;
-		if (sDataFrame.opcode != EOpcode::FRAME_CON)
+		if (SDataFrame.opcode != EOpcode::FRAME_CON)
 		{
-			sDataFrame.opcode = EOpcode::FRAME_CON;
+			SDataFrame.opcode = EOpcode::FRAME_CON;
 		}
 	}
 }
@@ -951,15 +879,15 @@ std::vector<uint8> UWebsocketClientSsl::encode_buffer_payload(const std::vector<
 	uint64 payload_length = payload.size();
 
 	// FIN, RSV, Opcode
-	uint8 byte1 = sDataFrame.fin ? 0x80 : 0x00;
-	byte1 |= sDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
-	byte1 |= sDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
-	byte1 |= sDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
-	byte1 |= (uint8)sDataFrame.opcode & 0x0F;
+	uint8 byte1 = SDataFrame.fin ? 0x80 : 0x00;
+	byte1 |= SDataFrame.rsv1 ? (uint8)ERSV::RSV1 : 0x00;
+	byte1 |= SDataFrame.rsv2 ? (uint8)ERSV::RSV2 : 0x00;
+	byte1 |= SDataFrame.rsv3 ? (uint8)ERSV::RSV3 : 0x00;
+	byte1 |= (uint8)SDataFrame.opcode & 0x0F;
 	buffer.push_back(byte1);
 
 	// Mask and payload size
-	uint8 byte2 = sDataFrame.mask ? 0x80 : 0x00;
+	uint8 byte2 = SDataFrame.mask ? 0x80 : 0x00;
 	if (payload_length <= 125)
 	{
 		byte2 |= payload_length;
@@ -983,7 +911,7 @@ std::vector<uint8> UWebsocketClientSsl::encode_buffer_payload(const std::vector<
 	}
 
 	std::array<uint8, 4> masking_key;
-	if (sDataFrame.mask)
+	if (SDataFrame.mask)
 	{
 		masking_key = mask_gen();
 		for (uint8 key : masking_key)
@@ -995,7 +923,7 @@ std::vector<uint8> UWebsocketClientSsl::encode_buffer_payload(const std::vector<
 	// payload data and mask
 	for (size_t i = 0; i < payload.size(); ++i)
 	{
-		if (sDataFrame.mask)
+		if (SDataFrame.mask)
 		{
 			buffer.push_back(payload[i] ^ masking_key[i % 4]);
 		}
@@ -1024,7 +952,7 @@ size_t UWebsocketClientSsl::get_frame_encode_size(const size_t buffer_size)
 		size += 8;
 	}
 
-	if (sDataFrame.mask)
+	if (SDataFrame.mask)
 	{
 		size += 4;
 	}
@@ -1049,15 +977,15 @@ std::array<uint8, 4> UWebsocketClientSsl::mask_gen()
 
 bool UWebsocketClientSsl::decode_payload(FWsMessage& data_frame)
 {
-	if (response_buffer.size() < 2)
+	if (ResponseBuffer.size() < 2)
 	{
 		return false;
 	}
 
-	size_t size = response_buffer.size();
+	size_t size = ResponseBuffer.size();
 	std::vector<uint8> encoded_buffer;
 	encoded_buffer.resize(size);
-	asio::buffer_copy(asio::buffer(encoded_buffer, encoded_buffer.size()), response_buffer.data());
+	asio::buffer_copy(asio::buffer(encoded_buffer, encoded_buffer.size()), ResponseBuffer.data());
 	size_t pos = 0;
 
 	// FIN, RSV, Opcode
@@ -1127,52 +1055,47 @@ bool UWebsocketClientSsl::decode_payload(FWsMessage& data_frame)
 
 void UWebsocketClientSsl::run_context_thread()
 {
-	mutexIO.lock();
-	while (tcp.attemps_fail <= maxAttemp)
+	MutexIO.Lock();
+	while (TCP.attemps_fail <= MaxAttemp && !ShouldStopContext)
 	{
-		if (ShouldStopContext) return;
-		if (tcp.attemps_fail > 0)
+		if (TCP.attemps_fail > 0)
 		{
-			AsyncTask(ENamedThreads::GameThread, [=]()
-			{
-				OnConnectionWillRetry.Broadcast(tcp.attemps_fail);
-			});
+			OnConnectionWillRetry.Broadcast(TCP.attemps_fail);
 		}
-		tcp.error_code.clear();
-		tcp.context.restart();
-		tcp.resolver.async_resolve(TCHAR_TO_UTF8(*host), TCHAR_TO_UTF8(*service),
+		TCP.error_code.clear();
+		TCP.context.restart();
+		TCP.resolver.async_resolve(TCHAR_TO_UTF8(*Host), TCHAR_TO_UTF8(*Service),
 		                           std::bind(&UWebsocketClientSsl::resolve, this, asio::placeholders::error,
 		                                     asio::placeholders::results)
 		);
-		tcp.context.run();
-		if (!tcp.error_code)
+		TCP.context.run();
+		if (!TCP.error_code)
 		{
 			break;
 		}
-		tcp.attemps_fail++;
-		std::this_thread::sleep_for(std::chrono::seconds(timeout));
+		TCP.attemps_fail++;
+		std::this_thread::sleep_for(std::chrono::seconds(Timeout));
 	}
 	consume_response_buffer();
-	tcp.attemps_fail = 0;
-	mutexIO.unlock();
+	TCP.attemps_fail = 0;
+	MutexIO.Unlock();
 }
 
 void UWebsocketClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 	// Attempt a connection to each endpoint in the list until we
 	// successfully establish a connection.
-	tcp.endpoints = endpoints;
+	TCP.endpoints = endpoints;
 
-	asio::async_connect(tcp.ssl_socket.lowest_layer(), tcp.endpoints,
+	asio::async_connect(TCP.ssl_socket.lowest_layer(), TCP.endpoints,
 	                    std::bind(&UWebsocketClientSsl::conn, this, asio::placeholders::error)
 	);
 }
@@ -1181,15 +1104,14 @@ void UWebsocketClientSsl::conn(const std::error_code& error)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 	// The connection was successful;
-	tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
+	TCP.ssl_socket.async_handshake(asio::ssl::stream_base::client,
 	                               std::bind(&UWebsocketClientSsl::ssl_handshake, this,
 	                                         asio::placeholders::error));
 }
@@ -1198,18 +1120,18 @@ void UWebsocketClientSsl::ssl_handshake(const std::error_code& error)
 {
 	// The connection was successful;
 	FString request;
-	request = "GET /" + handshake.path + " HTTP/" + handshake.version + "\r\n";
-	request += "Host: " + host + "\r\n";
+	request = "GET /" + Handshake.path + " HTTP/" + Handshake.version + "\r\n";
+	request += "Host: " + Host + "\r\n";
 	request += "Upgrade: websocket\r\n";
 	request += "Connection: Upgrade\r\n";
-	request += "Sec-WebSocket-Key: " + handshake.Sec_WebSocket_Key + "\r\n";
-	request += "Origin: " + handshake.origin + "\r\n";
-	request += "Sec-WebSocket-Protocol: " + handshake.Sec_WebSocket_Protocol + "\r\n";
-	request += "Sec-WebSocket-Version: " + handshake.Sec_Websocket_Version + "\r\n";
+	request += "Sec-WebSocket-Key: " + Handshake.Sec_WebSocket_Key + "\r\n";
+	request += "Origin: " + Handshake.origin + "\r\n";
+	request += "Sec-WebSocket-Protocol: " + Handshake.Sec_WebSocket_Protocol + "\r\n";
+	request += "Sec-WebSocket-Version: " + Handshake.Sec_Websocket_Version + "\r\n";
 	request += "\r\n";
-	std::ostream request_stream(&request_buffer);
+	std::ostream request_stream(&RequestBuffer);
 	request_stream << TCHAR_TO_UTF8(*request);
-	asio::async_write(tcp.ssl_socket, request_buffer,
+	asio::async_write(TCP.ssl_socket, RequestBuffer,
 	                  std::bind(&UWebsocketClientSsl::write_handshake, this, asio::placeholders::error,
 	                            asio::placeholders::bytes_transferred));
 }
@@ -1218,18 +1140,17 @@ void UWebsocketClientSsl::write_handshake(const std::error_code& error, const si
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	// Read the response status line. The response_ streambuf will
 	// automatically grow to accommodate the entire line. The growth may be
 	// limited by passing a maximum size to the streambuf constructor.
-	asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
+	asio::async_read_until(TCP.ssl_socket, ResponseBuffer, "\r\n",
 	                       std::bind(&UWebsocketClientSsl::read_handshake, this, asio::placeholders::error,
 	                                 bytes_sent, asio::placeholders::bytes_transferred));
 }
@@ -1239,16 +1160,15 @@ void UWebsocketClientSsl::read_handshake(const std::error_code& error, const siz
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	// Check that response is OK.
-	std::istream response_stream(&response_buffer);
+	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
 	response_stream >> http_version;
 	unsigned int status_code;
@@ -1257,76 +1177,62 @@ void UWebsocketClientSsl::read_handshake(const std::error_code& error, const siz
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(-1, "Invalid response.");
-			close();
-		});
+		OnError.Broadcast(-1, "Invalid response.");
+		Close();
 		return;
 	}
 	if (status_code != 101)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(status_code, "Invalid status code.");
-			close();
-		});
+		OnError.Broadcast(status_code, "Invalid status code.");
+		Close();
 		return;
 	}
 
-	asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n\r\n",
+	asio::async_read_until(TCP.ssl_socket, ResponseBuffer, "\r\n\r\n",
 	                       std::bind(&UWebsocketClientSsl::consume_header_buffer, this, asio::placeholders::error));
 }
 
 void UWebsocketClientSsl::consume_header_buffer(const std::error_code& error)
 {
 	consume_response_buffer();
-	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
+	asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred));
 
 	// The connection was successful
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		OnConnected.Broadcast();
-	});
+	OnConnected.Broadcast();
 }
 
 void UWebsocketClientSsl::write(const std::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
-	AsyncTask(ENamedThreads::GameThread, [=]()
-	{
-		OnMessageSent.Broadcast(bytes_sent);
-	});
+	OnMessageSent.Broadcast(bytes_sent);
 }
 
 void UWebsocketClientSsl::read(const std::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		tcp.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnError.Broadcast(error.value(), error.message().c_str());
-		});
+		TCP.error_code = error;
+		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+				   error.message().c_str());
+		OnError.Broadcast(error.value(), error.message().c_str());
 		return;
 	}
 
 	FWsMessage rDataFrame;
 	if (!decode_payload(rDataFrame))
 	{
-		response_buffer.consume(response_buffer.size());
-		asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
+		ResponseBuffer.consume(ResponseBuffer.size());
+		asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 		                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
 		                           asio::placeholders::bytes_transferred)
 		);
@@ -1340,29 +1246,19 @@ void UWebsocketClientSsl::read(const std::error_code& error, const size_t bytes_
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::PONG)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnPongReceived.Broadcast();
-		});
+		OnPongReceived.Broadcast();
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::CONNECTION_CLOSE)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnCloseNotify.Broadcast();
-		});
+		OnCloseNotify.Broadcast();
 	}
 	else
 	{
-		const FWsMessage buffer = rDataFrame;
-		AsyncTask(ENamedThreads::GameThread, [=]()
-		{
-			OnMessageReceived.Broadcast(buffer);
-		});
+		OnMessageReceived.Broadcast(rDataFrame);
 	}
 
 	consume_response_buffer();
-	asio::async_read(tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
+	asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UWebsocketClientSsl::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred)
 	);

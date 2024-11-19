@@ -27,107 +27,124 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	virtual void BeginDestroy() override
 	{
 		ShouldStopContext = true;
-		udp.resolver.cancel();
-		if (isConnected()) close();
+		UDP.resolver.cancel();
+		if (IsConnected())
+		{
+			Close();
+		}
+		Thread_Pool->wait();
+		consume_receive_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Remote")
-	void setHost(const FString& ip, const FString& port)
+	void SetHost(const FString& ip, const FString& port)
 	{
-		host = ip;
-		service = port;
+		Host = ip;
+		Service = port;
 	}
-	
+
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
-	FString getLocalAdress() const {
-		if (isConnected())
-			return udp.socket.local_endpoint().address().to_string().c_str();
+	FString GetLocalAdress() const
+	{
+		if (IsConnected())
+		{
+			return UDP.socket.local_endpoint().address().to_string().c_str();
+		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
-	FString getLocalPort() const {
-		if (isConnected())
-			return FString::FromInt(udp.socket.local_endpoint().port());
+	FString GetLocalPort() const
+	{
+		if (IsConnected())
+		{
+			return FString::FromInt(UDP.socket.local_endpoint().port());
+		}
 		return "";
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	FString getRemoteAdress() const {
-		if (isConnected())
-			return udp.socket.remote_endpoint().address().to_string().c_str();
-		return host;
+	FString GetRemoteAdress() const
+	{
+		if (IsConnected())
+		{
+			return UDP.socket.remote_endpoint().address().to_string().c_str();
+		}
+		return Host;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	FString getRemotePort() const {
-		if (isConnected())
-			return FString::FromInt(udp.socket.remote_endpoint().port());
-		return service;
+	FString GetRemotePort() const
+	{
+		if (IsConnected())
+		{
+			return FString::FromInt(UDP.socket.remote_endpoint().port());
+		}
+		return Service;
 	}
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void setTimeout(uint8 value = 3) { timeout = value; }
+	void SetTimeout(uint8 value = 3) { Timeout = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
-	uint8 getTimeout() const { return timeout; }
+	uint8 GetTimeout() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void setMaxAttemp(uint8 value = 3) { maxAttemp = value; }
+	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
-	uint8 getMaxAttemp() const { return timeout; }
+	uint8 GetMaxAttemp() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void setMaxSendBufferSize(int value = 1024) { maxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int value = 1024) { MaxSendBufferSize = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
-	int getMaxSendBufferSize() const { return maxSendBufferSize; }
+	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void setMaxReceiveBufferSize(int value = 1024) { maxReceiveBufferSize = value; }
+	void SetMaxReceiveBufferSize(int value = 1024) { MaxReceiveBufferSize = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
-	int getMaxReceiveBufferSize() const { return maxReceiveBufferSize; }
+	int GetMaxReceiveBufferSize() const { return MaxReceiveBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void setSplitPackage(bool value = true) { splitBuffer = value; }
+	void SetSplitPackage(bool value = true) { SplitBuffer = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
-	bool getSplitPackage() const { return splitBuffer; }
+	bool GetSplitPackage() const { return SplitBuffer; }
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool send(const FString& message);
+	bool Send(const FString& message);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool sendRaw(const TArray<uint8>& buffer);
+	bool SendRaw(const TArray<uint8>& buffer);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool asyncRead();
+	bool AsyncRead();
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
-	bool connect();
+	bool Connect();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Connection")
-	bool isConnected() const { return udp.socket.is_open(); }
+	bool IsConnected() const { return UDP.socket.is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
-	void close();
+	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Error")
-	int getErrorCode() const { return udp.error_code.value(); }
+	int GetErrorCode() const { return UDP.error_code.value(); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Error")
-	FString getErrorMessage() const { return udp.error_code.message().c_str(); }
+	FString GetErrorMessage() const { return UDP.error_code.message().c_str(); }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
@@ -144,34 +161,39 @@ public:
 	FDelegateUdpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
-	std::mutex mutexIO;
-	std::mutex mutexBuffer;
+	TUniquePtr<asio::thread_pool> Thread_Pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
+	FCriticalSection MutexIO;
+	FCriticalSection MutexBuffer;
 	bool ShouldStopContext = false;
-	FAsioUdp udp;
-	FString host = "localhost";
-	FString service;
-	uint8_t timeout = 3;
-	uint8_t maxAttemp = 3;
-	bool splitBuffer = true;
-	int maxSendBufferSize = 1024;
-	int maxReceiveBufferSize = 1024;
-	FUdpMessage rbuffer;
+	FAsioUdp UDP;
+	FString Host = "localhost";
+	FString Service;
+	uint8_t Timeout = 3;
+	uint8_t MaxAttemp = 3;
+	bool SplitBuffer = true;
+	int MaxSendBufferSize = 1024;
+	int MaxReceiveBufferSize = 1024;
+	FUdpMessage RBuffer;
 
 	void package_string(const FString& str);
 	void package_buffer(const TArray<uint8>& buffer);
 
 	void consume_receive_buffer()
 	{
-		if (rbuffer.RawData.Num())
+		if (RBuffer.RawData.Num())
 		{
-			rbuffer.RawData.Empty();
-			rbuffer.RawData.SetNum(maxReceiveBufferSize);
-		}		
+			return;
+		}
+		RBuffer.RawData.Empty();
+		if (ShouldStopContext)
+		{
+			return;
+		}
+		RBuffer.RawData.SetNum(MaxReceiveBufferSize, true);
 	}
 
 	void run_context_thread();
-	void resolve(const asio::error_code& error, const asio::ip::udp::resolver::results_type &results);
+	void resolve(const asio::error_code& error, const asio::ip::udp::resolver::results_type& results);
 	void conn(const asio::error_code& error);
 	void send_to(const asio::error_code& error, const size_t bytes_sent);
 	void receive_from(const asio::error_code& error, const size_t bytes_recvd);
