@@ -1,10 +1,24 @@
+#
+# Copyright (c) 2023-2024 Nathan Miguel
+#
+# InternetProtocol is free library: you can redistribute it and/or modify it under the terms
+# of the GNU Affero General Public License as published by the Free Software Foundation,
+# version 3.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU Affero General Public License for more details.
+#
+# For complete copyright and license terms please see the LICENSE at the root of this distribution.
+#
+
 cmake_minimum_required(VERSION 3.20)
 project(InternetProtocol CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 find_package(OpenSSL REQUIRED)
 
-file(GLOB_RECURSE sources "${CMAKE_SOURCE_DIR}/include/*.h")
+file(GLOB_RECURSE sources "${CMAKE_SOURCE_DIR}/include/#.h")
 add_library(InternetProtocol INTERFACE ${sources})
 target_include_directories(InternetProtocol INTERFACE "${CMAKE_SOURCE_DIR}/include")
 add_subdirectory(thirdparty)
