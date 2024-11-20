@@ -71,3 +71,18 @@ A description of what actually happens.
 # Thirdparty libraries
 - [Asio non-boost 1.30.2](https://think-async.com/Asio/)
 - [Openssl 3.3.2](https://www.openssl.org/)
+
+# LICENCE
+
+InternetProtocol is licensed under the GNU Affero General Public License, version 3 (AGPL v3).  
+This means you are free to use, modify, and distribute this software, provided that you comply with the terms of the
+AGPL v3, which ensures that any modified versions or derivative works are also open-source and licensed under the AGPL
+v3.
+
+See the full license text in the `LICENSE` file or
+at [https://www.gnu.org/licenses/agpl-3.0.txt](https://www.gnu.org/licenses/agpl-3.0.txt).
+
+## Support the Project
+
+If you find this project useful or want to use the code without (AGPL v3) limitation, purchasing a copy
+on [Fab.com](https://www.fab.com) provided by Epic Games. Your support helps fund continued development and maintenance.
