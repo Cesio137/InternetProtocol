@@ -265,10 +265,7 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Attempt a connection to each endpoint in the list until we
-            // successfully establish a connection.
             tcp.endpoints = endpoints;
-
             asio::async_connect(
                 tcp.socket, tcp.endpoints,
                 std::bind(&HttpClient::connect, this, asio::placeholders::error));
@@ -281,7 +278,6 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // The connection was successful. Send the request.;
             std::ostream request_stream(&request_buffer);
             request_stream << payload;
             asio::async_write(
@@ -297,9 +293,6 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Read the response status line. The response_ streambuf will
-            // automatically grow to accommodate the entire line. The growth may be
-            // limited by passing a maximum size to the streambuf constructor.
             if (on_request_progress) on_request_progress(bytes_sent, 0);
             asio::async_read_until(tcp.socket, response_buffer, "\r\n",
                                    std::bind(&HttpClient::read_status_line, this,
@@ -315,7 +308,6 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Check that response is OK.
             if (on_request_progress) on_request_progress(bytes_sent, bytes_recvd);
             std::istream response_stream(&response_buffer);
             std::string http_version;
@@ -332,8 +324,6 @@ namespace InternetProtocol {
                 if (on_response_fail) on_response_fail(status_code);
                 return;
             }
-
-            // Read the response headers, which are terminated by a blank line.
             asio::async_read_until(
                 tcp.socket, response_buffer, "\r\n\r\n",
                 std::bind(&HttpClient::read_headers, this, asio::placeholders::error));
@@ -346,22 +336,17 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Process the response headers.
             response.clear();
             std::istream response_stream(&response_buffer);
             std::string header;
 
             while (std::getline(response_stream, header) && header != "\r")
                 response.appendHeader(header);
-
-            // Write whatever content we already have to output.
             std::ostringstream content_buffer;
             if (response_buffer.size() > 0) {
                 content_buffer << &response_buffer;
                 response.setContent(content_buffer.str());
             }
-
-            // Start reading remaining data until EOF.
             asio::async_read(
                 tcp.socket, response_buffer, asio::transfer_at_least(1),
                 std::bind(&HttpClient::read_content, this, asio::placeholders::error));
@@ -372,12 +357,9 @@ namespace InternetProtocol {
                 if (on_request_complete) on_request_complete(response);
                 return;
             }
-            // Write all of the data that has been read so far.
             std::ostringstream stream_buffer;
             stream_buffer << &response_buffer;
             if (!stream_buffer.str().empty()) response.setContent(stream_buffer.str());
-
-            // Continue reading remaining data until EOF.
             asio::async_read(
                 tcp.socket, response_buffer, asio::transfer_at_least(1),
                 std::bind(&HttpClient::read_content, this, asio::placeholders::error));
@@ -707,8 +689,6 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Attempt a connection to each endpoint in the list until we
-            // successfully establish a connection.
             tcp.endpoints = endpoints;
             asio::async_connect(
                 tcp.ssl_socket.lowest_layer(), tcp.endpoints,
@@ -722,7 +702,6 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // The connection was successful. Send the request.
             tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
                                            std::bind(&HttpClientSsl::ssl_handshake,
                                                      this, asio::placeholders::error));
@@ -750,9 +729,6 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Read the response status line. The response_ streambuf will
-            // automatically grow to accommodate the entire line. The growth may be
-            // limited by passing a maximum size to the streambuf constructor.
             if (on_request_progress) on_request_progress(bytes_sent, 0);
             asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
                                    std::bind(&HttpClientSsl::read_status_line, this,
@@ -768,7 +744,6 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Check that response is OK.
             if (on_request_progress) on_request_progress(bytes_sent, bytes_recvd);
             std::istream response_stream(&response_buffer);
             std::string http_version;
@@ -785,8 +760,6 @@ namespace InternetProtocol {
                 if (on_response_fail) on_response_fail(status_code);
                 return;
             }
-
-            // Read the response headers, which are terminated by a blank line.
             asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n\r\n",
                                    std::bind(&HttpClientSsl::read_headers, this,
                                              asio::placeholders::error));
@@ -799,22 +772,17 @@ namespace InternetProtocol {
                     on_request_fail(error);
                 return;
             }
-            // Process the response headers.
             response.clear();
             std::istream response_stream(&response_buffer);
             std::string header;
 
             while (std::getline(response_stream, header) && header != "\r")
                 response.appendHeader(header);
-
-            // Write whatever content we already have to output.
             std::ostringstream content_buffer;
             if (response_buffer.size() > 0) {
                 content_buffer << &response_buffer;
                 response.setContent(content_buffer.str());
             }
-
-            // Start reading remaining data until EOF.
             asio::async_read(tcp.ssl_socket, response_buffer,
                              asio::transfer_at_least(1),
                              std::bind(&HttpClientSsl::read_content, this,
@@ -826,12 +794,9 @@ namespace InternetProtocol {
                 if (on_request_complete) on_request_complete(response);
                 return;
             }
-            // Write all of the data that has been read so far.
             std::ostringstream stream_buffer;
             stream_buffer << &response_buffer;
             if (!stream_buffer.str().empty()) response.setContent(stream_buffer.str());
-
-            // Continue reading remaining data until EOF.
             asio::async_read(tcp.ssl_socket, response_buffer,
                              asio::transfer_at_least(1),
                              std::bind(&HttpClientSsl::read_content, this,

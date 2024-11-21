@@ -232,10 +232,7 @@ namespace InternetProtocol {
                 if (on_error) on_error(tcp.error_code);
                 return;
             }
-            // Attempt a connection to each endpoint in the list until we
-            // successfully establish a connection.
             tcp.endpoints = endpoints;
-
             asio::async_connect(
                 tcp.socket, tcp.endpoints,
                 std::bind(&TCPClient::conn, this, asio::placeholders::error));
@@ -247,8 +244,6 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-
-            // The connection was successful;
             consume_response_buffer();
             asio::async_read(
                 tcp.socket, response_buffer, asio::transfer_at_least(1),
@@ -260,7 +255,6 @@ namespace InternetProtocol {
 
         void write(const asio::error_code &error, const size_t bytes_sent) {
             if (error) {
-                tcp.error_code = error;
                 if (on_error) on_error(error);
                 return;
             }
@@ -269,7 +263,6 @@ namespace InternetProtocol {
 
         void read(const asio::error_code &error, const size_t bytes_recvd) {
             if (error) {
-                tcp.error_code = error;
                 if (on_error) on_error(error);
                 return;
             }
@@ -589,8 +582,6 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-            // Attempt a connection to each endpoint in the list until we
-            // successfully establish a connection.
             tcp.endpoints = endpoints;
             asio::async_connect(
                 tcp.ssl_socket.lowest_layer(), tcp.endpoints,
@@ -603,8 +594,6 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-
-            // The connection was successful;
             tcp.ssl_socket.async_handshake(asio::ssl::stream_base::client,
                                            std::bind(&TCPClientSsl::ssl_handshake, this,
                                                      asio::placeholders::error));
@@ -627,7 +616,6 @@ namespace InternetProtocol {
 
         void write(const asio::error_code &error, const size_t bytes_sent) {
             if (error) {
-                tcp.error_code = error;
                 if (on_error) on_error(error);
                 return;
             }
@@ -636,7 +624,6 @@ namespace InternetProtocol {
 
         void read(const asio::error_code &error, const size_t bytes_recvd) {
             if (error) {
-                tcp.error_code = error;
                 if (on_error) on_error(error);
                 return;
             }

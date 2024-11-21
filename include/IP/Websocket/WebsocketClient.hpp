@@ -131,8 +131,7 @@ namespace InternetProtocol {
         bool send_ping() {
             if (!thread_pool && !is_connected()) return false;
 
-            std::vector<std::byte> ping_buffer;
-            ping_buffer.push_back(std::byte('\0'));
+            std::vector<std::byte> ping_buffer = {std::byte('p'), std::byte('i'), std::byte('n'), std::byte('g'), std::byte('\0')};
             asio::post(*thread_pool, std::bind(&WebsocketClient::post_buffer, this,
                                         EOpcode::PING, ping_buffer));
             return true;
@@ -515,11 +514,7 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-
-            // Attempt a connection to each endpoint in the list until we
-            // successfully establish a connection.
             tcp.endpoints = endpoints;
-
             asio::async_connect(
                 tcp.socket, tcp.endpoints,
                 std::bind(&WebsocketClient::conn, this, asio::placeholders::error));
@@ -531,8 +526,6 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-
-            // The connection was successful;
             std::string request;
             request = "GET /" + handshake.path + " HTTP/" + handshake.version + "\r\n";
             request += "Host: " + host + "\r\n";
@@ -559,9 +552,6 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-            // Read the response status line. The response_ streambuf will
-            // automatically grow to accommodate the entire line. The growth may be
-            // limited by passing a maximum size to the streambuf constructor.
             asio::async_read_until(tcp.socket, response_buffer, "\r\n",
                                    std::bind(&WebsocketClient::read_handshake, this,
                                              asio::placeholders::error, bytes_sent,
@@ -575,7 +565,6 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-            // Check that response is OK.
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
@@ -605,18 +594,14 @@ namespace InternetProtocol {
                 tcp.socket, response_buffer, asio::transfer_at_least(1),
                 std::bind(&WebsocketClient::read, this, asio::placeholders::error,
                           asio::placeholders::bytes_transferred));
-
-            // The connection was successful
             if (on_connected) on_connected();
         }
 
         void write(const asio::error_code &error, const std::size_t bytes_sent) {
             if (error) {
                 if (on_error) on_error(error);
-
                 return;
             }
-
             if (on_message_sent) on_message_sent(bytes_sent);
         }
 
@@ -625,7 +610,6 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-
             FWsMessage rDataFrame;
             if (!decode_payload(rDataFrame)) {
                 response_buffer.consume(response_buffer.size());
@@ -635,12 +619,8 @@ namespace InternetProtocol {
                               asio::placeholders::bytes_transferred));
                 return;
             }
-
             if (rDataFrame.data_frame.opcode == EOpcode::PING) {
-                std::vector<std::byte> pong_buffer;
-                pong_buffer.resize(1);
-                if (pong_buffer.back() != std::byte('\0'))
-                    pong_buffer.push_back(std::byte('\0'));
+                std::vector<std::byte> pong_buffer = {std::byte('p'), std::byte('o'), std::byte('n'), std::byte('g'), std::byte('\0')};
                 post_buffer(EOpcode::PONG, pong_buffer);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
                 if (on_pong_received) on_pong_received();

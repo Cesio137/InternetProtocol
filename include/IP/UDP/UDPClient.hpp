@@ -204,6 +204,8 @@ namespace InternetProtocol {
 
         void consume_receive_buffer() {
             rbuffer.raw_data.clear();
+            rbuffer.raw_data.shrink_to_fit();
+            if (should_stop_context) return;
             rbuffer.raw_data.resize(max_receive_buffer_size);
         }
 
@@ -259,7 +261,6 @@ namespace InternetProtocol {
 
         void send_to(const asio::error_code &error, const size_t bytes_sent) {
             if (error) {
-                udp.error_code = error;
                 if (on_error)
                     on_error(error);
                 return;
@@ -271,7 +272,6 @@ namespace InternetProtocol {
 
         void receive_from(const asio::error_code &error, const size_t bytes_recvd) {
             if (error) {
-                udp.error_code = error;
                 if (on_error)
                     on_error(error);
                 return;
