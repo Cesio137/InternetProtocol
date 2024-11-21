@@ -14,6 +14,9 @@
 
 #include "Http/HttpClient.h"
 
+#include "ChartCreation.h"
+#include "InGamePerformanceTracker.h"
+
 void UHttpClient::PreparePayload()
 {
 	Payload.Empty();
@@ -66,7 +69,10 @@ bool UHttpClient::AsyncPreparePayload()
 	{
 		MutexPayload.Lock();
 		PreparePayload();
-		OnAsyncPayloadFinished.Broadcast();
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnAsyncPayloadFinished.Broadcast();
+		});
 		MutexPayload.Unlock();
 	});
 	return true;
@@ -114,7 +120,10 @@ void UHttpClient::run_context_thread()
 		if (ShouldStopContext) return;
 		if (TCP.attemps_fail > 0)
 		{
-			OnRequestWillRetry.Broadcast(TCP.attemps_fail);
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnRequestWillRetry.Broadcast(TCP.attemps_fail);
+			});
 		}
 		TCP.error_code.clear();
 		TCP.context.restart();
@@ -140,14 +149,14 @@ void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::res
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Attempt a connection to each endpoint in the list until we
-	// successfully establish a connection.
-
 	asio::async_connect(TCP.socket, endpoints,
 	                    std::bind(&UHttpClient::connect, this, asio::placeholders::error)
 	);
@@ -158,12 +167,14 @@ void UHttpClient::connect(const std::error_code& error) noexcept
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// The connection was successful. Send the request.
 	std::ostream request_stream(&RequestBuffer);
 	request_stream << TCHAR_TO_UTF8(*Payload);
 	asio::async_write(TCP.socket, RequestBuffer,
@@ -176,16 +187,18 @@ void UHttpClient::write_request(const std::error_code& error, const size_t bytes
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Read the response status line. The response_ streambuf will
-	// automatically grow to accommodate the entire line. The growth may be
-	// limited by passing a maximum size to the streambuf constructor.
-	OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
+	});
 	asio::async_read_until(TCP.socket, ResponseBuffer, "\r\n",
 	                       std::bind(&UHttpClient::read_status_line, this, asio::placeholders::error, bytes_sent,
 	                                 asio::placeholders::bytes_transferred)
@@ -196,14 +209,18 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Check that response is OK.
-	OnRequestProgress.Broadcast(bytes_sent, bytes_recvd);
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnRequestProgress.Broadcast(bytes_sent, bytes_recvd);
+	});
 	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -213,16 +230,20 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		OnResponseError.Broadcast(1);
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnResponseError.Broadcast(1);
+		});
 		return;
 	}
 	if (status_code != 200)
 	{
-		OnResponseError.Broadcast(status_code);
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnResponseError.Broadcast(status_code);
+		});
 		return;
 	}
-
-	// Read the response headers, which are terminated by a blank line.
 	asio::async_read_until(TCP.socket, ResponseBuffer, "\r\n\r\n",
 	                       std::bind(&UHttpClient::read_headers, this, asio::placeholders::error)
 	);
@@ -232,13 +253,14 @@ void UHttpClient::read_headers(const std::error_code& error) noexcept
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Process the response headers.
 	Response.clear();
 	std::istream response_stream(&ResponseBuffer);
 	std::string header;
@@ -247,16 +269,12 @@ void UHttpClient::read_headers(const std::error_code& error) noexcept
 	{
 		Response.appendHeader(header.data());
 	}
-
-	// Write whatever content we already have to output.
 	std::ostringstream content_buffer;
 	if (ResponseBuffer.size() > 0)
 	{
 		content_buffer << &ResponseBuffer;
 		Response.setContent(content_buffer.str().data());
 	}
-
-	// Start reading remaining data until EOF.
 	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UHttpClient::read_content, this, asio::placeholders::error)
 	);
@@ -266,20 +284,18 @@ void UHttpClient::read_content(const std::error_code& error) noexcept
 {
 	if (error)
 	{
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestCompleted.Broadcast(Response);
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnRequestCompleted.Broadcast(Response);
+		});
 		return;
 	}
-	// Write all of the data that has been read so far.
 	std::ostringstream stream_buffer;
 	stream_buffer << &ResponseBuffer;
 	if (!stream_buffer.str().empty())
 	{
 		Response.appendContent(stream_buffer.str().data());
 	}
-
-	// Continue reading remaining data until EOF.
 	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UHttpClient::read_content, this, asio::placeholders::error)
 	);
@@ -337,7 +353,10 @@ bool UHttpClientSsl::AsyncPreparePayload()
 	{
 		MutexPayload.Lock();
 		PreparePayload();
-		OnAsyncPayloadFinished.Broadcast();
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnAsyncPayloadFinished.Broadcast();
+		});
 		MutexPayload.Unlock();
 	});
 	return true;
@@ -385,7 +404,10 @@ void UHttpClientSsl::run_context_thread()
 		if (ShouldStopContext) return;
 		if (TCP.attemps_fail > 0)
 		{
-			OnRequestWillRetry.Broadcast(TCP.attemps_fail);
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnRequestWillRetry.Broadcast(TCP.attemps_fail);
+			});
 		}
 		TCP.error_code.clear();
 		TCP.context.restart();
@@ -411,13 +433,14 @@ void UHttpClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Attempt a connection to each endpoint in the list until we
-	// successfully establish a connection.
 	asio::async_connect(TCP.ssl_socket.lowest_layer(), endpoints,
 						std::bind(&UHttpClientSsl::connect, this, asio::placeholders::error)
 	);
@@ -428,12 +451,14 @@ void UHttpClientSsl::connect(const std::error_code& error)
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// The connection was successful.
 	TCP.ssl_socket.async_handshake(asio::ssl::stream_base::client,
 										   std::bind(&UHttpClientSsl::ssl_handshake,
 													 this, asio::placeholders::error));
@@ -444,12 +469,14 @@ void UHttpClientSsl::ssl_handshake(const std::error_code& error)
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// The connection was successful. Send the request.
 	std::ostream request_stream(&RequestBuffer);
 	request_stream << TCHAR_TO_UTF8(*Payload);
 	asio::async_write(TCP.ssl_socket, RequestBuffer,
@@ -462,16 +489,18 @@ void UHttpClientSsl::write_request(const std::error_code& error, const size_t by
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Read the response status line. The response_ streambuf will
-	// automatically grow to accommodate the entire line. The growth may be
-	// limited by passing a maximum size to the streambuf constructor.
-	OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
+	});
 	asio::async_read_until(TCP.ssl_socket, ResponseBuffer, "\r\n",
 						   std::bind(&UHttpClientSsl::read_status_line, this, asio::placeholders::error, bytes_sent,
 									 asio::placeholders::bytes_transferred)
@@ -482,13 +511,14 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Check that response is OK.
 	OnRequestProgress.Broadcast(bytes_sent, bytes_recvd);
 	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
@@ -499,16 +529,20 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		OnResponseError.Broadcast(1);
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnResponseError.Broadcast(1);
+		});
 		return;
 	}
 	if (status_code != 200)
 	{
-		OnResponseError.Broadcast(status_code);
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnResponseError.Broadcast(status_code);
+		});
 		return;
 	}
-
-	// Read the response headers, which are terminated by a blank line.
 	asio::async_read_until(TCP.ssl_socket, ResponseBuffer, "\r\n\r\n",
 						   std::bind(&UHttpClientSsl::read_headers, this, asio::placeholders::error)
 	);
@@ -518,13 +552,14 @@ void UHttpClientSsl::read_headers(const std::error_code& error)
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnRequestError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Process the response headers.
 	Response.clear();
 	std::istream response_stream(&ResponseBuffer);
 	std::string header;
@@ -533,16 +568,12 @@ void UHttpClientSsl::read_headers(const std::error_code& error)
 	{
 		Response.appendHeader(header.data());
 	}
-
-	// Write whatever content we already have to output.
 	std::ostringstream content_buffer;
 	if (ResponseBuffer.size() > 0)
 	{
 		content_buffer << &ResponseBuffer;
 		Response.setContent(content_buffer.str().data());
 	}
-
-	// Start reading remaining data until EOF.
 	asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 					 std::bind(&UHttpClientSsl::read_content, this, asio::placeholders::error)
 	);
@@ -552,20 +583,18 @@ void UHttpClientSsl::read_content(const std::error_code& error)
 {
 	if (error)
 	{
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnRequestCompleted.Broadcast(Response);
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			OnRequestCompleted.Broadcast(Response);
+		});
 		return;
 	}
-	// Write all of the data that has been read so far.
 	std::ostringstream stream_buffer;
 	stream_buffer << &ResponseBuffer;
 	if (!stream_buffer.str().empty())
 	{
 		Response.appendContent(stream_buffer.str().data());
 	}
-
-	// Continue reading remaining data until EOF.
 	asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 					 std::bind(&UHttpClientSsl::read_content, this, asio::placeholders::error)
 	);

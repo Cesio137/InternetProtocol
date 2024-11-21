@@ -39,7 +39,7 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 {
 	GENERATED_BODY()
 
-public:
+public:	
 	virtual void BeginDestroy() override
 	{
 		ShouldStopContext = true;
@@ -192,11 +192,12 @@ private:
 
 	void consume_receive_buffer()
 	{
-		if (RBuffer.RawData.Num())
+		if (RBuffer.RawData.Num() <= 0)
 		{
 			return;
 		}
 		RBuffer.RawData.Empty();
+		RBuffer.RawData.Shrink();
 		if (ShouldStopContext)
 		{
 			return;

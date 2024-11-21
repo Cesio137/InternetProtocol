@@ -22,9 +22,6 @@
 #include "Library/InternetProtocolEnumLibrary.h"
 #include "JavaScriptObjectNotation.generated.h"
 
-/**
- * 
- */
 UCLASS(Blueprintable)
 class INTERNETPROTOCOL_API UJavaScriptObjectNotation : public UObject
 {

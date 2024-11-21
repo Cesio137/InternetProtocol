@@ -16,7 +16,7 @@
 
 bool UUDPClient::Send(const FString& message)
 {
-	if (!Thread_Pool.IsValid() || !IsConnected() || !message.IsEmpty())
+	if (!Thread_Pool.IsValid() || !IsConnected() || message.IsEmpty())
 	{
 		return false;
 	}
@@ -56,7 +56,7 @@ bool UUDPClient::Connect()
 	{
 		return false;
 	}
-
+	
 	asio::post(*Thread_Pool, std::bind(&UUDPClient::run_context_thread, this));
 	return true;
 }
@@ -78,7 +78,6 @@ void UUDPClient::Close()
 		           ec_shutdown.message().c_str());
 		OnError.Broadcast(ec_shutdown.value(), ec_shutdown.message().c_str());
 	}
-
 	if (ec_close)
 	{
 		ensureMsgf(!ec_close, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_close.value(),
@@ -153,7 +152,10 @@ void UUDPClient::run_context_thread()
 	{
 		if (UDP.attemps_fail > 0)
 		{
-			OnConnectionWillRetry.Broadcast(UDP.attemps_fail);
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnConnectionWillRetry.Broadcast(UDP.attemps_fail);
+			});
 		}
 		UDP.error_code.clear();
 		UDP.resolver.async_resolve(asio::ip::udp::v4(), TCHAR_TO_UTF8(*Host), TCHAR_TO_UTF8(*Service),
@@ -179,9 +181,12 @@ void UUDPClient::resolve(const asio::error_code& error, const asio::ip::udp::res
 	if (error)
 	{
 		UDP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-		           error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
 	UDP.endpoints = *results.begin();
@@ -195,50 +200,63 @@ void UUDPClient::conn(const asio::error_code& error)
 	if (error)
 	{
 		UDP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-		           error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-
 	consume_receive_buffer();
 	UDP.socket.async_receive_from(asio::buffer(RBuffer.RawData.GetData(), RBuffer.RawData.Num()), UDP.endpoints,
 	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
 	                                        asio::placeholders::bytes_transferred)
 	);
-
-	OnConnected.Broadcast();
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnConnected.Broadcast();
+	});
 }
 
 void UUDPClient::send_to(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		UDP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-		           error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-
-	OnMessageSent.Broadcast(bytes_sent);
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageSent.Broadcast(bytes_sent);
+	});
 }
 
 void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		UDP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-		           error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+					   error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
 	UDP.attemps_fail = 0;
 	RBuffer.size = bytes_recvd;
 	RBuffer.RawData.SetNum(bytes_recvd);
-	OnMessageReceived.Broadcast(bytes_recvd, RBuffer);
-
+	const FUdpMessage buffer = RBuffer;
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageReceived.Broadcast(bytes_recvd, buffer);
+	});
 	consume_receive_buffer();
 	UDP.socket.async_receive_from(asio::buffer(RBuffer.RawData.GetData(), RBuffer.RawData.Num()), UDP.endpoints,
 	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,

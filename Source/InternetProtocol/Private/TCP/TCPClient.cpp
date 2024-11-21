@@ -20,7 +20,7 @@ bool UTCPClient::Send(const FString& message)
 	{
 		return false;
 	}
-	
+
 	asio::post(*ThreadPool, std::bind(&UTCPClient::package_string, this, message));
 	return true;
 }
@@ -31,7 +31,7 @@ bool UTCPClient::SendRaw(const TArray<uint8>& buffer)
 	{
 		return false;
 	}
-	
+
 	asio::post(*ThreadPool, std::bind(&UTCPClient::package_buffer, this, buffer));
 	return true;
 }
@@ -55,7 +55,7 @@ bool UTCPClient::Connect()
 	{
 		return false;
 	}
-	
+
 	asio::post(*ThreadPool, std::bind(&UTCPClient::run_context_thread, this));
 	return true;
 }
@@ -67,17 +67,20 @@ void UTCPClient::Close()
 	TCP.context.stop();
 	TCP.socket.shutdown(asio::ip::tcp::socket::shutdown_both, ec_shutdown);
 	TCP.socket.close(ec_close);
-	if (ShouldStopContext) return;
+	if (ShouldStopContext)
+	{
+		return;
+	}
 	if (ec_shutdown)
 	{
 		ensureMsgf(!ec_shutdown, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_shutdown.value(),
-				   ec_shutdown.message().c_str());
+		           ec_shutdown.message().c_str());
 		OnError.Broadcast(ec_shutdown.value(), ec_shutdown.message().c_str());
 	}
 	if (ec_close)
 	{
 		ensureMsgf(!ec_close, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_close.value(),
-				   ec_close.message().c_str());
+		           ec_close.message().c_str());
 		OnError.Broadcast(ec_close.value(), ec_close.message().c_str());
 	}
 	OnClose.Broadcast();
@@ -154,7 +157,10 @@ void UTCPClient::run_context_thread()
 	{
 		if (TCP.attemps_fail > 0)
 		{
-			OnConnectionWillRetry.Broadcast(TCP.attemps_fail);
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnConnectionWillRetry.Broadcast(TCP.attemps_fail);
+			});
 		}
 		TCP.error_code.clear();
 		TCP.resolver.async_resolve(TCHAR_TO_UTF8(*Host), TCHAR_TO_UTF8(*Service),
@@ -180,15 +186,15 @@ void UTCPClient::resolve(const asio::error_code& error, const asio::ip::tcp::res
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Attempt a connection to each endpoint in the list until we
-	// successfully establish a connection.
 	TCP.endpoints = endpoints;
-
 	asio::async_connect(TCP.socket, TCP.endpoints,
 	                    std::bind(&UTCPClient::conn, this, asio::placeholders::error)
 	);
@@ -199,50 +205,63 @@ void UTCPClient::conn(const asio::error_code& error)
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-
 	consume_response_buffer();
 	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UTCPClient::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred)
 	);
-	OnConnected.Broadcast();
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnConnected.Broadcast();
+	});
 }
 
 void UTCPClient::write(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	OnMessageSent.Broadcast(bytes_sent);
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageSent.Broadcast(bytes_sent);
+	});
 }
 
 void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-
 	FTcpMessage rbuffer;
 	rbuffer.size = ResponseBuffer.size();
 	rbuffer.RawData.SetNum(rbuffer.size);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), rbuffer.size), ResponseBuffer.data());
-	OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
-
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
+	});
 	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UTCPClient::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred)
@@ -255,7 +274,7 @@ bool UTCPClientSsl::Send(const FString& message)
 	{
 		return false;
 	}
-	
+
 	asio::post(*ThreadPool, std::bind(&UTCPClientSsl::package_string, this, message));
 	return true;
 }
@@ -266,7 +285,7 @@ bool UTCPClientSsl::SendRaw(const TArray<uint8>& buffer)
 	{
 		return false;
 	}
-	
+
 	asio::post(*ThreadPool, std::bind(&UTCPClientSsl::package_buffer, this, buffer));
 	return true;
 }
@@ -286,7 +305,10 @@ bool UTCPClientSsl::AsyncRead()
 
 bool UTCPClientSsl::Connect()
 {
-	if (IsConnected()) return false;
+	if (IsConnected())
+	{
+		return false;
+	}
 
 	asio::post(*ThreadPool, std::bind(&UTCPClientSsl::run_context_thread, this));
 	return true;
@@ -294,22 +316,25 @@ bool UTCPClientSsl::Connect()
 
 void UTCPClientSsl::Close()
 {
-	TCP.context.stop();
 	asio::error_code ec_shutdown;
 	asio::error_code ec_close;
+	TCP.context.stop();
 	TCP.ssl_socket.shutdown(ec_shutdown);
 	TCP.ssl_socket.lowest_layer().close(ec_close);
-	if (ShouldStopContext) return;
+	if (ShouldStopContext)
+	{
+		return;
+	}
 	if (ec_shutdown)
 	{
 		ensureMsgf(!ec_shutdown, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_shutdown.value(),
-				   ec_shutdown.message().c_str());
+		           ec_shutdown.message().c_str());
 		OnError.Broadcast(ec_shutdown.value(), ec_shutdown.message().c_str());
 	}
 	if (ec_close)
 	{
 		ensureMsgf(!ec_close, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_close.value(),
-				   ec_close.message().c_str());
+		           ec_close.message().c_str());
 		OnError.Broadcast(ec_close.value(), ec_close.message().c_str());
 	}
 	OnClose.Broadcast();
@@ -386,7 +411,10 @@ void UTCPClientSsl::run_context_thread()
 	{
 		if (TCP.attemps_fail > 0)
 		{
-			OnConnectionWillRetry.Broadcast(TCP.attemps_fail);
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
+				OnConnectionWillRetry.Broadcast(TCP.attemps_fail);
+			});
 		}
 		TCP.error_code.clear();
 		TCP.resolver.async_resolve(TCHAR_TO_UTF8(*Host), TCHAR_TO_UTF8(*Service),
@@ -412,15 +440,15 @@ void UTCPClientSsl::resolve(const asio::error_code& error, const asio::ip::tcp::
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// Attempt a connection to each endpoint in the list until we
-	// successfully establish a connection.
 	TCP.endpoints = endpoints;
-
 	asio::async_connect(TCP.ssl_socket.lowest_layer(), TCP.endpoints,
 	                    std::bind(&UTCPClientSsl::conn, this, asio::placeholders::error)
 	);
@@ -431,12 +459,14 @@ void UTCPClientSsl::conn(const asio::error_code& error)
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	// The connection was successful;
 	TCP.ssl_socket.async_handshake(asio::ssl::stream_base::client,
 	                               std::bind(&UTCPClientSsl::ssl_handshake, this,
 	                                         asio::placeholders::error));
@@ -447,9 +477,12 @@ void UTCPClientSsl::ssl_handshake(const asio::error_code& error)
 	if (error)
 	{
 		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
 	consume_response_buffer();
@@ -457,39 +490,50 @@ void UTCPClientSsl::ssl_handshake(const asio::error_code& error)
 		TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 		std::bind(&UTCPClientSsl::read, this, asio::placeholders::error,
 		          asio::placeholders::bytes_transferred));
-	OnConnected.Broadcast();
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnConnected.Broadcast();
+	});
 }
 
 void UTCPClientSsl::write(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-	OnMessageSent.Broadcast(bytes_sent);
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageSent.Broadcast(bytes_sent);
+	});
 }
 
 void UTCPClientSsl::read(const asio::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		TCP.error_code = error;
-		ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-				   error.message().c_str());
-		OnError.Broadcast(error.value(), error.message().c_str());
+		AsyncTask(ENamedThreads::GameThread, [=]()
+		{
+			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
+			           error.message().c_str());
+			OnError.Broadcast(error.value(), error.message().c_str());
+		});
 		return;
 	}
-
 	FTcpMessage rbuffer;
 	rbuffer.size = ResponseBuffer.size();
 	rbuffer.RawData.SetNum(rbuffer.size);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), rbuffer.size), ResponseBuffer.data());
-	OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
-
+	AsyncTask(ENamedThreads::GameThread, [=]()
+	{
+		OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
+	});
 	asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UTCPClientSsl::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred)
