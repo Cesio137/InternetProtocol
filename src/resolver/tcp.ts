@@ -1,78 +1,81 @@
+import * as net from "net";
+import * as tls from "tls";
 import { credentials } from "#settings";
 
-let listener: Deno.TcpListener
-let ssl_listener: Deno.TlsListener
-const clients = new Set<Deno.Conn>
+const server = net.createServer(socket);
+server.on("error", error);
+const ssl_server = tls.createServer(credentials, socket);
+ssl_server.on("error", error);
 
-async function handleConn(conn: Deno.TcpConn | Deno.TlsConn) {
-    clients.add(conn)
-    try {
-        const buffer = new Uint8Array(1400);
-        while (true) {
-            const bytesRead = await conn.read(buffer);
-            if (bytesRead === null) {
-                console.log(`${conn.remoteAddr.port} -> Closed connection`);
-                clients.delete(conn)
-                break;
-            }
-            const message = new TextDecoder().decode(
-                buffer.subarray(0, bytesRead)
-            );
-            console.log(`${conn.remoteAddr.port} -> ${message}`);
-            switch (message) {
-                case "login":
-                    clients.add(conn)
-                    continue
-                case "logout":
-                    clients.delete(conn)
-                    continue
-            }
-            const data = new TextEncoder().encode(message)
-            for (const client of clients) {
-                if (client === conn) continue
-                await client.write(data);
-            }
+let clients: (net.Socket | tls.TLSSocket)[] = [];
+
+function socket(socket: net.Socket | tls.TLSSocket) {
+    clients.push(socket);
+    console.log(`(${socket.remotePort} -> login, ${clients.length} client(s))`);
+
+    socket.on("data", (data: Buffer) => {
+        const response = `${socket.remotePort} -> ${data.toString()}`;
+        console.log(response)
+        for (const client of clients) {
+            if (client.remotePort === socket.remotePort) continue;
+            client.write(response, function (error) {
+                if (error) {
+                    console.error(`Erro trying send message: ${error.message}`);
+                    return;
+                }
+            });
         }
-    } catch (err) {
-        console.error("Error reading from connection:", err);
-    } finally {
-        conn.close();
-    }
-}
-
-export async function resolve(options: ResolverOptions) {
-    listener = Deno.listen({
-        hostname: options.hostname || "127.0.0.1",
-        port: options.port || 3000,
     });
-    console.log(
-        `TCP server listening on ${listener.addr.hostname}:${listener.addr.port}`
-    );
-    for await (const conn of listener) {
-        handleConn(conn);
-    }
-}
 
-export async function ssl_resolve(options: ResolverOptions) {
-    const decoder = new TextDecoder("utf-8");
-    ssl_listener = Deno.listenTls({
-        hostname: options.hostname || "127.0.0.1",
-        port: options.port || 3000,
-        cert: decoder.decode(credentials.cert),
-        key: decoder.decode(credentials.key)
+    socket.on("end", function () {
+        if (clients.length === 1) {
+            clients = [];
+            console.log(
+                `(${socket.remotePort} -> logout, ${clients.length} client(s))`
+            );
+            return;
+        }
+        const index = clients.indexOf(socket);
+        if (index < 0) return;
+        clients = clients.splice(index);
+        console.log(
+            `(${socket.remotePort} -> logout, ${clients.length} client(s))`
+        );
     });
-    console.log(
-        `TCP server listening on ${ssl_listener.addr.hostname}:${ssl_listener.addr.port}`
-    );
-    for await (const conn of ssl_listener) {
-        handleConn(conn);
-    }
+
+    socket.on("close", function (hadError: boolean) {
+        if (clients.length === 1) {
+            clients = [];
+            console.log(
+                `(${socket.remotePort} -> logout, ${clients.length} client(s))`
+            );
+            return;
+        }
+        const index = clients.indexOf(socket);
+        if (index < 0) return;
+        clients = clients.splice(index);
+        console.log(
+            `(${socket.remotePort} -> logout, ${clients.length} client(s))`
+        );
+    });
+
+    socket.on("error", (err: Error) => {
+        console.error("Socket error:", err);
+    });
 }
 
+function error(err: Error) {
+    console.error("Server error:", err);
+}
 
-export function close() {
-    if (listener)
-        listener.close()
-    if (ssl_listener)
-        ssl_listener.close()
+export function resolve(port: number) {
+    server.listen(port, () => {
+        console.log(`TCP server listening on locahost:${port}`);
+    });
+}
+
+export function ssl_resolve(port: number) {
+    ssl_server.listen(port, () => {
+        console.log(`TCP SSL server listening on localhost:${port}`);
+    });
 }

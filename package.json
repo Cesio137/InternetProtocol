@@ -1,0 +1,36 @@
+{
+  "name": "InternetProtocol",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@types/ws": "^8.5.13",
+    "express": "^4.21.1",
+    "minimalist": "^1.0.0",
+    "minimist": "^1.2.8",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "imports": {
+    "#resolver": [
+      "./src/resolver/index.js"
+    ],
+    "#settings": [
+      "./src/settings/index.js"
+    ]
+  }
+}

@@ -1,43 +1,55 @@
-let listener: Deno.DatagramConn;
-const clients = new Set<Deno.NetAddr>();
+import * as dgram from "dgram";
+import { AddressInfo } from "net";
 
-export async function resolve(options: ResolverOptions) {
-    listener = Deno.listenDatagram({
-        hostname: options.hostname || "127.0.0.1",
-        port: options.port || 3000,
-        transport: "udp",
-    });
-    const { hostname, port } = listener.addr as Deno.NetAddr;
-    console.log(`UDP listening at adress: ${hostname}:${port}`);
+const server: dgram.Socket = dgram.createSocket("udp4");
+let clients: dgram.RemoteInfo[] = [];
 
-    for await (const [msg, addr] of listener) {
-        try {
-            const client_addr = addr as Deno.NetAddr;
-            const data = new TextDecoder().decode(msg);
-            console.log(`${client_addr.port} -> ${data}`);
-            switch (data) {
-                case "login":
-                    clients.add(client_addr)
-                    continue
-                case "logout":
-                    clients.delete(client_addr)
-                    continue
+server.on("message", function (msg: Buffer, rinfo: dgram.RemoteInfo) {
+    const data = msg.toString();
+    switch (data) {
+        case "login":
+            clients.push(rinfo);
+            console.log(
+                `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
+            );
+            return;
+        case "logout":
+            if (clients.length === 1) {
+                clients = [];
+                console.log(
+                    `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
+                );
+                return;
             }
-            for (const client of clients) {
-                if (client.port === client_addr.port) continue
-                await listener.send(msg, client)
-            }
-        } catch (err) {
-            if (err instanceof Error) {
-                console.error(`Error receiving message: ${err.message}`);
-            } else {
-                console.error(`Unknown error: ${err}`);
-            }
-        }
+            const index = clients.indexOf(rinfo);
+            clients = clients.splice(index);
+            console.log(
+                `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
+            );
+            return;
     }
-}
+    const response = `${rinfo.port} -> ${data}`;
+    for (const client of clients) {
+        if (client.port === rinfo.port) continue;
+        server.send(response, client.port, client.address, function (error) {
+            if (error) {
+                console.error(`Erro trying send message: ${error.message}`);
+                return;
+            }
+        });
+    }
+});
 
-export function close() {
-    if (listener)
-        listener.close()
+server.on("listening", function () {
+    const address: AddressInfo = server.address();
+    console.log(`UDP listening at adress: localhost:${address.port}`);
+});
+
+server.on("error", function (error: Error) {
+    console.error(`Server error: ${error.message}`);
+    server.close();
+});
+
+export function resolve(port: number) {
+    server.bind(port);
 }

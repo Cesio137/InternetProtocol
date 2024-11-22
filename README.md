@@ -8,20 +8,36 @@ Codes to test server and client connection of asio library
 
 ---
 
-- [Deno](https://deno.com/)
+- [Nodejs LTS](https://nodejs.org/en/download/package-manager)
 
 ## Getting Started
 
 ---
 
-### `deno run dev <resolver>`
+### `npm run start <resolver>`
 
 Runs the app.\
-Use adress [localhost:3000](localhost:3000) to connect the clients.
+Use adress [http://localhost:3000](http://localhost:3000) to connect the clients.
+
+### `npm run dev <resolver>`
+
+Runs the app.\
+Use adress [http://localhost:3000](http://localhost:3000) to connect the clients.
+
+The code will reload if you make edits.\
+You will also see any lint errors in the console.
+
+### `npm run build`
+
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build for the best performance.
+
+The build is minified and the filenames include the hashes.\
+Your app is ready to be deployed!
 
 ## Resolver
 
-### `udp`, `tcp`, `http`, `websocket`
+### `udp`, `tcp`, `http`, `ws`
 
 ## OpenSSL
 

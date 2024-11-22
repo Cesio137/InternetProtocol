@@ -1,4 +1,4 @@
-export * as udp from "./udp.ts"
-export * as tcp from "./tcp.ts"
-export * as http from "./http.ts"
-export * as ws from "./websocket.ts"
+export * as udp  from "./udp.js"
+export * as tcp  from "./tcp.js"
+export * as http from "./http.js"
+export * as ws   from "./websocket.js"
