@@ -74,7 +74,7 @@ namespace InternetProtocol {
             request.path = path.empty() ? "/" : path;
         }
 
-        std::string ge_pPath() const { return request.path; }
+        std::string get_path() const { return request.path; }
 
         void append_params(const std::string &key, const std::string &value) {
             request.params[key] = value;
