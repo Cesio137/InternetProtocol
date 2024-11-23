@@ -41,7 +41,7 @@ namespace InternetProtocol {
             raw_data.shrink_to_fit();
         }
         std::vector<std::byte> raw_data;
-        uint32_t size = 0;
+        size_t size = 0;
 
         std::string toString() const {
             std::string str;
