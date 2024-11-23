@@ -255,13 +255,14 @@ void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 		return;
 	}
 	FTcpMessage rbuffer;
-	rbuffer.size = ResponseBuffer.size();
-	rbuffer.RawData.SetNum(rbuffer.size);
-	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), rbuffer.size), ResponseBuffer.data());
+	rbuffer.Size = bytes_recvd;
+	rbuffer.RawData.SetNum(bytes_recvd);
+	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), bytes_recvd), ResponseBuffer.data());
 	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
-		OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
+		OnMessageReceived.Broadcast(rbuffer);
 	});
+	consume_response_buffer();
 	asio::async_read(TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UTCPClient::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred)
@@ -527,13 +528,14 @@ void UTCPClientSsl::read(const asio::error_code& error, const size_t bytes_recvd
 		return;
 	}
 	FTcpMessage rbuffer;
-	rbuffer.size = ResponseBuffer.size();
-	rbuffer.RawData.SetNum(rbuffer.size);
-	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), rbuffer.size), ResponseBuffer.data());
+	rbuffer.Size = bytes_recvd;
+	rbuffer.RawData.SetNum(bytes_recvd);
+	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), bytes_recvd), ResponseBuffer.data());
 	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
-		OnMessageReceived.Broadcast(bytes_recvd, rbuffer);
+		OnMessageReceived.Broadcast(rbuffer);
 	});
+	consume_response_buffer();
 	asio::async_read(TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
 	                 std::bind(&UTCPClientSsl::read, this, asio::placeholders::error,
 	                           asio::placeholders::bytes_transferred)

@@ -250,12 +250,12 @@ void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_
 		return;
 	}
 	UDP.attemps_fail = 0;
-	RBuffer.size = bytes_recvd;
+	RBuffer.Size = bytes_recvd;
 	RBuffer.RawData.SetNum(bytes_recvd);
 	const FUdpMessage buffer = RBuffer;
 	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
-		OnMessageReceived.Broadcast(bytes_recvd, buffer);
+		OnMessageReceived.Broadcast(buffer);
 	});
 	consume_receive_buffer();
 	UDP.socket.async_receive_from(asio::buffer(RBuffer.RawData.GetData(), RBuffer.RawData.Num()), UDP.endpoints,

@@ -23,15 +23,10 @@ struct FUdpMessage
 {
 	GENERATED_BODY()
 	FUdpMessage() { RawData.SetNum(1024); }
-	~FUdpMessage()
-	{
-		if (RawData.Num() > 0)
-			RawData.Empty();
-	}
+	UPROPERTY(BlueprintReadWrite, Category="IP||UDP")
+	int Size = 0;
 	UPROPERTY(BlueprintReadWrite, Category="IP||UDP")
 	TArray<uint8> RawData;
-	UPROPERTY(BlueprintReadWrite, Category="IP||UDP")
-	int size = 0;
 };
 
 USTRUCT(Blueprintable, Category = "IP")
@@ -39,15 +34,17 @@ struct FTcpMessage
 {
 	GENERATED_BODY()
 	UPROPERTY(BlueprintReadWrite, Category="IP||TCP")
-	TArray<uint8> RawData;
+	int Size = 0;
 	UPROPERTY(BlueprintReadWrite, Category="IP||TCP")
-	int size = 0;
+	TArray<uint8> RawData;
 };
 
 USTRUCT(Blueprintable, Category = "IP")
 struct FWsMessage
 {
 	GENERATED_BODY()
+	UPROPERTY(BlueprintReadWrite, Category="IP||Websocket")
+	int Size = 0;
 	UPROPERTY(BlueprintReadWrite, Category="IP||Websocket")
 	FDataFrame DataFrame;
 	UPROPERTY(BlueprintReadWrite, Category="IP||Websocket")

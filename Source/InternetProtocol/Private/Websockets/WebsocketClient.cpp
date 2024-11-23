@@ -63,7 +63,7 @@ bool UWebsocketClient::AsyncRead()
 
 bool UWebsocketClient::Connect()
 {
-	if (!IsConnected())
+	if (!ThreadPool.IsValid() || IsConnected())
 	{
 		return false;
 	}
@@ -652,6 +652,7 @@ void UWebsocketClient::read(const std::error_code& error, const size_t bytes_rec
 	}
 	else
 	{
+		rDataFrame.Size = bytes_recvd;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
 			OnMessageReceived.Broadcast(rDataFrame);
@@ -1311,6 +1312,7 @@ void UWebsocketClientSsl::read(const std::error_code& error, const size_t bytes_
 	}
 	else
 	{
+		rDataFrame.Size = bytes_recvd;
 		AsyncTask(ENamedThreads::GameThread, [=]()
 		{
 			OnMessageReceived.Broadcast(rDataFrame);

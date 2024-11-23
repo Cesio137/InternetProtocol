@@ -80,7 +80,7 @@ bool UHttpClient::AsyncPreparePayload()
 
 bool UHttpClient::ProcessRequest()
 {
-	if (!ThreadPool.IsValid() || !Payload.IsEmpty())
+	if (!ThreadPool.IsValid() || Payload.IsEmpty())
 	{
 		return false;
 	}
@@ -364,7 +364,7 @@ bool UHttpClientSsl::AsyncPreparePayload()
 
 bool UHttpClientSsl::ProcessRequest()
 {
-	if (!ThreadPool.IsValid() || !Payload.IsEmpty())
+	if (!ThreadPool.IsValid() || Payload.IsEmpty())
 	{
 		return false;
 	}

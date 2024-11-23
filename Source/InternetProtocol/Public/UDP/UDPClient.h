@@ -30,7 +30,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpRetry, const int, attemp
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageSent, const int, size);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessageReceived, const int, size, const FUdpMessage, message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageReceived, const FUdpMessage, message);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpError, const int, code, const FString&, exception);
 
