@@ -11,8 +11,8 @@ const app: Express = express();
 const https_server = https.createServer(credentials, app);
 
 app.get('/', (req:Request, res:Response) => {
-    const JsonMessage: Handle = {event: 'http_request', message: 'Received request from nodejs!'};
-    res.send(JSON.stringify(JsonMessage));
+    const response = `Your remote port is: ${req.socket.remotePort}`
+    res.send(response);
 });
 
 export function resolve(port: number) {

@@ -2,27 +2,23 @@ import * as dgram from "dgram";
 import { AddressInfo } from "net";
 
 const server: dgram.Socket = dgram.createSocket("udp4");
-let clients: dgram.RemoteInfo[] = [];
+const clients: dgram.RemoteInfo[] = [];
 
 server.on("message", function (msg: Buffer, rinfo: dgram.RemoteInfo) {
+    if (msg.length === 0) return;
     const data = msg.toString();
     switch (data) {
         case "login":
+            if (clients.indexOf(rinfo) !== -1) return;
             clients.push(rinfo);
             console.log(
                 `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
             );
             return;
         case "logout":
-            if (clients.length === 1) {
-                clients = [];
-                console.log(
-                    `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
-                );
-                return;
-            }
             const index = clients.indexOf(rinfo);
-            clients = clients.splice(index);
+            if (index === -1) return;
+            clients.splice(index);
             console.log(
                 `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
             );
@@ -34,7 +30,6 @@ server.on("message", function (msg: Buffer, rinfo: dgram.RemoteInfo) {
         server.send(response, client.port, client.address, function (error) {
             if (error) {
                 console.error(`Erro trying send message: ${error.message}`);
-                return;
             }
         });
     }
