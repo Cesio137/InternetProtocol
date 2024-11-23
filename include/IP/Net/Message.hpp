@@ -59,6 +59,7 @@ namespace InternetProtocol {
         }
         FDataFrame data_frame;
         std::vector<std::byte> payload;
+        size_t size = 0;
 
         std::string toString() const {
             if (data_frame.opcode == EOpcode::TEXT_FRAME || data_frame.opcode == EOpcode::BINARY_FRAME) {

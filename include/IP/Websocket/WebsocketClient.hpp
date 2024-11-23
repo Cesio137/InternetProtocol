@@ -183,7 +183,7 @@ namespace InternetProtocol {
         std::function<void()> on_close;
         std::function<void()> on_close_notify;
         std::function<void(const size_t)> on_message_sent;
-        std::function<void(const size_t, const FWsMessage)> on_message_received;
+        std::function<void(const FWsMessage)> on_message_received;
         std::function<void()> on_pong_received;
         std::function<void(const int, const std::string &)> on_handshake_fail;
         std::function<void(const asio::error_code &)> on_error;
@@ -627,7 +627,8 @@ namespace InternetProtocol {
             } else if (rDataFrame.data_frame.opcode == EOpcode::CONNECTION_CLOSE) {
                 if (on_close_notify) on_close_notify();
             } else {
-                if (on_message_received) on_message_received(bytes_recvd, rDataFrame);
+                rDataFrame.size = bytes_recvd;
+                if (on_message_received) on_message_received(rDataFrame);
             }
 
             consume_response_buffer();
@@ -896,7 +897,7 @@ namespace InternetProtocol {
         std::function<void()> on_close;
         std::function<void()> on_close_notify;
         std::function<void(const size_t)> on_message_sent;
-        std::function<void(const size_t, const FWsMessage)> on_message_received;
+        std::function<void(const FWsMessage)> on_message_received;
         std::function<void()> on_pong_received;
         std::function<void(const int, const std::string &)> on_handshake_fail;
         std::function<void(const asio::error_code &)> on_error;
@@ -1369,7 +1370,8 @@ namespace InternetProtocol {
             } else if (rDataFrame.data_frame.opcode == EOpcode::CONNECTION_CLOSE) {
                 if (on_close_notify) on_close_notify();
             } else {
-                if (on_message_received) on_message_received(bytes_recvd, rDataFrame);
+                rDataFrame.size = bytes_recvd;
+                if (on_message_received) on_message_received(rDataFrame);
             }
 
             consume_response_buffer();

@@ -129,7 +129,7 @@ namespace InternetProtocol {
         std::function<void()> on_close;
         std::function<void(const int)> on_connection_retry;
         std::function<void(const size_t)> on_message_sent;
-        std::function<void(const size_t, const FTcpMessage)> on_message_received;
+        std::function<void(const FTcpMessage)> on_message_received;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -268,12 +268,12 @@ namespace InternetProtocol {
             }
 
             FTcpMessage rbuffer;
-            rbuffer.size = response_buffer.size();
-            rbuffer.raw_data.resize(rbuffer.size);
-            asio::buffer_copy(asio::buffer(rbuffer.raw_data, rbuffer.size),
+            rbuffer.size = bytes_recvd;
+            rbuffer.raw_data.resize(bytes_recvd);
+            asio::buffer_copy(asio::buffer(rbuffer.raw_data, bytes_recvd),
                               response_buffer.data());
 
-            if (on_message_received) on_message_received(bytes_recvd, rbuffer);
+            if (on_message_received) on_message_received(rbuffer);
 
             consume_response_buffer();
             asio::async_read(
@@ -479,7 +479,7 @@ namespace InternetProtocol {
         std::function<void()> on_close;
         std::function<void(const int)> on_connection_retry;
         std::function<void(const size_t)> on_message_sent;
-        std::function<void(const size_t, const FTcpMessage)> on_message_received;
+        std::function<void(const FTcpMessage)> on_message_received;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -629,12 +629,12 @@ namespace InternetProtocol {
             }
 
             FTcpMessage rbuffer;
-            rbuffer.size = response_buffer.size();
-            rbuffer.raw_data.resize(rbuffer.size);
-            asio::buffer_copy(asio::buffer(rbuffer.raw_data, rbuffer.size),
+            rbuffer.size = bytes_recvd;
+            rbuffer.raw_data.resize(bytes_recvd);
+            asio::buffer_copy(asio::buffer(rbuffer.raw_data, bytes_recvd),
                               response_buffer.data());
 
-            if (on_message_received) on_message_received(bytes_recvd, rbuffer);
+            if (on_message_received) on_message_received(rbuffer);
 
             consume_response_buffer();
             asio::async_read(
