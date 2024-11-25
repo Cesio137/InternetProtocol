@@ -15,6 +15,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Async/Async.h"
 #define UI UI_ST
 THIRD_PARTY_INCLUDES_START
 #include <vector>

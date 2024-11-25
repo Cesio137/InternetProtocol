@@ -19,7 +19,7 @@
 #include "UDP/UDPClient.h"
 #include "TCP/TCPClient.h"
 #include "Http/HttpClient.h"
-#include "Websockets/WebsocketClient.h"
+#include "WS/WSClient.h"
 #include "Json/JavaScriptObjectNotation.h"
 #include "InternetProtocolSubsystem.generated.h"
 
@@ -47,10 +47,10 @@ public:
 	UHttpClientSsl* CreateHttpClientSsl();
 
 	UFUNCTION(BlueprintCallable, Category="IP")
-	UWebsocketClient* CreateWebsocketClient();
+	UWSClient* CreateWebsocketClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP")
-	UWebsocketClientSsl* CreateWebsocketClientSsl();
+	UWSClientSsl* CreateWebsocketClientSsl();
 
 	UFUNCTION(BlueprintCallable, Category="IP")
 	UJavaScriptObjectNotation* CreateJsonObject();

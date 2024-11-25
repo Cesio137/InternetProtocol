@@ -14,9 +14,6 @@
 
 #include "Http/HttpClient.h"
 
-#include "ChartCreation.h"
-#include "InGamePerformanceTracker.h"
-
 void UHttpClient::PreparePayload()
 {
 	Payload.Empty();
@@ -65,11 +62,11 @@ void UHttpClient::PreparePayload()
 bool UHttpClient::AsyncPreparePayload()
 {
 	if (!ThreadPool.IsValid()) return false;
-	asio::post(*ThreadPool, [=]()
+	asio::post(*ThreadPool, [&]()
 	{
 		MutexPayload.Lock();
 		PreparePayload();
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnAsyncPayloadFinished.Broadcast();
 		});
@@ -120,7 +117,7 @@ void UHttpClient::run_context_thread()
 		if (ShouldStopContext) return;
 		if (TCP.attemps_fail > 0)
 		{
-			AsyncTask(ENamedThreads::GameThread, [=]()
+			AsyncTask(ENamedThreads::GameThread, [&]()
 			{
 				OnRequestWillRetry.Broadcast(TCP.attemps_fail);
 			});
@@ -149,7 +146,7 @@ void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::res
 	if (error)
 	{
 		TCP.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -167,7 +164,7 @@ void UHttpClient::connect(const std::error_code& error) noexcept
 	if (error)
 	{
 		TCP.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -187,7 +184,7 @@ void UHttpClient::write_request(const std::error_code& error, const size_t bytes
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -195,7 +192,7 @@ void UHttpClient::write_request(const std::error_code& error, const size_t bytes
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [=]()
+	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
 	});
@@ -209,7 +206,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -217,7 +214,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [=]()
+	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnRequestProgress.Broadcast(bytes_sent, bytes_recvd);
 	});
@@ -230,7 +227,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnResponseError.Broadcast(1);
 		});
@@ -238,7 +235,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 	}
 	if (status_code != 200)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnResponseError.Broadcast(status_code);
 		});
@@ -253,7 +250,7 @@ void UHttpClient::read_headers(const std::error_code& error) noexcept
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -284,7 +281,7 @@ void UHttpClient::read_content(const std::error_code& error) noexcept
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnRequestCompleted.Broadcast(Response);
 		});
@@ -349,11 +346,11 @@ void UHttpClientSsl::PreparePayload()
 bool UHttpClientSsl::AsyncPreparePayload()
 {
 	if (!ThreadPool.IsValid()) return false;
-	asio::post(*ThreadPool, [=]()
+	asio::post(*ThreadPool, [&]()
 	{
 		MutexPayload.Lock();
 		PreparePayload();
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnAsyncPayloadFinished.Broadcast();
 		});
@@ -404,7 +401,7 @@ void UHttpClientSsl::run_context_thread()
 		if (ShouldStopContext) return;
 		if (TCP.attemps_fail > 0)
 		{
-			AsyncTask(ENamedThreads::GameThread, [=]()
+			AsyncTask(ENamedThreads::GameThread, [&]()
 			{
 				OnRequestWillRetry.Broadcast(TCP.attemps_fail);
 			});
@@ -433,7 +430,7 @@ void UHttpClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::
 	if (error)
 	{
 		TCP.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -451,7 +448,7 @@ void UHttpClientSsl::connect(const std::error_code& error)
 	if (error)
 	{
 		TCP.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -469,7 +466,7 @@ void UHttpClientSsl::ssl_handshake(const std::error_code& error)
 	if (error)
 	{
 		TCP.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -489,7 +486,7 @@ void UHttpClientSsl::write_request(const std::error_code& error, const size_t by
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -497,7 +494,7 @@ void UHttpClientSsl::write_request(const std::error_code& error, const size_t by
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [=]()
+	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnRequestProgress.Broadcast(bytes_sent, bytes_sent);
 	});
@@ -511,7 +508,7 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -529,7 +526,7 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnResponseError.Broadcast(1);
 		});
@@ -537,7 +534,7 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 	}
 	if (status_code != 200)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnResponseError.Broadcast(status_code);
 		});
@@ -552,7 +549,7 @@ void UHttpClientSsl::read_headers(const std::error_code& error)
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -583,7 +580,7 @@ void UHttpClientSsl::read_content(const std::error_code& error)
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnRequestCompleted.Broadcast(Response);
 		});

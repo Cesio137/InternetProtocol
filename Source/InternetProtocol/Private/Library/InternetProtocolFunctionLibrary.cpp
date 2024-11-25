@@ -15,7 +15,6 @@
 #include "Library/InternetProtocolFunctionLibrary.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
-#include <string>
 #include <typeinfo>
 
 FString UInternetProtocolFunctionLibrary::toString(const TArray<uint8>& value)

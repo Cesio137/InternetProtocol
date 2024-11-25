@@ -152,7 +152,7 @@ void UUDPClient::run_context_thread()
 	{
 		if (UDP.attemps_fail > 0)
 		{
-			AsyncTask(ENamedThreads::GameThread, [=]()
+			AsyncTask(ENamedThreads::GameThread, [&]()
 			{
 				OnConnectionWillRetry.Broadcast(UDP.attemps_fail);
 			});
@@ -181,7 +181,7 @@ void UUDPClient::resolve(const asio::error_code& error, const asio::ip::udp::res
 	if (error)
 	{
 		UDP.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -200,7 +200,7 @@ void UUDPClient::conn(const asio::error_code& error)
 	if (error)
 	{
 		UDP.error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -213,7 +213,7 @@ void UUDPClient::conn(const asio::error_code& error)
 	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
 	                                        asio::placeholders::bytes_transferred)
 	);
-	AsyncTask(ENamedThreads::GameThread, [=]()
+	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnConnected.Broadcast();
 	});
@@ -223,7 +223,7 @@ void UUDPClient::send_to(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
@@ -231,7 +231,7 @@ void UUDPClient::send_to(const asio::error_code& error, const size_t bytes_sent)
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [=]()
+	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnMessageSent.Broadcast(bytes_sent);
 	});
@@ -241,7 +241,7 @@ void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [=]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -253,7 +253,7 @@ void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_
 	RBuffer.Size = bytes_recvd;
 	RBuffer.RawData.SetNum(bytes_recvd);
 	const FUdpMessage buffer = RBuffer;
-	AsyncTask(ENamedThreads::GameThread, [=]()
+	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnMessageReceived.Broadcast(buffer);
 	});

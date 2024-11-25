@@ -44,15 +44,15 @@ UHttpClientSsl* UInternetProtocolSubsystem::CreateHttpClientSsl()
 	return httpClient;
 }
 
-UWebsocketClient* UInternetProtocolSubsystem::CreateWebsocketClient()
+UWSClient* UInternetProtocolSubsystem::CreateWebsocketClient()
 {
-	UWebsocketClient* websocketClient = NewObject<UWebsocketClient>();
+	UWSClient* websocketClient = NewObject<UWSClient>();
 	return websocketClient;
 }
 
-UWebsocketClientSsl* UInternetProtocolSubsystem::CreateWebsocketClientSsl()
+UWSClientSsl* UInternetProtocolSubsystem::CreateWebsocketClientSsl()
 {
-	UWebsocketClientSsl* websocketClient = NewObject<UWebsocketClientSsl>();
+	UWSClientSsl* websocketClient = NewObject<UWSClientSsl>();
 	return websocketClient;
 }
 

@@ -19,7 +19,7 @@
 #include "Net/Commons.h"
 #include "Net/Message.h"
 #include "Delegates/DelegateSignatureImpl.inl"
-#include "WebsocketClient.generated.h"
+#include "WSClient.generated.h"
 
 /**
  * 
@@ -36,7 +36,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsMessageReceived, const FW
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsError, const int, code, const FString&, exception);
 
 UCLASS(Blueprintable, BlueprintType)
-class INTERNETPROTOCOL_API UWebsocketClient : public UObject
+class INTERNETPROTOCOL_API UWSClient : public UObject
 {
 	GENERATED_BODY()
 
@@ -275,7 +275,7 @@ private:
 };
 
 UCLASS(Blueprintable, BlueprintType)
-class INTERNETPROTOCOL_API UWebsocketClientSsl : public UObject
+class INTERNETPROTOCOL_API UWSClientSsl : public UObject
 {
 	GENERATED_BODY()
 
