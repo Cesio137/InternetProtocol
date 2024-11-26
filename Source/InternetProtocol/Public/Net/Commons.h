@@ -25,10 +25,6 @@ THIRD_PARTY_INCLUDES_START
 #include <algorithm>
 #include <iostream>
 
-#define ASIO_STANDALONE
-#define ASIO_NO_DEPRECATED
-#define ASIO_NO_EXCEPTIONS
-#define ASIO_DISABLE_CXX11_MACROS
 #include <asio.hpp>
 #include <asio/ssl.hpp>
 

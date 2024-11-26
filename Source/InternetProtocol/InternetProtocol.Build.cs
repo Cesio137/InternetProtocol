@@ -19,6 +19,31 @@ public class InternetProtocol : ModuleRules
 	public InternetProtocol(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+		CppStandard = CppStandardVersion.Cpp17;
+		PublicDefinitions.AddRange(new string[]
+		{
+			"ASIO_STANDALONE",
+			"ASIO_NO_DEPRECATED",
+			"ASIO_NO_EXCEPTIONS",
+			"ASIO_DISABLE_CXX11_MACROS",
+			"NOMINMAX",
+		});
+		
+		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
+		{
+			PublicDefinitions.AddRange(new string[]
+			{
+				"WIN32_LEAN_AND_MEAN",
+			});
+			if (Target.Platform == UnrealTargetPlatform.Win32)
+			{
+				PublicDefinitions.AddRange(new string[]
+				{
+					"_WIN32_WINNT 0x0A00",
+				});
+			}
+		}
+		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
