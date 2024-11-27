@@ -13,7 +13,6 @@
 */
 
 #include "Http/HttpClient.h"
-#include "Async/Async.h"
 
 void UHttpClient::PreparePayload()
 {

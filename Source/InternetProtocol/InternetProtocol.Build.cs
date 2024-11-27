@@ -24,39 +24,22 @@ public class InternetProtocol : ModuleRules
 		{
 			"ASIO_STANDALONE",
 			"ASIO_NO_DEPRECATED",
-			"ASIO_NO_EXCEPTIONS",
-			"ASIO_DISABLE_CXX11_MACROS",
-			"NOMINMAX",
+			"ASIO_NO_EXCEPTIONS"
 		});
-		
-		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
-		{
-			PublicDefinitions.AddRange(new string[]
-			{
-				"WIN32_LEAN_AND_MEAN",
-			});
-			if (Target.Platform == UnrealTargetPlatform.Win32)
-			{
-				PublicDefinitions.AddRange(new string[]
-				{
-					"_WIN32_WINNT 0x0A00",
-				});
-			}
-		}
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
 				"$(PluginDir)/Source/ThirdParty/asio/Public",
             }
-			);
+		);
 				
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				// ... add other private include paths required here ...
 			}
-			);
+		);
 			
 		
 		PublicDependencyModuleNames.AddRange(
@@ -65,7 +48,7 @@ public class InternetProtocol : ModuleRules
 				"Core",
 				// ... add other public dependencies that you statically link with here ...
 			}
-			);
+		);
 			
 		
 		PrivateDependencyModuleNames.AddRange(
@@ -81,7 +64,7 @@ public class InternetProtocol : ModuleRules
 				"SlateCore",
 				// ... add private dependencies that you statically link with here ...	
 			}
-			);
+		);
 		
 		
 		DynamicallyLoadedModuleNames.AddRange(
@@ -89,6 +72,6 @@ public class InternetProtocol : ModuleRules
 			{
 				// ... add any modules that your module loads dynamically here ...
 			}
-			);
+		);
 	}
 }

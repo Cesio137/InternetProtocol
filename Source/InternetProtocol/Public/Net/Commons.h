@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "Async/Async.h"
 #define UI UI_ST
 THIRD_PARTY_INCLUDES_START
 #include <vector>
@@ -25,11 +23,21 @@ THIRD_PARTY_INCLUDES_START
 #include <algorithm>
 #include <iostream>
 
+#if PLATFORM_WINDOWS
+#include "Windows/PreWindowsApi.h"
+#endif
+
 #include <asio.hpp>
 #include <asio/ssl.hpp>
 
+#if PLATFORM_WINDOWS
+#include "Windows/PostWindowsApi.h"
+#endif
+
 THIRD_PARTY_INCLUDES_END
 #undef UI
+#include "CoreMinimal.h"
+#include "Async/Async.h"
 #include "Commons.generated.h"
 
 USTRUCT(Blueprintable, Category = "IP")
