@@ -24,37 +24,29 @@ namespace InternetProtocol {
             if (is_connected()) close();
             thread_pool->wait();
             rbuffer.raw_data.clear();
-            rbuffer.raw_data.resize(0);
+            rbuffer.raw_data.shrink_to_fit();
         }
 
         /*HOST | LOCAL*/
-        void set_host(const std::string &ip, const std::string &port) {
+        void set_host(const std::string &ip = "localhost", const std::string &port = "80") {
             host = ip;
             service = port;
         }
 
         std::string get_local_adress() const {
-            if (is_connected())
-                return udp.socket.local_endpoint().address().to_string();
-            return "";
+            return udp.socket.local_endpoint().address().to_string();
         }
 
-        std::string get_local_port() const {
-            if (is_connected())
-                return std::to_string(udp.socket.local_endpoint().port());
-            return "";
+        int get_local_port() const {
+            return udp.socket.local_endpoint().port();
         }
 
         std::string get_remote_adress() const {
-            if (is_connected())
-                return udp.socket.remote_endpoint().address().to_string();
-            return host;
+            return udp.socket.remote_endpoint().address().to_string();
         }
 
-        std::string get_remote_port() const {
-            if (is_connected())
-                return std::to_string(udp.socket.remote_endpoint().port());
-            return service;
+        int get_remote_port() const {
+            return udp.socket.remote_endpoint().port();
         }
 
         /*SETTINGS*/
@@ -109,7 +101,7 @@ namespace InternetProtocol {
 
         void close() {
             asio::error_code ec_shutdown;
-	        asio::error_code ec_close;
+            asio::error_code ec_close;
             udp.context.stop();
             udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, ec_shutdown);
             udp.socket.close(ec_close);
@@ -118,7 +110,7 @@ namespace InternetProtocol {
                 on_error(ec_shutdown);
                 return;
             }
-            
+
             if (ec_close && on_error) {
                 on_error(ec_close);
                 return;
@@ -218,8 +210,8 @@ namespace InternetProtocol {
                 udp.error_code.clear();
                 udp.context.restart();
                 udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
-                                       std::bind(&UDPClient::resolve, this, asio::placeholders::error,
-                                                 asio::placeholders::results));
+                                           std::bind(&UDPClient::resolve, this, asio::placeholders::error,
+                                                     asio::placeholders::results));
                 udp.context.run();
                 if (!udp.error_code)
                     break;

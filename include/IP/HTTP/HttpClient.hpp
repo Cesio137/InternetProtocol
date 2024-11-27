@@ -39,8 +39,7 @@ namespace InternetProtocol {
         }
 
         /*HTTP SETTINGS*/
-        void set_host(const std::string &url = "localhost",
-                     const std::string &port = "") {
+        void set_host(const std::string &url = "localhost", const std::string &port = "80") {
             host = url;
             service = port;
         }
@@ -388,8 +387,7 @@ namespace InternetProtocol {
         }
 
         /*HTTP SETTINGS*/
-        void set_host(const std::string &url = "localhost",
-                     const std::string &port = "") {
+        void set_host(const std::string &url = "localhost", const std::string &port = "443") {
             host = url;
             service = port;
         }

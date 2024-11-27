@@ -28,32 +28,25 @@ namespace InternetProtocol {
         }
 
         /*HOST | LOCAL*/
-        void set_host(const std::string &ip, const std::string &port) {
+        void set_host(const std::string &ip = "localhost", const std::string &port = "80") {
             host = ip;
             service = port;
         }
 
         std::string get_local_adress() const {
-            if (is_connected()) return tcp.socket.local_endpoint().address().to_string();
-            return "";
+            return tcp.socket.local_endpoint().address().to_string();
         }
 
-        std::string get_local_port() const {
-            if (is_connected())
-                return std::to_string(tcp.socket.local_endpoint().port());
-            return "";
+        int get_local_port() const {
+            return tcp.socket.local_endpoint().port();
         }
 
         std::string get_remote_adress() const {
-            if (is_connected())
-                return tcp.socket.remote_endpoint().address().to_string();
-            return host;
+            return tcp.socket.remote_endpoint().address().to_string();
         }
 
-        std::string get_remote_port() const {
-            if (is_connected())
-                return std::to_string(tcp.socket.remote_endpoint().port());
-            return service;
+        int get_remote_port() const {
+            return tcp.socket.remote_endpoint().port();
         }
 
         /*SETTINGS*/
@@ -103,7 +96,7 @@ namespace InternetProtocol {
 
         void close() {
             asio::error_code ec_shutdown;
-	        asio::error_code ec_close;
+            asio::error_code ec_close;
             tcp.context.stop();
             tcp.socket.shutdown(asio::ip::udp::socket::shutdown_both, ec_shutdown);
             tcp.socket.close(ec_close);
@@ -112,7 +105,7 @@ namespace InternetProtocol {
                 on_error(ec_shutdown);
                 return;
             }
-            
+
             if (ec_close && on_error) {
                 on_error(ec_close);
                 return;
@@ -211,9 +204,9 @@ namespace InternetProtocol {
                     on_connection_retry(tcp.attemps_fail);
                 tcp.error_code.clear();
                 tcp.resolver.async_resolve(
-                host, service,
-                std::bind(&TCPClient::resolve, this, asio::placeholders::error,
-                          asio::placeholders::endpoint));
+                    host, service,
+                    std::bind(&TCPClient::resolve, this, asio::placeholders::error,
+                              asio::placeholders::endpoint));
                 tcp.context.run();
                 tcp.context.restart();
                 if (!tcp.error_code) break;
@@ -293,41 +286,31 @@ namespace InternetProtocol {
         }
 
         /*HOST | LOCAL*/
-        void set_host(const std::string &ip, const std::string &port) {
+        void set_host(const std::string &ip = "localhost", const std::string &port = "443") {
             host = ip;
             service = port;
         }
 
         std::string get_local_adress() const {
-            if (is_connected())
-                return tcp.ssl_socket.lowest_layer()
-                        .local_endpoint()
-                        .address()
-                        .to_string();
-            return "";
+            return tcp.ssl_socket.lowest_layer()
+                    .local_endpoint()
+                    .address()
+                    .to_string();
         }
 
-        std::string get_local_port() const {
-            if (is_connected())
-                return std::to_string(
-                    tcp.ssl_socket.lowest_layer().local_endpoint().port());
-            return "";
+        int get_local_port() const {
+            return tcp.ssl_socket.lowest_layer().local_endpoint().port();
         }
 
         std::string get_remote_adress() const {
-            if (is_connected())
-                return tcp.ssl_socket.lowest_layer()
-                        .remote_endpoint()
-                        .address()
-                        .to_string();
-            return host;
+            return tcp.ssl_socket.lowest_layer()
+                    .remote_endpoint()
+                    .address()
+                    .to_string();
         }
 
-        std::string get_remote_port() const {
-            if (is_connected())
-                return std::to_string(
-                    tcp.ssl_socket.lowest_layer().remote_endpoint().port());
-            return service;
+        int get_remote_port() const {
+            return tcp.ssl_socket.lowest_layer().remote_endpoint().port();
         }
 
         /*SETTINGS*/
@@ -561,9 +544,9 @@ namespace InternetProtocol {
                     on_connection_retry(tcp.attemps_fail);
                 tcp.error_code.clear();
                 tcp.resolver.async_resolve(
-                host, service,
-                std::bind(&TCPClientSsl::resolve, this, asio::placeholders::error,
-                          asio::placeholders::endpoint));
+                    host, service,
+                    std::bind(&TCPClientSsl::resolve, this, asio::placeholders::error,
+                              asio::placeholders::endpoint));
                 tcp.context.run();
                 tcp.context.restart();
                 if (!tcp.error_code) break;

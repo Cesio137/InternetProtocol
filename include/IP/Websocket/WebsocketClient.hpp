@@ -28,32 +28,25 @@ namespace InternetProtocol {
         }
 
         /*HOST*/
-        void set_host(const std::string &url = "localhost",
-                     const std::string &port = "") {
+        void set_host(const std::string &url = "localhost", const std::string &port = "80") {
             host = url;
             service = port;
         }
 
         std::string get_local_adress() const {
-            if (is_connected()) return tcp.socket.local_endpoint().address().to_string();
-            return "";
+            return tcp.socket.local_endpoint().address().to_string();
         }
 
-        std::string get_local_port() const {
-            if (is_connected()) return tcp.socket.local_endpoint().address().to_string();
-            return "";
+        int get_local_port() const {
+            return tcp.socket.local_endpoint().port();
         }
 
         std::string get_remote_adress() const {
-            if (is_connected())
-                return tcp.socket.remote_endpoint().address().to_string();
-            return host;
+            return tcp.socket.remote_endpoint().address().to_string();
         }
 
-        std::string get_remote_port() const {
-            if (is_connected())
-                return std::to_string(tcp.socket.remote_endpoint().port());
-            return service;
+        int get_remote_port() const {
+            return tcp.socket.remote_endpoint().port();
         }
 
         /*SETTINGS*/
@@ -124,16 +117,18 @@ namespace InternetProtocol {
             if (!thread_pool && !is_connected() && !buffer.empty()) return false;
 
             asio::post(*thread_pool, std::bind(&WebsocketClient::post_buffer, this,
-                                        EOpcode::BINARY_FRAME, buffer));
+                                               EOpcode::BINARY_FRAME, buffer));
             return true;
         }
 
         bool send_ping() {
             if (!thread_pool && !is_connected()) return false;
 
-            std::vector<std::byte> ping_buffer = {std::byte('p'), std::byte('i'), std::byte('n'), std::byte('g'), std::byte('\0')};
+            std::vector<std::byte> ping_buffer = {
+                std::byte('p'), std::byte('i'), std::byte('n'), std::byte('g'), std::byte('\0')
+            };
             asio::post(*thread_pool, std::bind(&WebsocketClient::post_buffer, this,
-                                        EOpcode::PING, ping_buffer));
+                                               EOpcode::PING, ping_buffer));
             return true;
         }
 
@@ -159,7 +154,7 @@ namespace InternetProtocol {
 
         void close() {
             asio::error_code ec_shutdown;
-	        asio::error_code ec_close;
+            asio::error_code ec_close;
             tcp.context.stop();
             tcp.socket.shutdown(asio::ip::udp::socket::shutdown_both, ec_shutdown);
             tcp.socket.close(ec_close);
@@ -168,7 +163,7 @@ namespace InternetProtocol {
                 on_error(ec_shutdown);
                 return;
             }
-            
+
             if (ec_close && on_error) {
                 on_error(ec_close);
                 return;
@@ -620,7 +615,9 @@ namespace InternetProtocol {
                 return;
             }
             if (rDataFrame.data_frame.opcode == EOpcode::PING) {
-                std::vector<std::byte> pong_buffer = {std::byte('p'), std::byte('o'), std::byte('n'), std::byte('g'), std::byte('\0')};
+                std::vector<std::byte> pong_buffer = {
+                    std::byte('p'), std::byte('o'), std::byte('n'), std::byte('g'), std::byte('\0')
+                };
                 post_buffer(EOpcode::PONG, pong_buffer);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
                 if (on_pong_received) on_pong_received();
@@ -649,44 +646,33 @@ namespace InternetProtocol {
         }
 
         /*HOST*/
-        void set_host(const std::string &url = "localhost",
-                     const std::string &port = "") {
+        void set_host(const std::string &url = "localhost", const std::string &port = "80") {
             host = url;
             service = port;
         }
 
         std::string get_local_adress() const {
-            if (is_connected())
-                return tcp.ssl_socket.lowest_layer()
-                        .local_endpoint()
-                        .address()
-                        .to_string();
-            return "";
+            return tcp.ssl_socket.lowest_layer()
+                    .local_endpoint()
+                    .address()
+                    .to_string();
         }
 
-        std::string get_local_port() const {
-            if (is_connected())
-                return tcp.ssl_socket.lowest_layer()
-                        .local_endpoint()
-                        .address()
-                        .to_string();
-            return "";
+        int get_local_port() const {
+            return tcp.ssl_socket.lowest_layer()
+                    .local_endpoint()
+                    .port();
         }
 
         std::string get_remote_adress() const {
-            if (is_connected())
-                return tcp.ssl_socket.lowest_layer()
-                        .remote_endpoint()
-                        .address()
-                        .to_string();
-            return host;
+            return tcp.ssl_socket.lowest_layer()
+                    .remote_endpoint()
+                    .address()
+                    .to_string();
         }
 
-        std::string get_remote_port() const {
-            if (is_connected())
-                return std::to_string(
-                    tcp.ssl_socket.lowest_layer().remote_endpoint().port());
-            return service;
+        int get_remote_port() const {
+            return tcp.ssl_socket.lowest_layer().remote_endpoint().port();
         }
 
         /*SETTINGS*/
@@ -839,7 +825,7 @@ namespace InternetProtocol {
             if (!thread_pool && !is_connected() && !buffer.empty()) return false;
 
             asio::post(*thread_pool, std::bind(&WebsocketClientSsl::post_buffer, this,
-                                        EOpcode::BINARY_FRAME, buffer));
+                                               EOpcode::BINARY_FRAME, buffer));
             return true;
         }
 
@@ -849,7 +835,7 @@ namespace InternetProtocol {
             std::vector<std::byte> ping_buffer;
             ping_buffer.push_back(std::byte('\0'));
             asio::post(*thread_pool, std::bind(&WebsocketClientSsl::post_buffer, this,
-                                        EOpcode::PING, ping_buffer));
+                                               EOpcode::PING, ping_buffer));
             return true;
         }
 
