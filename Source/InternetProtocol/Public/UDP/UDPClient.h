@@ -186,7 +186,7 @@ private:
 		{
 			return;
 		}
-		RBuffer.RawData.SetNum(MaxReceiveBufferSize, true);
+		RBuffer.RawData.SetNum(MaxReceiveBufferSize);
 	}
 
 	void run_context_thread();
