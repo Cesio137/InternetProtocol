@@ -10,9 +10,7 @@
 	"DocsURL": "https://internet-protocol-documentation.vercel.app/",
 	"MarketplaceURL": "com.epicgames.launcher://ue/Fab/product/e57e14af-251c-4713-90b1-800cbbdcf102",
 	"SupportURL": "https://github.com/Cesio137/InternetProtocol-Documentation/issues",
-	"PlatformAllowList": [
-		"Win64"
-	],
+	"PlatformAllowList": [ "Win64" ],
 	"EngineVersion": "4.27.0",
 	"CanContainContent": true,
 	"IsBetaVersion": false,

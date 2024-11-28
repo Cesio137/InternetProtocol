@@ -20,7 +20,6 @@
 #define HANDLE_ERROR(Error_Code) handle_error(Error_Code, __FILE__, __LINE__);
 DEFINE_LOG_CATEGORY_STATIC(LogAsio, Log, All);
 
-
 namespace asio
 {
 	namespace detail
@@ -29,7 +28,7 @@ namespace asio
 		inline void throw_exception(const Exception& e)
 		{
 			UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogAsio, Warning, TEXT("%s"), *FString(e.what()));
+			UE_LOG(LogAsio, Warning, TEXT("%hs"), e.what());
 			UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR/>"));
 		}
 	}

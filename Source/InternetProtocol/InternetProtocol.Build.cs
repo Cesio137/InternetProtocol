@@ -19,13 +19,6 @@ public class InternetProtocol : ModuleRules
 	public InternetProtocol(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		PublicDefinitions.AddRange(new string[]
-		{
-			"ASIO_STANDALONE",
-			"ASIO_NO_DEPRECATED",
-			"ASIO_NO_EXCEPTIONS"
-		});
-
 		PublicIncludePaths.AddRange(
 			new string[]
 			{
