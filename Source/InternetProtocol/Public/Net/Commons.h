@@ -29,7 +29,7 @@ THIRD_PARTY_INCLUDES_START
 
 #define ASIO_STANDALONE
 #define ASIO_NO_DEPRECATED
-# define ASIO_NO_EXCEPTIONS
+#define ASIO_NO_EXCEPTIONS
 #include <asio.hpp>
 #include <asio/ssl.hpp>
 
