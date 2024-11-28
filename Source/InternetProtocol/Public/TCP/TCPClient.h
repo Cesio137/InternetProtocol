@@ -46,7 +46,7 @@ public:
 		ShouldStopContext = true;
 		TCP.resolver.cancel();
 		if (IsConnected()) Close();
-		ThreadPool->wait();
+		ThreadPool->stop();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
@@ -62,33 +62,25 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
 	FString GetLocalAdress() const
 	{
-		if (IsConnected())
-			return TCP.socket.local_endpoint().address().to_string().c_str();
-		return "";
+		return TCP.socket.local_endpoint().address().to_string().c_str();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
-	FString GetLocalPort() const
+	int GetLocalPort() const
 	{
-		if (IsConnected())
-			return FString::FromInt(TCP.socket.local_endpoint().port());
-		return "";
+		return TCP.socket.local_endpoint().port();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
 	FString GetRemoteAdress() const
 	{
-		if (IsConnected())
-			return TCP.socket.remote_endpoint().address().to_string().c_str();
-		return Host;
+		return TCP.socket.remote_endpoint().address().to_string().c_str();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
-	FString GetRemotePort() const
+	int GetRemotePort() const
 	{
-		if (IsConnected())
-			return FString::FromInt(TCP.socket.remote_endpoint().port());
-		return Service;
+		return TCP.socket.remote_endpoint().port();
 	}
 
 	/*SETTINGS*/
@@ -194,7 +186,7 @@ public:
 		ShouldStopContext = true;
 		TCP.resolver.cancel();
 		if (IsConnected()) Close();
-		ThreadPool->wait();
+		ThreadPool->stop();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
@@ -210,33 +202,25 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
 	FString GetLocalAdress() const
 	{
-		if (IsConnected())
-			return TCP.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str();
-		return "";
+		return TCP.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
-	FString GetLocalPort() const
+	int GetLocalPort() const
 	{
-		if (IsConnected())
-			return FString::FromInt(TCP.ssl_socket.lowest_layer().local_endpoint().port());
-		return "";
+		return TCP.ssl_socket.lowest_layer().local_endpoint().port();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
 	FString GetRemoteAdress() const
 	{
-		if (IsConnected())
-			return TCP.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str();
-		return Host;
+		return TCP.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
-	FString GetRemotePort() const
+	int GetRemotePort() const
 	{
-		if (IsConnected())
-			return FString::FromInt(TCP.ssl_socket.lowest_layer().remote_endpoint().port());
-		return Service;
+		return TCP.ssl_socket.lowest_layer().remote_endpoint().port();
 	}
 
 	/*SETTINGS*/

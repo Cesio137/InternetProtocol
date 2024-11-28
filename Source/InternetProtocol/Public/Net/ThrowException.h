@@ -21,14 +21,17 @@
 DEFINE_LOG_CATEGORY_STATIC(LogAsio, Log, All);
 
 
-namespace asio::detail
+namespace asio
 {
-	template <typename Exception>
-	inline void throw_exception(const Exception& e)
+	namespace detail
 	{
-		UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR>"));
-		UE_LOG(LogAsio, Warning, TEXT("%s"), *FString(e.what()));
-		UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR/>"));
+		template <typename Exception>
+		inline void throw_exception(const Exception& e)
+		{
+			UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR>"));
+			UE_LOG(LogAsio, Warning, TEXT("%s"), *FString(e.what()));
+			UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR/>"));
+		}
 	}
 }
 #endif

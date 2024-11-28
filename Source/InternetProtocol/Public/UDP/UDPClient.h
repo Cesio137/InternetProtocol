@@ -48,14 +48,14 @@ public:
 		{
 			Close();
 		}
-		Thread_Pool->wait();
+		Thread_Pool->stop();
 		consume_receive_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Remote")
-	void SetHost(const FString& ip, const FString& port)
+	void SetHost(const FString& ip = "localhost", const FString& port = "80")
 	{
 		Host = ip;
 		Service = port;
@@ -64,41 +64,25 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
 	FString GetLocalAdress() const
 	{
-		if (IsConnected())
-		{
-			return UDP.socket.local_endpoint().address().to_string().c_str();
-		}
-		return "";
+		return UDP.socket.local_endpoint().address().to_string().c_str();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
-	FString GetLocalPort() const
+	int GetLocalPort() const
 	{
-		if (IsConnected())
-		{
-			return FString::FromInt(UDP.socket.local_endpoint().port());
-		}
-		return "";
+		return UDP.socket.local_endpoint().port();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
 	FString GetRemoteAdress() const
 	{
-		if (IsConnected())
-		{
-			return UDP.socket.remote_endpoint().address().to_string().c_str();
-		}
-		return Host;
+		return UDP.socket.remote_endpoint().address().to_string().c_str();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	FString GetRemotePort() const
+	int GetRemotePort() const
 	{
-		if (IsConnected())
-		{
-			return FString::FromInt(UDP.socket.remote_endpoint().port());
-		}
-		return Service;
+		return UDP.socket.remote_endpoint().port();
 	}
 
 	/*SETTINGS*/

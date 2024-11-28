@@ -57,7 +57,7 @@ public:
 		ShouldStopContext = true;
 		TCP.resolver.cancel();
 		if (!TCP.context.stopped() || TCP.socket.is_open()) CancelRequest();
-		ThreadPool->wait();
+		ThreadPool->stop();
 		ClearRequest();
 		ClearPayload();
 		ClearResponse();
@@ -274,7 +274,7 @@ public:
 		ShouldStopContext = true;
 		TCP.resolver.cancel();
 		if (!TCP.context.stopped() || TCP.ssl_socket.lowest_layer().is_open()) CancelRequest();
-		ThreadPool->wait();
+		ThreadPool->stop();
 		ClearRequest();
 		ClearPayload();
 		ClearResponse();
