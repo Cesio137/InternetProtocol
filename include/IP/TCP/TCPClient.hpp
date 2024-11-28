@@ -23,7 +23,7 @@ namespace InternetProtocol {
             should_stop_context = true;
             tcp.resolver.cancel();
             if (is_connected()) close();
-            thread_pool->wait();
+            thread_pool->stop();
             consume_response_buffer();
         }
 
@@ -280,8 +280,9 @@ namespace InternetProtocol {
     public:
         ~TCPClientSsl() {
             should_stop_context = true;
+            tcp.resolver.cancel();
             if (is_connected()) close();
-            thread_pool->wait();
+            thread_pool->stop();
             consume_response_buffer();
         }
 
@@ -440,9 +441,9 @@ namespace InternetProtocol {
         bool is_connected() const { return tcp.ssl_socket.lowest_layer().is_open(); }
 
         void close() {
-            tcp.context.stop();
             asio::error_code ec_shutdown;
             asio::error_code ec_close;
+            tcp.context.stop();
             tcp.ssl_socket.shutdown(ec_shutdown);
             tcp.ssl_socket.lowest_layer().close(ec_close);
             if (should_stop_context) return;

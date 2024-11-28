@@ -23,7 +23,7 @@ namespace InternetProtocol {
             should_stop_context = true;
             tcp.resolver.cancel();
             if (is_connected()) close();
-            thread_pool->wait();
+            thread_pool->stop();
             consume_response_buffer();
         }
 
@@ -640,8 +640,9 @@ namespace InternetProtocol {
     public:
         ~WebsocketClientSsl() {
             should_stop_context = true;
+            tcp.resolver.cancel();
             if (is_connected()) close();
-            thread_pool->wait();
+            thread_pool->stop();
             consume_response_buffer();
         }
 

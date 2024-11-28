@@ -32,7 +32,7 @@ namespace InternetProtocol {
             if (!tcp.context.stopped() || tcp.socket.is_open()) {
                 cancel_request();
             }
-            thread_pool->wait();
+            thread_pool->stop();
             clear_request();
             clear_payload();
             clear_response();
@@ -380,7 +380,7 @@ namespace InternetProtocol {
             if (!tcp.context.stopped() || tcp.ssl_socket.lowest_layer().is_open()) {
                 cancel_request();
             }
-            thread_pool->wait();
+            thread_pool->stop();
             clear_request();
             clear_payload();
             clear_response();
