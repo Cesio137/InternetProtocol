@@ -15,7 +15,6 @@
 #pragma once
 
 #include "Modules/ModuleManager.h"
-#include "Net/ThrowException.h"
 
 class FInternetProtocolModule : public IModuleInterface
 {

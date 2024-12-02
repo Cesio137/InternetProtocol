@@ -41,7 +41,17 @@ THIRD_PARTY_INCLUDES_END
 #undef UI
 #include "CoreMinimal.h"
 #include "Async/Async.h"
+#include "Logging/LogMacros.h"
 #include "Commons.generated.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogAsio, Log, All);
+template <typename Exception>
+inline void asio::detail::throw_exception(const Exception& e)
+{
+	UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR>"));
+	UE_LOG(LogAsio, Warning, TEXT("%hs"), e.what());
+	UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR/>"));
+}
 
 USTRUCT(Blueprintable, Category = "IP")
 struct FAsioTcp
