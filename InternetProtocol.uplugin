@@ -8,17 +8,18 @@
 	"CreatedBy": "Nathan Miguel",
 	"CreatedByURL": "https://github.com/Cesio137",
 	"DocsURL": "https://internet-protocol-documentation.vercel.app/",
-	"MarketplaceURL": "com.epicgames.launcher://ue/Fab/product/718a6f8e-69e0-4246-a566-9f68a03b1398",
+	"MarketplaceURL": "com.epicgames.launcher://ue/Fab/product/c2505541-bbb6-4d4b-8152-c6826d9a503f",
+	"FabURL": "com.epicgames.launcher://ue/Fab/product/c2505541-bbb6-4d4b-8152-c6826d9a503f",
 	"SupportURL": "https://github.com/Cesio137/InternetProtocol-Documentation/issues",
 	"CanContainContent": true,
-	"IsBetaVersion": false,
-	"IsExperimentalVersion": false,
-	"Installed": false,
 	"Modules": [
 		{
 			"Name": "InternetProtocol",
 			"Type": "Runtime",
-			"LoadingPhase": "PreLoadingScreen"
+			"PlatformAllowList": [
+				"Win64"
+			],
+			"LoadingPhase": "PostDefault"
 		}
 	]
 }
