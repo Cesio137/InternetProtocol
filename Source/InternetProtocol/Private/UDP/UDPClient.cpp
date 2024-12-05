@@ -103,9 +103,10 @@ void UUDPClient::package_string(const FString& str)
 
 	size_t string_offset = 0;
 	const size_t max_size = MaxSendBufferSize;
-	while (string_offset < str.Len())
+	const size_t str_len = static_cast<size_t>(str.Len());
+	while (string_offset < str_len)
 	{
-		size_t package_size = std::min(max_size, str.Len() - string_offset);
+		size_t package_size = std::min(max_size, str_len - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		packaged_str = TCHAR_TO_UTF8(*strshrink);
 		UDP.socket.async_send_to(asio::buffer(packaged_str.data(), packaged_str.size()), UDP.endpoints,
@@ -121,7 +122,7 @@ void UUDPClient::package_buffer(const TArray<uint8>& buffer)
 	MutexBuffer.Lock();
 	if (!SplitBuffer || buffer.Num() <= MaxSendBufferSize)
 	{
-		UDP.socket.async_send_to(asio::buffer(buffer.GetData(), buffer.Num() * sizeof(char)), UDP.endpoints,
+		UDP.socket.async_send_to(asio::buffer(buffer.GetData(), buffer.Num()), UDP.endpoints,
 		                         std::bind(&UUDPClient::send_to, this, asio::placeholders::error,
 		                                   asio::placeholders::bytes_transferred)
 		);
@@ -131,12 +132,13 @@ void UUDPClient::package_buffer(const TArray<uint8>& buffer)
 
 	size_t buffer_offset = 0;
 	const size_t max_size = MaxSendBufferSize - 1;
-	while (buffer_offset < buffer.Num() * sizeof(char))
+	const size_t buf_len = static_cast<size_t>(buffer.Num());
+	while (buffer_offset < buf_len)
 	{
-		size_t package_size = std::min(max_size, buffer.Num() - buffer_offset);
+		size_t package_size = std::min(max_size, buf_len - buffer_offset);
 		TArray<uint8> sbuffer;
 		sbuffer.Append(buffer.GetData() + buffer_offset, package_size);
-		UDP.socket.async_send_to(asio::buffer(sbuffer.GetData(), sbuffer.Num() * sizeof(char)), UDP.endpoints,
+		UDP.socket.async_send_to(asio::buffer(sbuffer.GetData(), sbuffer.Num()), UDP.endpoints,
 		                         std::bind(&UUDPClient::send_to, this, asio::placeholders::error,
 		                                   asio::placeholders::bytes_transferred)
 		);

@@ -125,7 +125,8 @@ void UWSClient::post_buffer(EOpcode opcode, const TArray<uint8>& buffer)
 void UWSClient::package_string(const FString& str)
 {
 	std::string payload;
-	if (!SplitBuffer || str.Len() /*+ get_frame_encode_size(str.size())*/ <= MaxSendBufferSize)
+	const int frame_encode_size = static_cast<int>(get_frame_encode_size(str.Len()));
+	if (!SplitBuffer || str.Len() + frame_encode_size <= MaxSendBufferSize)
 	{
 		SDataFrame.fin = true;
 		payload = TCHAR_TO_UTF8(*str);
@@ -140,10 +141,11 @@ void UWSClient::package_string(const FString& str)
 	SDataFrame.fin = true;
 	size_t string_offset = 0;
 	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(str.Len());
-	while (string_offset < str.Len())
+	const size_t str_len = static_cast<size_t>(str.Len());
+	while (string_offset < str_len)
 	{
-		SDataFrame.fin = string_offset < str.Len();
-		size_t package_size = std::min(max_size, str.Len() - string_offset);
+		SDataFrame.fin = string_offset < str_len;
+		size_t package_size = std::min(max_size, str_len - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		payload = TCHAR_TO_UTF8(*strshrink);
 		payload = encode_string_payload(payload);
@@ -225,7 +227,8 @@ std::string UWSClient::encode_string_payload(const std::string& payload)
 void UWSClient::package_buffer(const TArray<uint8>& buffer)
 {
 	std::vector<uint8> payload;
-	if (!SplitBuffer || buffer.Num() + get_frame_encode_size(buffer.Num()) <= MaxSendBufferSize)
+	const int frame_encode_size = static_cast<int>(get_frame_encode_size(buffer.Num()));
+	if (!SplitBuffer || buffer.Num() + frame_encode_size <= MaxSendBufferSize)
 	{
 		payload.assign(buffer.GetData(), buffer.GetData() + buffer.Num());
 		SDataFrame.fin = true;
@@ -240,10 +243,11 @@ void UWSClient::package_buffer(const TArray<uint8>& buffer)
 	SDataFrame.fin = false;
 	size_t buffer_offset = 0;
 	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(buffer.Num());
-	while (buffer_offset < buffer.Num())
+	const size_t buf_len = static_cast<size_t>(buffer.Num());
+	while (buffer_offset < buf_len)
 	{
-		SDataFrame.fin = buffer_offset < buffer.Num();
-		size_t package_size = std::min(max_size, buffer.Num() - buffer_offset);
+		SDataFrame.fin = buffer_offset < buf_len;
+		size_t package_size = std::min(max_size, buf_len - buffer_offset);
 		payload.assign(buffer.GetData() + buffer_offset, buffer.GetData() + buffer_offset + package_size);
 		encode_buffer_payload(payload);
 		asio::async_write(TCP.socket, asio::buffer(payload, payload.size()),
@@ -776,7 +780,8 @@ void UWSClientSsl::post_buffer(EOpcode opcode, const TArray<uint8>& buffer)
 void UWSClientSsl::package_string(const FString& str)
 {
 	std::string payload;
-	if (!SplitBuffer || str.Len() /*+ get_frame_encode_size(str.size())*/ <= MaxSendBufferSize)
+	const int frame_encode_size = static_cast<int>(get_frame_encode_size(str.Len()));
+	if (!SplitBuffer || str.Len() + frame_encode_size <= MaxSendBufferSize)
 	{
 		SDataFrame.fin = true;
 		payload = TCHAR_TO_UTF8(*str);
@@ -791,10 +796,11 @@ void UWSClientSsl::package_string(const FString& str)
 	SDataFrame.fin = true;
 	size_t string_offset = 0;
 	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(str.Len());
-	while (string_offset < str.Len())
+	const size_t str_len = static_cast<size_t>(str.Len());
+	while (string_offset < str_len)
 	{
-		SDataFrame.fin = string_offset < str.Len();
-		size_t package_size = std::min(max_size, str.Len() - string_offset);
+		SDataFrame.fin = string_offset < str_len;
+		size_t package_size = std::min(max_size, str_len - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		payload = TCHAR_TO_UTF8(*strshrink);
 		payload = encode_string_payload(payload);
@@ -876,7 +882,8 @@ std::string UWSClientSsl::encode_string_payload(const std::string& payload)
 void UWSClientSsl::package_buffer(const TArray<uint8>& buffer)
 {
 	std::vector<uint8> payload;
-	if (!SplitBuffer || buffer.Num() + get_frame_encode_size(buffer.Num()) <= MaxSendBufferSize)
+	const int frame_encode_size = static_cast<int>(get_frame_encode_size(buffer.Num()));
+	if (!SplitBuffer || buffer.Num() + frame_encode_size <= MaxSendBufferSize)
 	{
 		payload.assign(buffer.GetData(), buffer.GetData() + buffer.Num());
 		SDataFrame.fin = true;
@@ -891,10 +898,11 @@ void UWSClientSsl::package_buffer(const TArray<uint8>& buffer)
 	SDataFrame.fin = false;
 	size_t buffer_offset = 0;
 	const size_t max_size = MaxSendBufferSize - get_frame_encode_size(buffer.Num());
-	while (buffer_offset < buffer.Num())
+	const size_t buf_len = static_cast<size_t>(buffer.Num());
+	while (buffer_offset < buf_len)
 	{
-		SDataFrame.fin = buffer_offset < buffer.Num();
-		size_t package_size = std::min(max_size, buffer.Num() - buffer_offset);
+		SDataFrame.fin = buffer_offset < buf_len;
+		size_t package_size = std::min(max_size, buf_len - buffer_offset);
 		payload.assign(buffer.GetData() + buffer_offset, buffer.GetData() + buffer_offset + package_size);
 		encode_buffer_payload(payload);
 		asio::async_write(TCP.ssl_socket, asio::buffer(payload, payload.size()),
