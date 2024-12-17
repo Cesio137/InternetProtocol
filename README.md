@@ -95,15 +95,16 @@ git clone https://github.com/Cesio137/InternetProtocol.git
 VCPKG_ROOT
 
 * Setup VCPKG
-    * Create a variable called `VCPKG_ROOT` if do not exist:
-        * ```Path
+	* Add VCPKG to `PATH` to path variable
+    * Create a enviroment variable called `VCPKG_ROOT` if do not exist:
+         ```Path
       <Path to VCPKG>/
       ```
 
 * Setup Project.
     * Create a `build` folder and open terminal inside.
     * Commands to generate project
-        * ```bash
+       ```bash
       cmake .. --preset=debug
       cmake .. --preset=release
       ``` 
