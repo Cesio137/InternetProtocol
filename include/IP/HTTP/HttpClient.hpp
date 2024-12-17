@@ -217,7 +217,7 @@ namespace InternetProtocol {
         uint8_t timeout = 3;
         uint8_t max_attemp = 3;
         FRequest request;
-        FAsioTcp tcp;
+        Client::FAsioTcp tcp;
         std::string payload;
         asio::streambuf request_buffer;
         asio::streambuf response_buffer;
@@ -640,7 +640,7 @@ namespace InternetProtocol {
         uint8_t timeout = 3;
         uint8_t max_attemp = 3;
         FRequest request;
-        FAsioTcpSsl tcp;
+        Client::FAsioTcpSsl tcp;
         std::string payload;
         asio::streambuf request_buffer;
         asio::streambuf response_buffer;

@@ -14,7 +14,9 @@
 
 #pragma once
 
+#include <IP/UDP/UDPServer.hpp>
 #include <IP/UDP/UDPClient.hpp>
+#include <IP/TCP/TCPServer.hpp>
 #include <IP/TCP/TCPClient.hpp>
 #include <IP/HTTP/HttpClient.hpp>
 #include <IP/Websocket/WebsocketClient.hpp>

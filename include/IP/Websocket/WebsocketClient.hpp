@@ -195,7 +195,7 @@ namespace InternetProtocol {
         uint8_t max_attemp = 3;
         bool split_buffer = false;
         int max_send_buffer_size = 1400;
-        FAsioTcp tcp;
+        Client::FAsioTcp tcp;
         asio::streambuf request_buffer;
         asio::streambuf response_buffer;
         FHandShake handshake;
@@ -901,7 +901,7 @@ namespace InternetProtocol {
         uint8_t max_attemp = 3;
         bool split_buffer = false;
         int max_send_buffer_size = 1400;
-        FAsioTcpSsl tcp;
+        Client::FAsioTcpSsl tcp;
         asio::streambuf request_buffer;
         asio::streambuf response_buffer;
         FHandShake handshake;
