@@ -20,27 +20,19 @@ namespace InternetProtocol {
     class UDPClient {
     public:
         ~UDPClient() {
-            should_stop_context = true;
             udp.resolver.cancel();
             if (get_socket().is_open()) close();
-            thread_pool->stop();
-            rbuffer.raw_data.clear();
-            rbuffer.raw_data.shrink_to_fit();
         }
 
         /*HOST | LOCAL*/
-        void set_host(const std::string &ip = "localhost", const uint16_t port = 80) {
+        void set_host(const std::string &ip = "localhost", const std::string &port = "3000") {
             host = ip;
-            service = std::to_string(port);
+            service = port;
         }
 
-        const asio::ip::udp::socket &get_socket() const { return udp.socket; }
+        asio::ip::udp::socket &get_socket() { return udp.socket; }
 
         /*SETTINGS*/
-        void set_timeout(uint8_t value = 3) { timeout = value; }
-        uint8_t get_timeout() const { return timeout; }
-        void set_max_attemp(uint8_t value = 3) { max_attemp = value; }
-        uint8_t get_max_attemp() const { return timeout; }
         void set_max_send_buffer_size(int value = 1024) { max_send_buffer_size = value; }
         int get_max_send_buffer_size() const { return max_send_buffer_size; }
         void set_max_receive_buffer_size(int value = 1024) { max_receive_buffer_size = value; }
@@ -50,53 +42,53 @@ namespace InternetProtocol {
 
         /*MESSAGE*/
         bool send_str(const std::string &message) {
-            if (!thread_pool && !get_socket().is_open() && !message.empty())
+            if (!get_socket().is_open() && !message.empty())
                 return false;
 
-            asio::post(*thread_pool, std::bind(&UDPClient::package_string, this, message));
+            asio::post(thread_pool, std::bind(&UDPClient::package_string, this, message));
             return true;
         }
 
         bool send_buffer(const std::vector<std::byte> &buffer) {
-            if (!thread_pool && !get_socket().is_open() && !buffer.empty())
+            if (!get_socket().is_open() && !buffer.empty())
                 return false;
 
-            asio::post(*thread_pool, std::bind(&UDPClient::package_buffer, this, buffer));
-            return true;
-        }
-
-        bool async_read() {
-            if (!get_socket().is_open())
-                return false;
-
-            udp.socket.async_receive_from(asio::buffer(rbuffer.raw_data, rbuffer.raw_data.size()), udp.endpoints,
-                                          std::bind(&UDPClient::receive_from, this, asio::placeholders::error,
-                                                    asio::placeholders::bytes_transferred));
+            asio::post(thread_pool, std::bind(&UDPClient::package_buffer, this, buffer));
             return true;
         }
 
         /*CONNECTION*/
         bool connect() {
-            if (!thread_pool && get_socket().is_open())
+            if (get_socket().is_open())
                 return false;
 
-            asio::post(*thread_pool, std::bind(&UDPClient::run_context_thread, this));
+            asio::post(thread_pool, std::bind(&UDPClient::run_context_thread, this));
             return true;
         }
 
         void close() {
+            is_closing = true;
             udp.context.stop();
-            if (!udp.socket.is_open()) return;
-            udp.socket.cancel();
-            udp.socket.shutdown(asio::ip::udp::socket::shutdown_both);
-            udp.socket.close();
-            if (should_stop_context) return;
+            if (udp.socket.is_open()) {
+                udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, error_code);
+                if (error_code && on_error) {
+                    std::lock_guard<std::mutex> guard(mutex_error);
+                    on_error(error_code);
+                }
+                udp.socket.close(error_code);
+                if (error_code && on_error) {
+                    std::lock_guard<std::mutex> guard(mutex_error);
+                    on_error(error_code);
+                }
+            }
+            udp.context.restart();
             if (on_close)
                 on_close();
+            is_closing = false;
         }
 
         /*ERRORS*/
-        asio::error_code get_error_code() const { return udp.error_code; }
+        asio::error_code get_error_code() const { return error_code; }
 
         /*EVENTS*/
         std::function<void()> on_connected;
@@ -107,16 +99,14 @@ namespace InternetProtocol {
         std::function<void(const asio::error_code &)> on_error;
 
     private:
-        std::unique_ptr<asio::thread_pool> thread_pool = std::make_unique<asio::thread_pool>(
-            std::thread::hardware_concurrency());
         std::mutex mutex_io;
         std::mutex mutex_buffer;
-        bool should_stop_context = false;
+        std::mutex mutex_error;
+        bool is_closing = false;
         Client::FAsioUdp udp;
+        asio::error_code error_code;
         std::string host = "localhost";
-        std::string service;
-        uint8_t timeout = 3;
-        uint8_t max_attemp = 3;
+        std::string service = "3000";
         bool split_buffer = true;
         int max_send_buffer_size = 1024;
         int max_receive_buffer_size = 1024;
@@ -167,38 +157,32 @@ namespace InternetProtocol {
         }
 
         void consume_receive_buffer() {
-            rbuffer.raw_data.clear();
-            rbuffer.raw_data.shrink_to_fit();
-            if (should_stop_context) return;
-            rbuffer.raw_data.resize(max_receive_buffer_size);
+            rbuffer.size = 0;
+            if (!rbuffer.raw_data.empty()) {
+                rbuffer.raw_data.clear();
+                rbuffer.raw_data.shrink_to_fit();
+            }
+            if (rbuffer.raw_data.size() != max_receive_buffer_size)
+                rbuffer.raw_data.resize(max_send_buffer_size);
         }
 
         /*ASYNC HANDLER FUNCTIONS*/
         void run_context_thread() {
             std::lock_guard<std::mutex> guard(mutex_io);
-            while (udp.attemps_fail <= max_attemp) {
-                if (on_connection_retry && udp.attemps_fail > 0)
-                    on_connection_retry(udp.attemps_fail);
-                udp.error_code.clear();
-                udp.context.restart();
-                udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
-                                           std::bind(&UDPClient::resolve, this, asio::placeholders::error,
-                                                     asio::placeholders::results));
-                udp.context.run();
-                if (!udp.error_code)
-                    break;
-                udp.attemps_fail++;
-                std::this_thread::sleep_for(std::chrono::seconds(timeout));
-            }
-            consume_receive_buffer();
-            udp.attemps_fail = 0;
+            error_code.clear();
+            udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
+                                       std::bind(&UDPClient::resolve, this, asio::placeholders::error,
+                                                 asio::placeholders::results));
+            udp.context.run();
+            if (get_socket().is_open() && !is_closing)
+                close();
         }
 
         void resolve(const asio::error_code &error, const asio::ip::udp::resolver::results_type &results) {
             if (error) {
-                udp.error_code = error;
-                if (on_error)
-                    on_error(error);
+                error_code = error;
+                std::lock_guard<std::mutex> guard(mutex_error);
+                if (on_error) on_error(error);
                 return;
             }
             udp.endpoints = *results.begin();
@@ -208,12 +192,13 @@ namespace InternetProtocol {
 
         void conn(const asio::error_code &error) {
             if (error) {
-                udp.error_code = error;
-                if (on_error)
-                    on_error(error);
+                error_code = error;
+                std::lock_guard<std::mutex> guard(mutex_error);
+                if (on_error) on_error(error);
                 return;
             }
-            consume_receive_buffer();
+            if (rbuffer.raw_data.size() != max_receive_buffer_size)
+                consume_receive_buffer();
             udp.socket.async_receive_from(asio::buffer(rbuffer.raw_data, rbuffer.raw_data.size()), udp.endpoints,
                                           std::bind(&UDPClient::receive_from, this, asio::placeholders::error,
                                                     asio::placeholders::bytes_transferred));
@@ -224,8 +209,8 @@ namespace InternetProtocol {
 
         void send_to(const asio::error_code &error, const size_t bytes_sent) {
             if (error) {
-                if (on_error)
-                    on_error(error);
+                std::lock_guard<std::mutex> guard(mutex_error);
+                if (on_error) on_error(error);
                 return;
             }
 
@@ -235,12 +220,11 @@ namespace InternetProtocol {
 
         void receive_from(const asio::error_code &error, const size_t bytes_recvd) {
             if (error) {
-                if (on_error)
-                    on_error(error);
+                std::lock_guard<std::mutex> guard(mutex_error);
+                if (on_error) on_error(error);
                 return;
             }
 
-            udp.attemps_fail = 0;
             rbuffer.size = bytes_recvd;
             rbuffer.raw_data.resize(bytes_recvd);
             if (on_message_received)

@@ -14,10 +14,15 @@
 
 #pragma once
 
-#include <IP/UDP/UDPServer.hpp>
-#include <IP/UDP/UDPClient.hpp>
-#include <IP/TCP/TCPServer.hpp>
-#include <IP/TCP/TCPClient.hpp>
-#include <IP/HTTP/HttpServer.hpp>
-#include <IP/HTTP/HttpClient.hpp>
-#include <IP/Websocket/WebsocketClient.hpp>
+#include <IP/Net/Message.hpp>
+
+namespace InternetProtocol {
+    class HttpServer {
+    public:
+        ~HttpServer() {
+        };
+
+    private:
+        Server::FAsioTcp tcp;
+    };
+}

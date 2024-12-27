@@ -18,7 +18,7 @@ project(InternetProtocol CXX)
 set(CMAKE_CXX_STANDARD 20)
 find_package(OpenSSL REQUIRED)
 
-file(GLOB_RECURSE sources "${CMAKE_SOURCE_DIR}/include/#.h")
+file(GLOB_RECURSE sources "${CMAKE_SOURCE_DIR}/include/*.hpp")
 add_library(InternetProtocol INTERFACE ${sources})
 target_include_directories(InternetProtocol INTERFACE "${CMAKE_SOURCE_DIR}/include")
 add_subdirectory(thirdparty)
@@ -32,6 +32,7 @@ set_target_properties(InternetProtocol PROPERTIES LINKER_LANGUAGE CXX)
 
 enable_testing()
 add_executable(checksum test/test.cpp ${sources})
+target_include_directories(checksum PUBLIC "${CMAKE_SOURCE_DIR}/include")
 target_link_libraries(checksum 
         PUBLIC 
         InternetProtocol

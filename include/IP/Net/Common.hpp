@@ -33,6 +33,8 @@
 #include <asio/ssl.hpp>
 #endif
 namespace InternetProtocol {
+    static asio::thread_pool thread_pool(std::thread::hardware_concurrency());
+
     namespace Server {
         enum class EServerProtocol : uint8_t {
             V4 = 0,
@@ -43,163 +45,147 @@ namespace InternetProtocol {
             FAsioUdp() : socket(context) {
             }
 
-            asio::error_code error_code;
-            asio::io_context context;
-            asio::ip::udp::socket socket;
-            asio::ip::udp::endpoint remote_endpoint;
-
-            FAsioUdp(const FAsioUdp &asio) : socket(
-                context, asio::ip::udp::endpoint(asio.socket.local_endpoint().protocol(),
-                                                 asio.socket.local_endpoint().port())) {
-                error_code = asio.error_code;
+            FAsioUdp(const FAsioUdp &asio) : socket(context) {
             }
 
             FAsioUdp &operator=(const FAsioUdp &asio) {
                 if (this != &asio) {
-                    error_code = asio.error_code;
+
                 }
                 return *this;
             }
+
+            asio::io_context context;
+            asio::ip::udp::socket socket;
+            asio::ip::udp::endpoint remote_endpoint;
         };
 
         struct FAsioTcp {
             FAsioTcp() : acceptor(context) {
             }
 
-            asio::error_code error_code;
-            asio::io_context context;
-            asio::ip::tcp::acceptor acceptor;
-            std::set<std::shared_ptr<asio::ip::tcp::socket>> peers;
-
-            FAsioTcp(const FAsioTcp &asio) : acceptor(context),
-                                             error_code(asio.error_code) {
+            FAsioTcp(const FAsioTcp &asio) : acceptor(context) {
             }
 
             FAsioTcp &operator=(const FAsioTcp &asio) {
                 if (this != &asio) {
-                    error_code = asio.error_code;
                     acceptor = asio::ip::tcp::acceptor(context);
+                    peers = asio.peers;
                 }
                 return *this;
             }
+
+            asio::io_context context;
+            asio::ip::tcp::acceptor acceptor;
+            std::set<std::shared_ptr<asio::ip::tcp::socket>> peers;
         };
 #ifdef ASIO_USE_OPENSSL
-        struct FAsioTcpSsl {
-            FAsioTcpSsl() : acceptor(context), ssl_context(asio::ssl::context::sslv23) {
-            }
+		struct FAsioTcpSsl {
+			FAsioTcpSsl() : acceptor(context), ssl_context(asio::ssl::context::tlsv13_server) {
+			}
 
-            asio::error_code error_code;
-            asio::io_context context;
-            asio::ssl::context ssl_context;
-            asio::ip::tcp::acceptor acceptor;
-            std::set<std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>>> ssl_peers;
+			FAsioTcpSsl(const FAsioTcpSsl& asio) : acceptor(context),
+				ssl_context(asio::ssl::context::tlsv13_server) {
+			}
 
-            FAsioTcpSsl(const FAsioTcp &asio) : acceptor(context),
-                                             ssl_context(asio::ssl::context::sslv23),
-                                             error_code(asio.error_code) {
-            }
+			FAsioTcpSsl& operator=(const FAsioTcpSsl& asio) {
+				if (this != &asio) {
+					acceptor = asio::ip::tcp::acceptor(context);
+					ssl_context = asio::ssl::context(asio::ssl::context::tlsv13_server);
+				}
+				return *this;
+			}
 
-            FAsioTcpSsl &operator=(const FAsioTcpSsl &asio) {
-                if (this != &asio) {
-                    error_code = asio.error_code;
-                    acceptor = asio::ip::tcp::acceptor(context);
-                    ssl_context = asio::ssl::context(asio::ssl::context::sslv23);
-                }
-                return *this;
-            }
-        };
+		    asio::io_context context;
+		    asio::ssl::context ssl_context;
+		    asio::ip::tcp::acceptor acceptor;
+		    std::set<std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>>> ssl_peers;
+		};
 #endif
     };
 
     namespace Client {
         /*UDP*/
         struct FAsioUdp {
-            FAsioUdp() : resolver(context), socket(context) {
+            FAsioUdp() : socket(context),
+                         resolver(context){
             }
 
-            asio::error_code error_code;
-            asio::io_context context;
-            asio::ip::udp::socket socket;
-            asio::ip::udp::endpoint endpoints;
-            asio::ip::udp::resolver resolver;
-            uint8_t attemps_fail = 0;
-
-            FAsioUdp(const FAsioUdp &asio) : resolver(context), socket(context) {
-                error_code = asio.error_code;
-                endpoints = asio.endpoints;
+            FAsioUdp(const FAsioUdp &asio) : resolver(context),
+                                             socket(context),
+                                             endpoints(asio.endpoints) {
             }
 
             FAsioUdp &operator=(const FAsioUdp &asio) {
                 if (this != &asio) {
-                    error_code = asio.error_code;
                     endpoints = asio.endpoints;
                 }
                 return *this;
             }
+
+            asio::io_context context;
+            asio::ip::udp::socket socket;
+            asio::ip::udp::endpoint endpoints;
+            asio::ip::udp::resolver resolver;
         };
 
         /*TCP*/
         struct FAsioTcp {
-            FAsioTcp() : resolver(context), socket(context) {
+            FAsioTcp() : resolver(context),
+                         socket(context) {
             }
 
-            asio::error_code error_code;
-            asio::io_context context;
-            asio::ip::tcp::resolver resolver;
-            asio::ip::tcp::resolver::results_type endpoints;
-            asio::ip::tcp::socket socket;
-            uint8_t attemps_fail = 0;
-
-            FAsioTcp(const FAsioTcp &asio) : resolver(context), socket(context) {
-                error_code = asio.error_code;
+            FAsioTcp(const FAsioTcp &asio) : resolver(context),
+            socket(context) {
                 endpoints = asio.endpoints;
             }
 
             FAsioTcp &operator=(const FAsioTcp &asio) {
                 if (this != &asio) {
-                    error_code = asio.error_code;
                     endpoints = asio.endpoints;
                 }
                 return *this;
             }
-        };
-#ifdef ASIO_USE_OPENSSL
-        struct FAsioTcpSsl {
-            FAsioTcpSsl()
-                : context(),
-                  ssl_context(asio::ssl::context::sslv23),
-                  resolver(context),
-                  ssl_socket(context, ssl_context) {
-                ssl_context.set_verify_mode(asio::ssl::verify_peer);
-            }
 
-            asio::error_code error_code;
             asio::io_context context;
-            asio::ssl::context ssl_context;
             asio::ip::tcp::resolver resolver;
             asio::ip::tcp::resolver::results_type endpoints;
-            asio::ssl::stream<asio::ip::tcp::socket> ssl_socket;
-            uint8_t attemps_fail = 0;
-
-            FAsioTcpSsl(const FAsioTcpSsl &asio)
-                : context(),
-                  ssl_context(asio::ssl::context::sslv23),
-                  resolver(context),
-                  ssl_socket(context, ssl_context) {
-                ssl_context.set_verify_mode(asio::ssl::verify_peer);
-                error_code = asio.error_code;
-                endpoints = asio.endpoints;
-            }
-
-            FAsioTcpSsl &operator=(const FAsioTcpSsl &asio) {
-                if (this != &asio) {
-                    ssl_context.set_verify_mode(asio::ssl::verify_peer);
-                    error_code = asio.error_code;
-                    endpoints = asio.endpoints;
-                }
-                return *this;
-            }
+            asio::ip::tcp::socket socket;
         };
+#ifdef ASIO_USE_OPENSSL
+		struct FAsioTcpSsl {
+			FAsioTcpSsl()
+				: context(),
+				ssl_context(asio::ssl::context::tlsv13_client),
+		        ssl_socket(context, ssl_context),
+				resolver(context) {
+				ssl_context.set_verify_mode(asio::ssl::verify_peer);
+				ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
+			}
+
+			FAsioTcpSsl(const FAsioTcpSsl& asio)
+			: ssl_context(asio::ssl::context::tlsv13_client),
+		    ssl_socket(context, ssl_context),
+			resolver(context),
+			endpoints(asio.endpoints) {
+				ssl_context.set_verify_mode(asio::ssl::verify_peer);
+				ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
+			}
+
+			FAsioTcpSsl& operator=(const FAsioTcpSsl& asio) {
+				if (this != &asio) {
+					ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
+					endpoints = asio.endpoints;
+				}
+				return *this;
+			}
+
+		    asio::io_context context;
+		    asio::ssl::context ssl_context;
+		    asio::ip::tcp::resolver resolver;
+		    asio::ip::tcp::resolver::results_type endpoints;
+		    asio::ssl::stream<asio::ip::tcp::socket> ssl_socket;
+		};
 #endif
     }
 
@@ -241,29 +227,29 @@ namespace InternetProtocol {
         int contentLenght = 0;
         std::string content;
 
-        void appendHeader(const std::string &headerline) {
+        void append_header(const std::string &headerline) {
             size_t pos = headerline.find(':');
             if (pos != std::string::npos) {
-                std::string key = trimWhitespace(headerline.substr(0, pos));
-                std::string value = trimWhitespace(headerline.substr(pos + 1));
+                std::string key = trim_whitespace(headerline.substr(0, pos));
+                std::string value = trim_whitespace(headerline.substr(pos + 1));
                 if (key == "Content-Length") {
                     contentLenght = std::stoi(value);
                     return;
                 }
-                std::vector<std::string> values = splitString(value, ';');
+                std::vector<std::string> values = split_string(value, ';');
                 std::transform(
                     values.begin(), values.end(), values.begin(),
-                    [this](const std::string &str) { return trimWhitespace(str); });
+                    [this](const std::string &str) { return trim_whitespace(str); });
                 headers.insert_or_assign(key, values);
             }
         }
 
-        void setContent(const std::string &value) {
+        void set_content(const std::string &value) {
             if (value.empty()) return;
             content = value;
         }
 
-        void appendContent(const std::string &value) {
+        void append_content(const std::string &value) {
             if (value.empty()) return;
             content.append(value);
         }
@@ -275,7 +261,7 @@ namespace InternetProtocol {
         }
 
     private:
-        std::vector<std::string> splitString(const std::string &str, char delimiter) {
+        std::vector<std::string> split_string(const std::string &str, char delimiter) {
             std::vector<std::string> tokens;
             std::string token;
             std::istringstream tokenStream(str);
@@ -285,7 +271,7 @@ namespace InternetProtocol {
             return tokens;
         }
 
-        std::string trimWhitespace(const std::string &str) {
+        std::string trim_whitespace(const std::string &str) {
             std::string::const_iterator start = str.begin();
             while (start != str.end() && std::isspace(*start)) {
                 start++;
