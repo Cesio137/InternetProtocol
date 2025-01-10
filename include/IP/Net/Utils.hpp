@@ -4,11 +4,11 @@
 
 namespace InternetProtocol {
     /*MESSAGE*/
-    inline std::string buffer_to_string(const std::vector<std::byte> &buffer) {
+    inline std::string buffer_to_string(const std::vector<uint8_t> &buffer) {
         std::string str;
         str.resize(buffer.size());
         std::transform(buffer.begin(), buffer.end(), str.begin(),
-                       [&](std::byte byte) { return static_cast<char>(byte); });
+                       [&](uint8_t byte) { return static_cast<char>(byte); });
         return str;
     }
 
@@ -36,7 +36,7 @@ namespace InternetProtocol {
 
         return std::string(start, end + 1);
     }
-    
+
     namespace Server {
         inline void req_append_header(FRequest &req, const std::string &headerline) {
             size_t pos = headerline.find(':');
@@ -61,7 +61,7 @@ namespace InternetProtocol {
             res.body.append(value);
         }
     }
-    
+
     namespace Client {
         inline void res_append_header(Client::FResponse &res, const std::string &headerline) {
             size_t pos = headerline.find(':');

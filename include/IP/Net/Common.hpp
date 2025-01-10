@@ -31,17 +31,17 @@
 namespace InternetProtocol {
     static asio::thread_pool thread_pool(std::thread::hardware_concurrency());
 
-	/*HTTP REQUEST*/
-	enum class EMethod : uint8_t {
-		DEL = 0,
-		GET = 1,
-		HEAD = 2,
-		OPTIONS = 3,
-		PATCH = 4,
-		POST = 5,
-		PUT = 6,
-		TRACE = 7,
-	};
+    /*HTTP REQUEST*/
+    enum class EMethod : uint8_t {
+        DEL = 0,
+        GET = 1,
+        HEAD = 2,
+        OPTIONS = 3,
+        PATCH = 4,
+        POST = 5,
+        PUT = 6,
+        TRACE = 7,
+    };
 
     namespace Server {
         enum class EServerProtocol : uint8_t {
@@ -58,7 +58,6 @@ namespace InternetProtocol {
 
             FAsioUdp &operator=(const FAsioUdp &asio) {
                 if (this != &asio) {
-
                 }
                 return *this;
             }
@@ -88,62 +87,63 @@ namespace InternetProtocol {
             std::set<socket_ptr> sockets;
         };
 #ifdef ASIO_USE_OPENSSL
-		struct FAsioTcpSsl {
-			FAsioTcpSsl() : acceptor(context), ssl_context(asio::ssl::context::tlsv13_server) {
-			}
+        struct FAsioTcpSsl {
+            FAsioTcpSsl() : acceptor(context), ssl_context(asio::ssl::context::tlsv13_server) {
+            }
 
-			FAsioTcpSsl(const FAsioTcpSsl& asio) : acceptor(context),
-				ssl_context(asio::ssl::context::tlsv13_server) {
-			}
+            FAsioTcpSsl(const FAsioTcpSsl &asio) : acceptor(context),
+                                                   ssl_context(asio::ssl::context::tlsv13_server) {
+            }
 
-			FAsioTcpSsl& operator=(const FAsioTcpSsl& asio) {
-				if (this != &asio) {
-					acceptor = asio::ip::tcp::acceptor(context);
-					ssl_context = asio::ssl::context(asio::ssl::context::tlsv13_server);
-				}
-				return *this;
-			}
+            FAsioTcpSsl &operator=(const FAsioTcpSsl &asio) {
+                if (this != &asio) {
+                    acceptor = asio::ip::tcp::acceptor(context);
+                    ssl_context = asio::ssl::context(asio::ssl::context::tlsv13_server);
+                }
+                return *this;
+            }
 
-		    asio::io_context context;
-		    asio::ssl::context ssl_context;
-		    asio::ip::tcp::acceptor acceptor;
-		    std::set<ssl_socket_ptr> ssl_sockets;
-		};
+            asio::io_context context;
+            asio::ssl::context ssl_context;
+            asio::ip::tcp::acceptor acceptor;
+            std::set<ssl_socket_ptr> ssl_sockets;
+        };
 #endif
-    	/*HTTP REQUEST*/
-    	const std::map<std::string, EMethod> RequestMethod = {
-    		{"DELETE", EMethod::DEL}, {"GET", EMethod::GET},
-			{"HEAD", EMethod::HEAD}, {"OPTIONS", EMethod::OPTIONS},
-			{"PATCH", EMethod::PATCH}, {"POST", EMethod::POST},
-			{"PUT", EMethod::PUT}, {"TRACE", EMethod::TRACE},
-		};
+        /*HTTP REQUEST*/
+        const std::map<std::string, EMethod> RequestMethod = {
+            {"DELETE", EMethod::DEL}, {"GET", EMethod::GET},
+            {"HEAD", EMethod::HEAD}, {"OPTIONS", EMethod::OPTIONS},
+            {"PATCH", EMethod::PATCH}, {"POST", EMethod::POST},
+            {"PUT", EMethod::PUT}, {"TRACE", EMethod::TRACE},
+        };
 
-    	struct FRequest {
-    		~FRequest() {
+        struct FRequest {
+            ~FRequest() {
+            }
 
-    		}
-    		EMethod method = EMethod::GET;
-    		std::string path = "/";
-    		std::string version = "1.1";
-    		std::map<std::string, std::vector<std::string>> headers;
-    		std::string body;
-    	};
+            EMethod method = EMethod::GET;
+            std::string path = "/";
+            std::string version = "1.1";
+            std::map<std::string, std::vector<std::string> > headers;
+            std::string body;
+        };
 
-    	struct FResponse {
-    		~FResponse() {
-    			headers.clear();
-    		}
-    		std::string version = "1.1";
-    		std::map<std::string, std::string> headers;
-    		std::string body;
-    	};
+        struct FResponse {
+            ~FResponse() {
+                headers.clear();
+            }
+
+            std::string version = "1.1";
+            std::map<std::string, std::string> headers;
+            std::string body;
+        };
     };
 
     namespace Client {
         /*UDP*/
         struct FAsioUdp {
             FAsioUdp() : socket(context),
-                         resolver(context){
+                         resolver(context) {
             }
 
             FAsioUdp(const FAsioUdp &asio) : resolver(context),
@@ -171,7 +171,7 @@ namespace InternetProtocol {
             }
 
             FAsioTcp(const FAsioTcp &asio) : resolver(context),
-            socket(context) {
+                                             socket(context) {
                 endpoints = asio.endpoints;
             }
 
@@ -188,79 +188,82 @@ namespace InternetProtocol {
             asio::ip::tcp::socket socket;
         };
 #ifdef ASIO_USE_OPENSSL
-		struct FAsioTcpSsl {
-			FAsioTcpSsl()
-				: context(),
-				ssl_context(asio::ssl::context::tlsv13_client),
-		        ssl_socket(context, ssl_context),
-				resolver(context) {
-				ssl_context.set_verify_mode(asio::ssl::verify_peer);
-				ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
-			}
+        struct FAsioTcpSsl {
+            FAsioTcpSsl()
+                : context(),
+                  ssl_context(asio::ssl::context::tlsv13_client),
+                  ssl_socket(context, ssl_context),
+                  resolver(context) {
+                ssl_context.set_verify_mode(asio::ssl::verify_peer);
+                ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
+            }
 
-			FAsioTcpSsl(const FAsioTcpSsl& asio)
-			: ssl_context(asio::ssl::context::tlsv13_client),
-		    ssl_socket(context, ssl_context),
-			resolver(context),
-			endpoints(asio.endpoints) {
-				ssl_context.set_verify_mode(asio::ssl::verify_peer);
-				ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
-			}
+            FAsioTcpSsl(const FAsioTcpSsl &asio)
+                : ssl_context(asio::ssl::context::tlsv13_client),
+                  ssl_socket(context, ssl_context),
+                  resolver(context),
+                  endpoints(asio.endpoints) {
+                ssl_context.set_verify_mode(asio::ssl::verify_peer);
+                ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
+            }
 
-			FAsioTcpSsl& operator=(const FAsioTcpSsl& asio) {
-				if (this != &asio) {
-					ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
-					endpoints = asio.endpoints;
-				}
-				return *this;
-			}
+            FAsioTcpSsl &operator=(const FAsioTcpSsl &asio) {
+                if (this != &asio) {
+                    ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(context, ssl_context);
+                    endpoints = asio.endpoints;
+                }
+                return *this;
+            }
 
-		    asio::io_context context;
-		    asio::ssl::context ssl_context;
-		    asio::ip::tcp::resolver resolver;
-		    asio::ip::tcp::resolver::results_type endpoints;
-		    asio::ssl::stream<asio::ip::tcp::socket> ssl_socket;
-		};
+            asio::io_context context;
+            asio::ssl::context ssl_context;
+            asio::ip::tcp::resolver resolver;
+            asio::ip::tcp::resolver::results_type endpoints;
+            asio::ssl::stream<asio::ip::tcp::socket> ssl_socket;
+        };
 #endif
-    	/*HTTP REQUEST*/
-    	const std::map<EMethod, std::string> RequestMethod = {
-    		{EMethod::DEL, "DELETE"}, {EMethod::GET, "GET"},
-			{EMethod::HEAD, "HEAD"}, {EMethod::OPTIONS, "OPTIONS"},
-			{EMethod::PATCH, "PATCH"}, {EMethod::POST, "POST"},
-			{EMethod::PUT, "PUT"}, {EMethod::TRACE, "TRACE"},
-		};
+        /*HTTP REQUEST*/
+        const std::map<EMethod, std::string> RequestMethod = {
+            {EMethod::DEL, "DELETE"}, {EMethod::GET, "GET"},
+            {EMethod::HEAD, "HEAD"}, {EMethod::OPTIONS, "OPTIONS"},
+            {EMethod::PATCH, "PATCH"}, {EMethod::POST, "POST"},
+            {EMethod::PUT, "PUT"}, {EMethod::TRACE, "TRACE"},
+        };
 
-    	struct FRequest {
-    		~FRequest() {
-    			params.clear();
-    			method = EMethod::GET;
-    			path = "/";
-    			version = "1.1";
-    			headers.clear();
-    			body.clear();
-    		}
-    		std::map<std::string, std::string> params;
-    		EMethod method = EMethod::GET;
-    		std::string path = "/";
-    		std::string version = "1.1";
-    		std::map<std::string, std::string> headers;
-    		std::string body;
-    	};
+        struct FRequest {
+            ~FRequest() {
+                params.clear();
+                method = EMethod::GET;
+                path = "/";
+                version = "1.1";
+                headers.clear();
+                body.clear();
+            }
 
-    	struct FResponse {
-    		~FResponse() {
-    			if (!headers.empty())
-    				headers.clear();
-    			content_lenght = 0;
-    			body.clear();
-    		}
-    		std::map<std::string, std::vector<std::string> > headers;
-    		int content_lenght = 0;
-    		std::string body;
-    	};
+            std::map<std::string, std::string> params;
+            EMethod method = EMethod::GET;
+            std::string path = "/";
+            std::string version = "1.1";
+            std::map<std::string, std::string> headers;
+            std::string body;
+        };
+
+        struct FResponse {
+            ~FResponse() {
+                if (!headers.empty())
+                    headers.clear();
+                content_lenght = 0;
+                body.clear();
+            }
+
+            std::map<std::string, std::vector<std::string> > headers;
+            int content_lenght = 0;
+            std::string body;
+        };
     }
-	/*HTTP RESPONSE*/
-	const std::map<int, std::string> ResponseStatusCode = {
+
+    /*HTTP RESPONSE*/
+    const std::map<int, std::string> ResponseStatusCode = {
         // 1xx Informational
         {100, "Continue"},
         {101, "Switching Protocols"},
@@ -357,7 +360,7 @@ namespace InternetProtocol {
         bool mask = true;
         EOpcode opcode = EOpcode::TEXT_FRAME;
         size_t length = 0;
-        std::array<std::byte, 4> masking_key;
+        std::array<uint8_t, 4> masking_key;
     };
 
     struct FHandShake {
@@ -369,4 +372,3 @@ namespace InternetProtocol {
         std::string Sec_Websocket_Version = "13";
     };
 } // namespace InternetProtocol
-

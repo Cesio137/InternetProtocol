@@ -49,7 +49,7 @@ namespace InternetProtocol {
             return true;
         }
 
-        bool send_buffer(const std::vector<std::byte> &buffer) {
+        bool send_buffer(const std::vector<uint8_t> &buffer) {
             if (!get_socket().is_open() || buffer.empty())
                 return false;
 
@@ -135,7 +135,7 @@ namespace InternetProtocol {
             }
         }
 
-        void package_buffer(const std::vector<std::byte> &buffer) {
+        void package_buffer(const std::vector<uint8_t> &buffer) {
             std::lock_guard<std::mutex> guard(mutex_buffer);
             if (!split_buffer || buffer.size() <= max_send_buffer_size) {
                 udp.socket.async_send_to(asio::buffer(buffer.data(), buffer.size()), udp.endpoints,
@@ -148,7 +148,7 @@ namespace InternetProtocol {
             const size_t max_size = max_send_buffer_size;
             while (buffer_offset < buffer.size()) {
                 size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
-                std::vector<std::byte> sbuffer(buffer.begin() + buffer_offset,
+                std::vector<uint8_t> sbuffer(buffer.begin() + buffer_offset,
                                                buffer.begin() + buffer_offset + package_size);
                 udp.socket.async_send_to(asio::buffer(sbuffer.data(), sbuffer.size()), udp.endpoints,
                                          std::bind(&UDPClient::send_to, this, asio::placeholders::error,

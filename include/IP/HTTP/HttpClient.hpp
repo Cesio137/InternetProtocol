@@ -282,7 +282,7 @@ namespace InternetProtocol {
 
         void read_status_line(const asio::error_code &error,
                               const size_t bytes_recvd) {
-            if (on_request_progress) on_request_progress(0,bytes_recvd);
+            if (on_request_progress) on_request_progress(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
@@ -303,7 +303,10 @@ namespace InternetProtocol {
             }
             if (status_code != 200) {
                 std::lock_guard<std::mutex> guard(mutex_error);
-                if (on_response_fail) on_response_fail(status_code, ResponseStatusCode.contains(status_code) ? ResponseStatusCode.at(status_code) : "");
+                if (on_response_fail) on_response_fail(status_code,
+                                                       ResponseStatusCode.contains(status_code)
+                                                           ? ResponseStatusCode.at(status_code)
+                                                           : "");
                 return;
             }
             asio::async_read_until(
@@ -400,7 +403,10 @@ namespace InternetProtocol {
 
         asio::ssl::context &get_ssl_context() { return tcp.ssl_context; }
         asio::ssl::stream<asio::ip::tcp::socket> &get_ssl_socket() { return tcp.ssl_socket; }
-        void update_ssl_socket() { tcp.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(tcp.context, tcp.ssl_context); }
+
+        void update_ssl_socket() {
+            tcp.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(tcp.context, tcp.ssl_context);
+        }
 
         /*REQUEST DATA*/
         void set_request(const Client::FRequest &value) { request = value; }
@@ -646,23 +652,22 @@ namespace InternetProtocol {
                 std::ostream request_stream(&request_buffer);
                 request_stream << payload;
                 asio::async_write(tcp.ssl_socket, request_buffer,
-                              std::bind(&HttpClientSsl::write_request, this,
-                                        asio::placeholders::error,
-                                        asio::placeholders::bytes_transferred, false));
+                                  std::bind(&HttpClientSsl::write_request, this,
+                                            asio::placeholders::error,
+                                            asio::placeholders::bytes_transferred, false));
                 return;
             }
             std::lock_guard<std::mutex> lock(mutex_io);
             error_code.clear();
             tcp.resolver.async_resolve(
-                    host, service,
-                    std::bind(&HttpClientSsl::resolve, this, asio::placeholders::error,
-                              asio::placeholders::results));
+                host, service,
+                std::bind(&HttpClientSsl::resolve, this, asio::placeholders::error,
+                          asio::placeholders::results));
             tcp.context.run();
             tcp.context.restart();
             if (get_ssl_socket().next_layer().is_open() && !is_closing) {
                 close();
-            }
-            else if (tcp.context.stopped() && !is_closing) {
+            } else if (tcp.context.stopped() && !is_closing) {
                 tcp.context.restart();
                 tcp.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(tcp.context, tcp.ssl_context);
             }
@@ -728,8 +733,8 @@ namespace InternetProtocol {
             }
             if (trigger_read_until) {
                 asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
-                                   std::bind(&HttpClientSsl::read_status_line, this,
-                                             asio::placeholders::error, asio::placeholders::bytes_transferred));
+                                       std::bind(&HttpClientSsl::read_status_line, this,
+                                                 asio::placeholders::error, asio::placeholders::bytes_transferred));
             }
         }
 
@@ -756,7 +761,10 @@ namespace InternetProtocol {
             }
             if (status_code != 200) {
                 std::lock_guard<std::mutex> lock(mutex_error);
-                if (on_response_fail) on_response_fail(status_code, ResponseStatusCode.contains(status_code) ? ResponseStatusCode.at(status_code) : "");
+                if (on_response_fail) on_response_fail(status_code,
+                                                       ResponseStatusCode.contains(status_code)
+                                                           ? ResponseStatusCode.at(status_code)
+                                                           : "");
                 return;
             }
             asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n\r\n",
@@ -788,20 +796,19 @@ namespace InternetProtocol {
             if (!stream_buffer.str().empty()) Client::res_append_body(response, stream_buffer.str());;
             if (response_buffer.size() > 0) {
                 asio::async_read(tcp.ssl_socket, response_buffer,
-                             asio::transfer_at_least(1),
-                             std::bind(&HttpClientSsl::read_body, this,
-                                       asio::placeholders::error));
+                                 asio::transfer_at_least(1),
+                                 std::bind(&HttpClientSsl::read_body, this,
+                                           asio::placeholders::error));
                 return;
             }
             if (on_request_complete) on_request_complete(response);
             consume_stream_buffers();
             if (response.headers["Connection"][0] == "close") {
                 if (!is_closing) close();
-            }
-            else {
+            } else {
                 asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
-                                   std::bind(&HttpClientSsl::read_status_line, this,
-                                             asio::placeholders::error, asio::placeholders::bytes_transferred));
+                                       std::bind(&HttpClientSsl::read_status_line, this,
+                                                 asio::placeholders::error, asio::placeholders::bytes_transferred));
             }
         }
 
@@ -818,20 +825,19 @@ namespace InternetProtocol {
             if (!body_buffer.str().empty()) Client::res_append_body(response, body_buffer.str());;
             if (response_buffer.size() > 0) {
                 asio::async_read(tcp.ssl_socket, response_buffer,
-                             asio::transfer_at_least(1),
-                             std::bind(&HttpClientSsl::read_body, this,
-                                       asio::placeholders::error));
+                                 asio::transfer_at_least(1),
+                                 std::bind(&HttpClientSsl::read_body, this,
+                                           asio::placeholders::error));
                 return;
             }
             if (on_request_complete) on_request_complete(response);
             consume_stream_buffers();
             if (response.headers["Connection"][0] == "close") {
                 if (!is_closing) close();
-            }
-            else {
+            } else {
                 asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
-                                   std::bind(&HttpClientSsl::read_status_line, this,
-                                             asio::placeholders::error, asio::placeholders::bytes_transferred));
+                                       std::bind(&HttpClientSsl::read_status_line, this,
+                                                 asio::placeholders::error, asio::placeholders::bytes_transferred));
             }
         }
     };

@@ -17,40 +17,44 @@
 #include <IP/Net/Common.hpp>
 
 namespace InternetProtocol {
-	struct FUdpMessage {
-		FUdpMessage() { raw_data.resize(1024); }
-		~FUdpMessage() {
-			raw_data.clear();
-			raw_data.shrink_to_fit();
-		}
-		std::vector<std::byte> raw_data;
-		size_t size = 0;
+    struct FUdpMessage {
+        FUdpMessage() { raw_data.resize(1024); }
 
-		std::string toString() const {
-			std::string str;
-			str.resize(size);
-			std::transform(raw_data.begin(), raw_data.end(), str.begin(),
-						   [](std::byte byte) { return static_cast<char>(byte); });
-			return str;
-		}
-	};
+        ~FUdpMessage() {
+            raw_data.clear();
+            raw_data.shrink_to_fit();
+        }
 
-	struct FTcpMessage {
-		~FTcpMessage() {
-			raw_data.clear();
-			raw_data.shrink_to_fit();
-		}
-		std::vector<std::byte> raw_data;
-		size_t size = 0;
-	};
+        std::vector<uint8_t> raw_data;
+        size_t size = 0;
 
-	struct FWsMessage {
-		~FWsMessage() {
-			payload.clear();
-			payload.shrink_to_fit();
-		}
-		FDataFrame data_frame;
-		std::vector<std::byte> payload;
-		size_t size = 0;
-	};
+        std::string toString() const {
+            std::string str;
+            str.resize(size);
+            std::transform(raw_data.begin(), raw_data.end(), str.begin(),
+                           [](uint8_t byte) { return static_cast<char>(byte); });
+            return str;
+        }
+    };
+
+    struct FTcpMessage {
+        ~FTcpMessage() {
+            raw_data.clear();
+            raw_data.shrink_to_fit();
+        }
+
+        std::vector<uint8_t> raw_data;
+        size_t size = 0;
+    };
+
+    struct FWsMessage {
+        ~FWsMessage() {
+            payload.clear();
+            payload.shrink_to_fit();
+        }
+
+        FDataFrame data_frame;
+        std::vector<uint8_t> payload;
+        size_t size = 0;
+    };
 } // InternetProtocol

@@ -33,7 +33,7 @@ namespace InternetProtocol {
 
         asio::ip::tcp::acceptor &get_acceptor() { return tcp.acceptor; }
 
-        const std::set<socket_ptr > get_sockets() const {
+        const std::set<socket_ptr> get_sockets() const {
             return tcp.sockets;
         }
 
@@ -51,7 +51,7 @@ namespace InternetProtocol {
             return true;
         }
 
-        bool send_buffer_to(const std::vector<std::byte> &buffer, const socket_ptr &socket) {
+        bool send_buffer_to(const std::vector<uint8_t> &buffer, const socket_ptr &socket) {
             if (!get_acceptor().is_open() || buffer.empty()) return false;
 
             asio::post(thread_pool, std::bind(&TCPServer::package_buffer, this, buffer, socket));
@@ -188,7 +188,7 @@ namespace InternetProtocol {
             }
         }
 
-        void package_buffer(const std::vector<std::byte> &buffer, socket_ptr &socket) {
+        void package_buffer(const std::vector<uint8_t> &buffer, socket_ptr &socket) {
             std::lock_guard<std::mutex> guard(mutex_buffer);
             if (!split_buffer || buffer.size() <= max_send_buffer_size) {
                 asio::async_write(
@@ -202,7 +202,7 @@ namespace InternetProtocol {
             const size_t max_size = max_send_buffer_size;
             while (buffer_offset < buffer.size()) {
                 size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
-                std::vector<std::byte> sbuffer(
+                std::vector<uint8_t> sbuffer(
                     buffer.begin() + buffer_offset,
                     buffer.begin() + buffer_offset + package_size);
                 asio::async_write(
@@ -310,7 +310,8 @@ namespace InternetProtocol {
 
         asio::ssl::context &get_ssl_context() { return tcp.ssl_context; }
         const asio::ip::tcp::acceptor &get_acceptor() { return tcp.acceptor; }
-        const std::set<ssl_socket_ptr > &get_ssl_sockets() {
+
+        const std::set<ssl_socket_ptr> &get_ssl_sockets() {
             return tcp.ssl_sockets;
         }
 
@@ -403,7 +404,7 @@ namespace InternetProtocol {
             return true;
         }
 
-        bool send_buffer_to(const std::vector<std::byte> &buffer,
+        bool send_buffer_to(const std::vector<uint8_t> &buffer,
                             const ssl_socket_ptr &ssl_socket) {
             if (!get_acceptor().is_open() || buffer.empty()) return false;
 
@@ -542,7 +543,7 @@ namespace InternetProtocol {
             }
         }
 
-        void package_buffer(const std::vector<std::byte> &buffer,
+        void package_buffer(const std::vector<uint8_t> &buffer,
                             const ssl_socket_ptr &ssl_socket) {
             std::lock_guard<std::mutex> guard(mutex_buffer);
             if (!split_buffer || buffer.size() <= max_send_buffer_size) {
@@ -557,7 +558,7 @@ namespace InternetProtocol {
             const size_t max_size = max_send_buffer_size;
             while (buffer_offset < buffer.size()) {
                 size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
-                std::vector<std::byte> sbuffer(
+                std::vector<uint8_t> sbuffer(
                     buffer.begin() + buffer_offset,
                     buffer.begin() + buffer_offset + package_size);
                 asio::async_write(
@@ -583,7 +584,8 @@ namespace InternetProtocol {
             ssl_socket_ptr conn_ssl_socket = std::make_shared<
                 asio::ssl::stream<asio::ip::tcp::socket> >(tcp.context, tcp.ssl_context);
             tcp.acceptor.async_accept(conn_ssl_socket->lowest_layer(),
-                                      std::bind(&TCPServerSsl::accept, this, asio::placeholders::error, conn_ssl_socket));
+                                      std::bind(&TCPServerSsl::accept, this, asio::placeholders::error,
+                                                conn_ssl_socket));
             tcp.context.run();
             if (get_acceptor().is_open() && !is_closing)
                 close();
@@ -598,8 +600,8 @@ namespace InternetProtocol {
                 return;
             }
             ssl_socket->async_handshake(asio::ssl::stream_base::server,
-                                      std::bind(&TCPServerSsl::ssl_handshake, this,
-                                                asio::placeholders::error, ssl_socket));
+                                        std::bind(&TCPServerSsl::ssl_handshake, this,
+                                                  asio::placeholders::error, ssl_socket));
             ssl_socket_ptr conn_socket = std::make_shared<asio::ssl::stream<
                 asio::ip::tcp::socket> >(tcp.context, tcp.ssl_context);
             tcp.acceptor.async_accept(conn_socket->lowest_layer(),

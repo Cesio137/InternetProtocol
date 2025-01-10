@@ -26,8 +26,8 @@ namespace InternetProtocol {
             req_handshake.headers["Sec-WebSocket-Protocol"] = "chat, superchat";
             req_handshake.headers["Sec-WebSocket-Version"] = "13";
             req_handshake.headers["Upgrade"] = "websocket";
-
         }
+
         ~WebsocketClient() {
             tcp.resolver.cancel();
             if (is_connected()) close();
@@ -54,6 +54,7 @@ namespace InternetProtocol {
         }
 
         void clear_headers() { req_handshake.headers.clear(); }
+
         void remove_header(const std::string &key) {
             if (!req_handshake.headers.contains(key)) return;
             req_handshake.headers.erase(key);
@@ -85,22 +86,22 @@ namespace InternetProtocol {
             return true;
         }
 
-        bool send_buffer(const std::vector<std::byte> &buffer) {
+        bool send_buffer(const std::vector<uint8_t> &buffer) {
             if (is_connected() || buffer.empty()) return false;
 
             asio::post(thread_pool, std::bind(&WebsocketClient::post_buffer, this,
-                                               EOpcode::BINARY_FRAME, buffer));
+                                              EOpcode::BINARY_FRAME, buffer));
             return true;
         }
 
         bool send_ping() {
             if (!is_connected()) return false;
 
-            std::vector<std::byte> ping_buffer = {
-                std::byte('p'), std::byte('i'), std::byte('n'), std::byte('g'), std::byte('\0')
+            std::vector<uint8_t> ping_buffer = {
+                uint8_t('p'), uint8_t('i'), uint8_t('n'), uint8_t('g'), uint8_t('\0')
             };
             asio::post(thread_pool, std::bind(&WebsocketClient::post_buffer, this,
-                                               EOpcode::PING, ping_buffer));
+                                              EOpcode::PING, ping_buffer));
             return true;
         }
 
@@ -183,13 +184,13 @@ namespace InternetProtocol {
             package_string(str);
         }
 
-        void post_buffer(EOpcode opcode, const std::vector<std::byte> &buffer) {
+        void post_buffer(EOpcode opcode, const std::vector<uint8_t> &buffer) {
             std::lock_guard<std::mutex> guard(mutex_buffer);
             sdata_frame.opcode = opcode;
             if (opcode == EOpcode::BINARY_FRAME) {
                 package_buffer(buffer);
             } else if (opcode == EOpcode::PING || opcode == EOpcode::PONG) {
-                std::vector<std::byte> p_buffer = buffer;
+                std::vector<uint8_t> p_buffer = buffer;
                 encode_buffer_payload(p_buffer);
                 asio::async_write(
                     tcp.socket, asio::buffer(p_buffer.data(), p_buffer.size()),
@@ -261,10 +262,10 @@ namespace InternetProtocol {
                 }
             }
 
-            std::array<std::byte, 4> masking_key;
+            std::array<uint8_t, 4> masking_key;
             if (sdata_frame.mask) {
                 masking_key = mask_gen();
-                for (std::byte key: masking_key)
+                for (uint8_t key: masking_key)
                     string_buffer.push_back(static_cast<uint8_t>(key));
             }
 
@@ -281,8 +282,8 @@ namespace InternetProtocol {
             return string_buffer;
         }
 
-        void package_buffer(const std::vector<std::byte> &buffer) {
-            std::vector<std::byte> payload;
+        void package_buffer(const std::vector<uint8_t> &buffer) {
+            std::vector<uint8_t> payload;
             if (!split_buffer || buffer.size() + get_frame_encode_size(buffer.size()) <=
                 max_send_buffer_size) {
                 sdata_frame.fin = true;
@@ -314,41 +315,41 @@ namespace InternetProtocol {
             }
         }
 
-        std::vector<std::byte> encode_buffer_payload(
-            const std::vector<std::byte> &payload) {
-            std::vector<std::byte> buffer;
+        std::vector<uint8_t> encode_buffer_payload(
+            const std::vector<uint8_t> &payload) {
+            std::vector<uint8_t> buffer;
             uint64_t payload_length = payload.size();
 
             // FIN, RSV, Opcode
-            std::byte byte1 = std::byte(sdata_frame.fin ? 0x80 : 0x00);
-            byte1 |= std::byte(sdata_frame.rsv1 ? (uint8_t) ERSV::RSV1 : 0x00);
-            byte1 |= std::byte(sdata_frame.rsv2 ? (uint8_t) ERSV::RSV2 : 0x00);
-            byte1 |= std::byte(sdata_frame.rsv3 ? (uint8_t) ERSV::RSV3 : 0x00);
-            byte1 |= std::byte((uint8_t) sdata_frame.opcode & 0x0F);
+            uint8_t byte1 = uint8_t(sdata_frame.fin ? 0x80 : 0x00);
+            byte1 |= uint8_t(sdata_frame.rsv1 ? (uint8_t) ERSV::RSV1 : 0x00);
+            byte1 |= uint8_t(sdata_frame.rsv2 ? (uint8_t) ERSV::RSV2 : 0x00);
+            byte1 |= uint8_t(sdata_frame.rsv3 ? (uint8_t) ERSV::RSV3 : 0x00);
+            byte1 |= uint8_t((uint8_t) sdata_frame.opcode & 0x0F);
             buffer.push_back(byte1);
 
             // Mask and payload size
-            std::byte byte2 = std::byte(sdata_frame.mask ? 0x80 : 0x00);
+            uint8_t byte2 = uint8_t(sdata_frame.mask ? 0x80 : 0x00);
             if (payload_length <= 125) {
-                byte2 |= std::byte(payload_length);
+                byte2 |= uint8_t(payload_length);
                 buffer.push_back(byte2);
             } else if (payload_length <= 65535) {
-                byte2 |= std::byte(126);
+                byte2 |= uint8_t(126);
                 buffer.push_back(byte2);
-                buffer.push_back(std::byte((payload_length >> 8) & 0xFF));
-                buffer.push_back(std::byte(payload_length & 0xFF));
+                buffer.push_back(uint8_t((payload_length >> 8) & 0xFF));
+                buffer.push_back(uint8_t(payload_length & 0xFF));
             } else {
-                byte2 |= std::byte(127);
+                byte2 |= uint8_t(127);
                 buffer.push_back(byte2);
                 for (int i = 7; i >= 0; --i) {
-                    buffer.push_back(std::byte((payload_length >> (8 * i)) & 0xFF));
+                    buffer.push_back(uint8_t((payload_length >> (8 * i)) & 0xFF));
                 }
             }
 
-            std::array<std::byte, 4> masking_key;
+            std::array<uint8_t, 4> masking_key;
             if (sdata_frame.mask) {
                 masking_key = mask_gen();
-                for (std::byte key: masking_key) buffer.push_back(key);
+                for (uint8_t key: masking_key) buffer.push_back(key);
             }
 
             // payload data and mask
@@ -378,14 +379,14 @@ namespace InternetProtocol {
             return size;
         }
 
-        std::array<std::byte, 4> mask_gen() {
-            std::array<std::byte, 4> maskKey;
+        std::array<uint8_t, 4> mask_gen() {
+            std::array<uint8_t, 4> maskKey;
             std::random_device rd;
             std::mt19937 gen(rd());
             std::uniform_int_distribution<> dis(0, 255);
 
-            for (std::byte &byte: maskKey) {
-                byte = std::byte(dis(gen));
+            for (uint8_t &byte: maskKey) {
+                byte = uint8_t(dis(gen));
             }
 
             return maskKey;
@@ -395,14 +396,14 @@ namespace InternetProtocol {
             if (asio::buffer_size(response_buffer.data()) < 2) return false;
 
             size_t size = asio::buffer_size(response_buffer.data());
-            std::vector<std::byte> encoded_buffer;
+            std::vector<uint8_t> encoded_buffer;
             encoded_buffer.resize(size);
             asio::buffer_copy(asio::buffer(encoded_buffer, encoded_buffer.size()),
                               response_buffer.data());
 
             size_t pos = 0;
             // FIN, RSV, Opcode
-            std::byte byte1 = encoded_buffer[pos++];
+            uint8_t byte1 = encoded_buffer[pos++];
             data_frame.data_frame.fin = (uint8_t) byte1 & 0x80;
             data_frame.data_frame.rsv1 = (uint8_t) byte1 & 0x80;
             data_frame.data_frame.rsv2 = (uint8_t) byte1 & 0x40;
@@ -410,7 +411,7 @@ namespace InternetProtocol {
             data_frame.data_frame.opcode = (EOpcode) ((uint8_t) byte1 & 0x0F);
 
             // Mask and payload length
-            std::byte byte2 = encoded_buffer[pos++];
+            uint8_t byte2 = encoded_buffer[pos++];
             data_frame.data_frame.mask = (uint8_t) byte2 & 0x80;
             uint64_t payload_length = (uint8_t) byte2 & 0x7F;
             if (payload_length == 126) {
@@ -423,7 +424,7 @@ namespace InternetProtocol {
                 payload_length = 0;
                 for (int i = 0; i < 8; ++i) {
                     payload_length = static_cast<uint64_t>(
-                        (std::byte(payload_length) << 8) | encoded_buffer[pos + i]);
+                        (uint8_t(payload_length) << 8) | encoded_buffer[pos + i]);
                 }
                 pos += 8;
             }
@@ -624,7 +625,7 @@ namespace InternetProtocol {
             if (!req_handshake.headers.contains("Host"))
                 request += "Host: " + host + ":" + service + "\r\n";
             if (!req_handshake.headers.empty()) {
-                for (const auto &header : req_handshake.headers) {
+                for (const auto &header: req_handshake.headers) {
                     request += header.first + ": " + header.second + "\r\n";
                 }
             }
@@ -670,7 +671,10 @@ namespace InternetProtocol {
                 return;
             }
             if (status_code != 101) {
-                if (on_handshake_fail) on_handshake_fail(status_code, ResponseStatusCode.contains(status_code) ? ResponseStatusCode.at(status_code) : "");
+                if (on_handshake_fail) on_handshake_fail(status_code,
+                                                         ResponseStatusCode.contains(status_code)
+                                                             ? ResponseStatusCode.at(status_code)
+                                                             : "");
                 if (get_socket().is_open() && !is_closing)
                     close();
                 return;
@@ -679,9 +683,9 @@ namespace InternetProtocol {
             if (response_buffer.size() == 0) {
                 if (on_connected) on_connected(Client::FResponse());
                 asio::async_read(
-                tcp.socket, response_buffer, asio::transfer_at_least(1),
-                std::bind(&WebsocketClient::read, this, asio::placeholders::error,
-                          asio::placeholders::bytes_transferred));
+                    tcp.socket, response_buffer, asio::transfer_at_least(1),
+                    std::bind(&WebsocketClient::read, this, asio::placeholders::error,
+                              asio::placeholders::bytes_transferred));
                 return;
             }
             asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
@@ -709,7 +713,8 @@ namespace InternetProtocol {
                     close();
                 return;
             }
-            if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] != "websocket") {
+            if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] !=
+                "websocket") {
                 if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Connection");
                 if (get_socket().is_open() && !is_closing)
                     close();
@@ -765,8 +770,8 @@ namespace InternetProtocol {
                 return;
             }
             if (rDataFrame.data_frame.opcode == EOpcode::PING) {
-                std::vector<std::byte> pong_buffer = {
-                    std::byte('p'), std::byte('o'), std::byte('n'), std::byte('g'), std::byte('\0')
+                std::vector<uint8_t> pong_buffer = {
+                    uint8_t('p'), uint8_t('o'), uint8_t('n'), uint8_t('g'), uint8_t('\0')
                 };
                 post_buffer(EOpcode::PONG, pong_buffer);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
@@ -796,7 +801,6 @@ namespace InternetProtocol {
             req_handshake.headers["Sec-WebSocket-Protocol"] = "chat, superchat";
             req_handshake.headers["Sec-WebSocket-Version"] = "13";
             req_handshake.headers["Upgrade"] = "websocket";
-
         }
 
         ~WebsocketClientSsl() {
@@ -814,7 +818,10 @@ namespace InternetProtocol {
 
         asio::ssl::context &get_ssl_context() { return tcp.ssl_context; }
         const asio::ssl::stream<asio::ip::tcp::socket> &get_ssl_socket() const { return tcp.ssl_socket; }
-        void update_ssl_socket() { tcp.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(tcp.context, tcp.ssl_context); }
+
+        void update_ssl_socket() {
+            tcp.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(tcp.context, tcp.ssl_context);
+        }
 
         /*SETTINGS*/
         void set_max_send_buffer_size(int value = 1400) { max_send_buffer_size = value; }
@@ -828,6 +835,7 @@ namespace InternetProtocol {
         }
 
         void clear_headers() { req_handshake.headers.clear(); }
+
         void remove_header(const std::string &key) {
             if (!req_handshake.headers.contains(key)) return;
             req_handshake.headers.erase(key);
@@ -934,21 +942,21 @@ namespace InternetProtocol {
             return true;
         }
 
-        bool send_buffer(const std::vector<std::byte> &buffer) {
+        bool send_buffer(const std::vector<uint8_t> &buffer) {
             if (!is_connected() || buffer.empty()) return false;
 
             asio::post(thread_pool, std::bind(&WebsocketClientSsl::post_buffer, this,
-                                               EOpcode::BINARY_FRAME, buffer));
+                                              EOpcode::BINARY_FRAME, buffer));
             return true;
         }
 
         bool send_ping() {
             if (!is_connected()) return false;
 
-            std::vector<std::byte> ping_buffer;
-            ping_buffer.push_back(std::byte('\0'));
+            std::vector<uint8_t> ping_buffer;
+            ping_buffer.push_back(uint8_t('\0'));
             asio::post(thread_pool, std::bind(&WebsocketClientSsl::post_buffer, this,
-                                               EOpcode::PING, ping_buffer));
+                                              EOpcode::PING, ping_buffer));
             return true;
         }
 
@@ -1022,13 +1030,13 @@ namespace InternetProtocol {
             mutex_buffer.unlock();
         }
 
-        void post_buffer(EOpcode opcode, const std::vector<std::byte> &buffer) {
+        void post_buffer(EOpcode opcode, const std::vector<uint8_t> &buffer) {
             mutex_buffer.lock();
             sdata_frame.opcode = opcode;
             if (opcode == EOpcode::BINARY_FRAME) {
                 package_buffer(buffer);
             } else if (opcode == EOpcode::PING || opcode == EOpcode::PONG) {
-                std::vector<std::byte> p_buffer = buffer;
+                std::vector<uint8_t> p_buffer = buffer;
                 encode_buffer_payload(p_buffer);
                 asio::async_write(
                     tcp.ssl_socket, asio::buffer(p_buffer.data(), p_buffer.size()),
@@ -1101,10 +1109,10 @@ namespace InternetProtocol {
                 }
             }
 
-            std::array<std::byte, 4> masking_key;
+            std::array<uint8_t, 4> masking_key;
             if (sdata_frame.mask) {
                 masking_key = mask_gen();
-                for (std::byte key: masking_key)
+                for (uint8_t key: masking_key)
                     string_buffer.push_back(static_cast<uint8_t>(key));
             }
 
@@ -1121,8 +1129,8 @@ namespace InternetProtocol {
             return string_buffer;
         }
 
-        void package_buffer(const std::vector<std::byte> &buffer) {
-            std::vector<std::byte> payload;
+        void package_buffer(const std::vector<uint8_t> &buffer) {
+            std::vector<uint8_t> payload;
             if (!split_buffer || buffer.size() + get_frame_encode_size(buffer.size()) <=
                 max_send_buffer_size) {
                 sdata_frame.fin = true;
@@ -1154,41 +1162,41 @@ namespace InternetProtocol {
             }
         }
 
-        std::vector<std::byte> encode_buffer_payload(
-            const std::vector<std::byte> &payload) {
-            std::vector<std::byte> buffer;
+        std::vector<uint8_t> encode_buffer_payload(
+            const std::vector<uint8_t> &payload) {
+            std::vector<uint8_t> buffer;
             uint64_t payload_length = payload.size();
 
             // FIN, RSV, Opcode
-            std::byte byte1 = std::byte(sdata_frame.fin ? 0x80 : 0x00);
-            byte1 |= std::byte(sdata_frame.rsv1 ? (uint8_t) ERSV::RSV1 : 0x00);
-            byte1 |= std::byte(sdata_frame.rsv2 ? (uint8_t) ERSV::RSV2 : 0x00);
-            byte1 |= std::byte(sdata_frame.rsv3 ? (uint8_t) ERSV::RSV3 : 0x00);
-            byte1 |= std::byte((uint8_t) sdata_frame.opcode & 0x0F);
+            uint8_t byte1 = uint8_t(sdata_frame.fin ? 0x80 : 0x00);
+            byte1 |= uint8_t(sdata_frame.rsv1 ? (uint8_t) ERSV::RSV1 : 0x00);
+            byte1 |= uint8_t(sdata_frame.rsv2 ? (uint8_t) ERSV::RSV2 : 0x00);
+            byte1 |= uint8_t(sdata_frame.rsv3 ? (uint8_t) ERSV::RSV3 : 0x00);
+            byte1 |= uint8_t((uint8_t) sdata_frame.opcode & 0x0F);
             buffer.push_back(byte1);
 
             // Mask and payload size
-            std::byte byte2 = std::byte(sdata_frame.mask ? 0x80 : 0x00);
+            uint8_t byte2 = uint8_t(sdata_frame.mask ? 0x80 : 0x00);
             if (payload_length <= 125) {
-                byte2 |= std::byte(payload_length);
+                byte2 |= uint8_t(payload_length);
                 buffer.push_back(byte2);
             } else if (payload_length <= 65535) {
-                byte2 |= std::byte(126);
+                byte2 |= uint8_t(126);
                 buffer.push_back(byte2);
-                buffer.push_back(std::byte((payload_length >> 8) & 0xFF));
-                buffer.push_back(std::byte(payload_length & 0xFF));
+                buffer.push_back(uint8_t((payload_length >> 8) & 0xFF));
+                buffer.push_back(uint8_t(payload_length & 0xFF));
             } else {
-                byte2 |= std::byte(127);
+                byte2 |= uint8_t(127);
                 buffer.push_back(byte2);
                 for (int i = 7; i >= 0; --i) {
-                    buffer.push_back(std::byte((payload_length >> (8 * i)) & 0xFF));
+                    buffer.push_back(uint8_t((payload_length >> (8 * i)) & 0xFF));
                 }
             }
 
-            std::array<std::byte, 4> masking_key;
+            std::array<uint8_t, 4> masking_key;
             if (sdata_frame.mask) {
                 masking_key = mask_gen();
-                for (std::byte key: masking_key) buffer.push_back(key);
+                for (uint8_t key: masking_key) buffer.push_back(key);
             }
 
             // payload data and mask
@@ -1218,14 +1226,14 @@ namespace InternetProtocol {
             return size;
         }
 
-        std::array<std::byte, 4> mask_gen() {
-            std::array<std::byte, 4> maskKey;
+        std::array<uint8_t, 4> mask_gen() {
+            std::array<uint8_t, 4> maskKey;
             std::random_device rd;
             std::mt19937 gen(rd());
             std::uniform_int_distribution<> dis(0, 255);
 
-            for (std::byte &byte: maskKey) {
-                byte = std::byte(dis(gen));
+            for (uint8_t &byte: maskKey) {
+                byte = uint8_t(dis(gen));
             }
 
             return maskKey;
@@ -1235,14 +1243,14 @@ namespace InternetProtocol {
             if (asio::buffer_size(response_buffer.data()) < 2) return false;
 
             size_t size = asio::buffer_size(response_buffer.data());
-            std::vector<std::byte> encoded_buffer;
+            std::vector<uint8_t> encoded_buffer;
             encoded_buffer.resize(size);
             asio::buffer_copy(asio::buffer(encoded_buffer, encoded_buffer.size()),
                               response_buffer.data());
 
             size_t pos = 0;
             // FIN, RSV, Opcode
-            std::byte byte1 = encoded_buffer[pos++];
+            uint8_t byte1 = encoded_buffer[pos++];
             data_frame.data_frame.fin = (uint8_t) byte1 & 0x80;
             data_frame.data_frame.rsv1 = (uint8_t) byte1 & 0x80;
             data_frame.data_frame.rsv2 = (uint8_t) byte1 & 0x40;
@@ -1250,7 +1258,7 @@ namespace InternetProtocol {
             data_frame.data_frame.opcode = (EOpcode) ((uint8_t) byte1 & 0x0F);
 
             // Mask and payload length
-            std::byte byte2 = encoded_buffer[pos++];
+            uint8_t byte2 = encoded_buffer[pos++];
             data_frame.data_frame.mask = (uint8_t) byte2 & 0x80;
             uint64_t payload_length = (uint8_t) byte2 & 0x7F;
             if (payload_length == 126) {
@@ -1263,7 +1271,7 @@ namespace InternetProtocol {
                 payload_length = 0;
                 for (int i = 0; i < 8; ++i) {
                     payload_length = static_cast<uint64_t>(
-                        (std::byte(payload_length) << 8) | encoded_buffer[pos + i]);
+                        (uint8_t(payload_length) << 8) | encoded_buffer[pos + i]);
                 }
                 pos += 8;
             }
@@ -1481,7 +1489,7 @@ namespace InternetProtocol {
             if (!req_handshake.headers.contains("Host"))
                 request += "Host: " + host + ":" + service + "\r\n";
             if (!req_handshake.headers.empty()) {
-                for (const auto &header : req_handshake.headers) {
+                for (const auto &header: req_handshake.headers) {
                     request += header.first + ": " + header.second + "\r\n";
                 }
             }
@@ -1533,7 +1541,10 @@ namespace InternetProtocol {
             }
             if (status_code != 101) {
                 std::lock_guard<std::mutex> lock(mutex_error);
-                if (on_handshake_fail) on_handshake_fail(status_code, ResponseStatusCode.contains(status_code) ? ResponseStatusCode.at(status_code) : "");
+                if (on_handshake_fail) on_handshake_fail(status_code,
+                                                         ResponseStatusCode.contains(status_code)
+                                                             ? ResponseStatusCode.at(status_code)
+                                                             : "");
                 if (get_ssl_socket().next_layer().is_open() && !is_closing)
                     close();
                 return;
@@ -1542,9 +1553,9 @@ namespace InternetProtocol {
             if (response_buffer.size() == 0) {
                 if (on_connected) on_connected(Client::FResponse());
                 asio::async_read(
-                tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
-                std::bind(&WebsocketClientSsl::read, this, asio::placeholders::error,
-                          asio::placeholders::bytes_transferred));
+                    tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
+                    std::bind(&WebsocketClientSsl::read, this, asio::placeholders::error,
+                              asio::placeholders::bytes_transferred));
                 return;
             }
 
@@ -1573,7 +1584,8 @@ namespace InternetProtocol {
                     close();
                 return;
             }
-            if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] != "websocket") {
+            if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] !=
+                "websocket") {
                 if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Connection");
                 if (get_ssl_socket().next_layer().is_open() && !is_closing)
                     close();
@@ -1632,10 +1644,10 @@ namespace InternetProtocol {
             }
 
             if (rDataFrame.data_frame.opcode == EOpcode::PING) {
-                std::vector<std::byte> pong_buffer;
+                std::vector<uint8_t> pong_buffer;
                 pong_buffer.resize(1);
-                if (pong_buffer.back() != std::byte('\0'))
-                    pong_buffer.push_back(std::byte('\0'));
+                if (pong_buffer.back() != uint8_t('\0'))
+                    pong_buffer.push_back(uint8_t('\0'));
                 post_buffer(EOpcode::PONG, pong_buffer);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
                 if (on_pong_received) on_pong_received();
