@@ -21,3 +21,4 @@
 #include <IP/HTTP/HttpServer.hpp>
 #include <IP/HTTP/HttpClient.hpp>
 #include <IP/Websocket/WebsocketClient.hpp>
+#include <IP/Websocket/WebsocketServer.hpp>

@@ -26,14 +26,22 @@
 #define _WIN32_WINNT 0x0A00
 #endif
 
-#define ASIO_STANDALONE
-#define ASIO_NO_DEPRECATED
-#include <asio.hpp>
-#ifdef ASIO_USE_OPENSSL
-#include <asio/ssl.hpp>
-#endif
+#include "Net/Type.hpp"
+
 namespace InternetProtocol {
     static asio::thread_pool thread_pool(std::thread::hardware_concurrency());
+
+	/*HTTP REQUEST*/
+	enum class EMethod : uint8_t {
+		DEL = 0,
+		GET = 1,
+		HEAD = 2,
+		OPTIONS = 3,
+		PATCH = 4,
+		POST = 5,
+		PUT = 6,
+		TRACE = 7,
+	};
 
     namespace Server {
         enum class EServerProtocol : uint8_t {
@@ -70,14 +78,14 @@ namespace InternetProtocol {
             FAsioTcp &operator=(const FAsioTcp &asio) {
                 if (this != &asio) {
                     acceptor = asio::ip::tcp::acceptor(context);
-                    peers = asio.peers;
+                    sockets = asio.sockets;
                 }
                 return *this;
             }
 
             asio::io_context context;
             asio::ip::tcp::acceptor acceptor;
-            std::set<std::shared_ptr<asio::ip::tcp::socket>> peers;
+            std::set<socket_ptr> sockets;
         };
 #ifdef ASIO_USE_OPENSSL
 		struct FAsioTcpSsl {
@@ -99,9 +107,36 @@ namespace InternetProtocol {
 		    asio::io_context context;
 		    asio::ssl::context ssl_context;
 		    asio::ip::tcp::acceptor acceptor;
-		    std::set<std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>>> ssl_peers;
+		    std::set<ssl_socket_ptr> ssl_sockets;
 		};
 #endif
+    	/*HTTP REQUEST*/
+    	const std::map<std::string, EMethod> RequestMethod = {
+    		{"DELETE", EMethod::DEL}, {"GET", EMethod::GET},
+			{"HEAD", EMethod::HEAD}, {"OPTIONS", EMethod::OPTIONS},
+			{"PATCH", EMethod::PATCH}, {"POST", EMethod::POST},
+			{"PUT", EMethod::PUT}, {"TRACE", EMethod::TRACE},
+		};
+
+    	struct FRequest {
+    		~FRequest() {
+
+    		}
+    		EMethod method = EMethod::GET;
+    		std::string path = "/";
+    		std::string version = "1.1";
+    		std::map<std::string, std::vector<std::string>> headers;
+    		std::string body;
+    	};
+
+    	struct FResponse {
+    		~FResponse() {
+    			headers.clear();
+    		}
+    		std::string version = "1.1";
+    		std::map<std::string, std::string> headers;
+    		std::string body;
+    	};
     };
 
     namespace Client {
@@ -187,103 +222,117 @@ namespace InternetProtocol {
 		    asio::ssl::stream<asio::ip::tcp::socket> ssl_socket;
 		};
 #endif
+    	/*HTTP REQUEST*/
+    	const std::map<EMethod, std::string> RequestMethod = {
+    		{EMethod::DEL, "DELETE"}, {EMethod::GET, "GET"},
+			{EMethod::HEAD, "HEAD"}, {EMethod::OPTIONS, "OPTIONS"},
+			{EMethod::PATCH, "PATCH"}, {EMethod::POST, "POST"},
+			{EMethod::PUT, "PUT"}, {EMethod::TRACE, "TRACE"},
+		};
+
+    	struct FRequest {
+    		~FRequest() {
+    			params.clear();
+    			method = EMethod::GET;
+    			path = "/";
+    			version = "1.1";
+    			headers.clear();
+    			body.clear();
+    		}
+    		std::map<std::string, std::string> params;
+    		EMethod method = EMethod::GET;
+    		std::string path = "/";
+    		std::string version = "1.1";
+    		std::map<std::string, std::string> headers;
+    		std::string body;
+    	};
+
+    	struct FResponse {
+    		~FResponse() {
+    			if (!headers.empty())
+    				headers.clear();
+    			content_lenght = 0;
+    			body.clear();
+    		}
+    		std::map<std::string, std::vector<std::string> > headers;
+    		int content_lenght = 0;
+    		std::string body;
+    	};
     }
+	/*HTTP RESPONSE*/
+	const std::map<int, std::string> ResponseStatusCode = {
+        // 1xx Informational
+        {100, "Continue"},
+        {101, "Switching Protocols"},
+        {102, "Processing"},
+        {103, "Early Hints"},
 
-    /*HTTP REQUEST*/
-    enum class EVerb : uint8_t {
-        GET = 0,
-        POST = 1,
-        PUT = 2,
-        PATCH = 3,
-        DEL = 4,
-        COPY = 5,
-        HEAD = 6,
-        OPTIONS = 7,
-        LOCK = 8,
-        UNLOCK = 9,
-        PROPFIND = 10
-    };
+        // 2xx Success
+        {200, "OK"},
+        {201, "Created"},
+        {202, "Accepted"},
+        {203, "Non-Authoritative Information"},
+        {204, "No Content"},
+        {205, "Reset Content"},
+        {206, "Partial Content"},
+        {207, "Multi-Status"},
+        {208, "Already Reported"},
+        {226, "IM Used"},
 
-    struct FRequest {
-        std::map<std::string, std::string> params;
-        EVerb verb = EVerb::GET;
-        std::string path = "/";
-        std::string version = "2.0";
-        std::map<std::string, std::string> headers;
-        std::string body;
+        // 3xx Redirection
+        {300, "Multiple Choices"},
+        {301, "Moved Permanently"},
+        {302, "Found"},
+        {303, "See Other"},
+        {304, "Not Modified"},
+        {305, "Use Proxy"},
+        {306, "Switch Proxy"},
+        {307, "Temporary Redirect"},
+        {308, "Permanent Redirect"},
 
-        void clear() {
-            params.clear();
-            verb = EVerb::GET;
-            path = "/";
-            version = "2.0";
-            headers.clear();
-            body.clear();
-        }
-    };
+        // 4xx Client Error
+        {400, "Bad Request"},
+        {401, "Unauthorized"},
+        {402, "Payment Required"},
+        {403, "Forbidden"},
+        {404, "Not Found"},
+        {405, "Method Not Allowed"},
+        {406, "Not Acceptable"},
+        {407, "Proxy Authentication Required"},
+        {408, "Request Timeout"},
+        {409, "Conflict"},
+        {410, "Gone"},
+        {411, "Length Required"},
+        {412, "Precondition Failed"},
+        {413, "Payload Too Large"},
+        {414, "URI Too Long"},
+        {415, "Unsupported Media Type"},
+        {416, "Range Not Satisfiable"},
+        {417, "Expectation Failed"},
+        {418, "I'm a teapot"},
+        {421, "Misdirected Request"},
+        {422, "Unprocessable Entity"},
+        {423, "Locked"},
+        {424, "Failed Dependency"},
+        {425, "Too Early"},
+        {426, "Upgrade Required"},
+        {428, "Precondition Required"},
+        {429, "Too Many Requests"},
+        {431, "Request Header Fields Too Large"},
+        {451, "Unavailable For Legal Reasons"},
 
-    struct FResponse {
-        std::map<std::string, std::vector<std::string> > headers;
-        int contentLenght = 0;
-        std::string content;
-
-        void append_header(const std::string &headerline) {
-            size_t pos = headerline.find(':');
-            if (pos != std::string::npos) {
-                std::string key = trim_whitespace(headerline.substr(0, pos));
-                std::string value = trim_whitespace(headerline.substr(pos + 1));
-                if (key == "Content-Length") {
-                    contentLenght = std::stoi(value);
-                    return;
-                }
-                std::vector<std::string> values = split_string(value, ';');
-                std::transform(
-                    values.begin(), values.end(), values.begin(),
-                    [this](const std::string &str) { return trim_whitespace(str); });
-                headers.insert_or_assign(key, values);
-            }
-        }
-
-        void set_content(const std::string &value) {
-            if (value.empty()) return;
-            content = value;
-        }
-
-        void append_content(const std::string &value) {
-            if (value.empty()) return;
-            content.append(value);
-        }
-
-        void clear() {
-            headers.clear();
-            contentLenght = 0;
-            content.clear();
-        }
-
-    private:
-        std::vector<std::string> split_string(const std::string &str, char delimiter) {
-            std::vector<std::string> tokens;
-            std::string token;
-            std::istringstream tokenStream(str);
-            while (std::getline(tokenStream, token, delimiter)) {
-                tokens.push_back(token);
-            }
-            return tokens;
-        }
-
-        std::string trim_whitespace(const std::string &str) {
-            std::string::const_iterator start = str.begin();
-            while (start != str.end() && std::isspace(*start)) {
-                start++;
-            }
-
-            std::string::const_iterator end = str.end();
-            do {
-                end--;
-            } while (std::distance(start, end) > 0 && std::isspace(*end));
-
-            return std::string(start, end + 1);
-        }
+        // 5xx Server Error
+        {500, "Internal Server Error"},
+        {501, "Not Implemented"},
+        {502, "Bad Gateway"},
+        {503, "Service Unavailable"},
+        {504, "Gateway Timeout"},
+        {505, "HTTP Version Not Supported"},
+        {506, "Variant Also Negotiates"},
+        {507, "Insufficient Storage"},
+        {508, "Loop Detected"},
+        {510, "Not Extended"},
+        {511, "Network Authentication Required"}
     };
 
     /*WEBSOCKET*/
@@ -320,3 +369,4 @@ namespace InternetProtocol {
         std::string Sec_Websocket_Version = "13";
     };
 } // namespace InternetProtocol
+
