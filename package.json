@@ -14,14 +14,15 @@
   "type": "module",
   "dependencies": {
     "@types/ws": "^8.5.13",
-    "express": "^4.21.1",
+    "axios": "^1.7.9",
+    "express": "^5.0.1",
     "minimalist": "^1.0.0",
     "minimist": "^1.2.8",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "@types/node": "^22.9.1",
+    "@types/node": "^22.10.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },
@@ -31,6 +32,9 @@
     ],
     "#settings": [
       "./src/settings/index.js"
+    ],
+    "#io": [
+      "./src/io/index.js"
     ]
   }
 }
