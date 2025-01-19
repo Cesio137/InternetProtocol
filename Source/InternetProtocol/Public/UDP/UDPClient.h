@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -26,13 +26,13 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpConnection);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpRetry, const int, attemp);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpTransferred, const int, BytesSent, const int, BytesRecvd);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageSent, const int, size);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpMessageSent);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageReceived, const FUdpMessage, message);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpError, const int, code, const FString&, exception);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpError, FErrorCode, ErrorCode);
 
 UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UUDPClient : public UObject
@@ -42,24 +42,25 @@ class INTERNETPROTOCOL_API UUDPClient : public UObject
 public:	
 	virtual void BeginDestroy() override
 	{
-		ShouldStopContext = true;
 		UDP.resolver.cancel();
-		if (IsConnected())
+		if (GetSocket().Socket->is_open())
 		{
 			Close();
 		}
-		Thread_Pool->stop();
-		consume_receive_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Remote")
-	void SetHost(const FString& ip = "localhost", const FString& port = "80")
+	void SetHost(const FString& ip = "localhost", const FString& port = "3000", const EProtocolType protocol = EProtocolType::V4)
 	{
 		Host = ip;
 		Service = port;
+		ProtocolType = protocol;
 	}
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Socket")
+	FUDPSocket GetSocket() { return UDP.socket; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
 	FString GetLocalAdress() const
@@ -87,18 +88,6 @@ public:
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void SetTimeout(uint8 value = 3) { Timeout = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
-	uint8 GetTimeout() const { return Timeout; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
-	uint8 GetMaxAttemp() const { return Timeout; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
 	void SetMaxSendBufferSize(int value = 1024) { MaxSendBufferSize = value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
@@ -118,54 +107,52 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool Send(const FString& message);
+	bool SendStr(const FString& message);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool SendRaw(const TArray<uint8>& buffer);
-
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool AsyncRead();
+	bool SendBuffer(const TArray<uint8>& buffer);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
 	bool Connect();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Connection")
-	bool IsConnected() const { return UDP.socket.is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
 	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Error")
-	int GetErrorCode() const { return UDP.error_code.value(); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Error")
-	FString GetErrorMessage() const { return UDP.error_code.message().c_str(); }
+	FErrorCode GetErrorCode() const
+	{
+		FErrorCode error_code = ErrorCode;
+		return error_code;
+	}
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpConnection OnConnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpRetry OnConnectionWillRetry;
+	FDelegateUdpTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpMessageReceived OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateUdpConnection OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateUdpError OnSocketError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateUdpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> Thread_Pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	FCriticalSection MutexIO;
 	FCriticalSection MutexBuffer;
-	bool ShouldStopContext = false;
-	FAsioUdp UDP;
+	FCriticalSection MutexError;
+	bool IsClosing = false;
+	FAsioUdpClient UDP;
+	asio::error_code ErrorCode;
 	FString Host = "localhost";
-	FString Service;
-	uint8_t Timeout = 3;
-	uint8_t MaxAttemp = 3;
+	FString Service = "3000";
+	EProtocolType ProtocolType = EProtocolType::V4;
 	bool SplitBuffer = true;
 	int MaxSendBufferSize = 1024;
 	int MaxReceiveBufferSize = 1024;
@@ -173,22 +160,7 @@ private:
 
 	void package_string(const FString& str);
 	void package_buffer(const TArray<uint8>& buffer);
-
-	void consume_receive_buffer()
-	{
-		if (RBuffer.RawData.Num() <= 0)
-		{
-			return;
-		}
-		RBuffer.RawData.Empty();
-		RBuffer.RawData.Shrink();
-		if (ShouldStopContext)
-		{
-			return;
-		}
-		RBuffer.RawData.SetNum(MaxReceiveBufferSize);
-	}
-
+	void consume_receive_buffer();
 	void run_context_thread();
 	void resolve(const asio::error_code& error, const asio::ip::udp::resolver::results_type& results);
 	void conn(const asio::error_code& error);

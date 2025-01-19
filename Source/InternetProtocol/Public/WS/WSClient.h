@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -19,21 +19,26 @@
 #include "Net/Commons.h"
 #include "Net/Message.h"
 #include "Delegates/DelegateSignatureImpl.inl"
+#include "Library/InternetProtocolFunctionLibrary.h"
 #include "WSClient.generated.h"
 
 /**
  * 
  */
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateWsConnection);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsConnection, const FClientResponse, Response);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsConnectionRetry, const int, attemps);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateWsConnectionCheck);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsMessageSent, const int, bytesSent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsTransferred, const int, BytesSent, const int, BytesRecvd);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateWsMessageSent);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsMessageReceived, const FWsMessage, message);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsError, const int, code, const FString&, exception);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsHandshakeError, int, Code, const FString&, Message);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsError, FErrorCode, ErrorCode);
 
 UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UWSClient : public UObject
@@ -41,60 +46,39 @@ class INTERNETPROTOCOL_API UWSClient : public UObject
 	GENERATED_BODY()
 
 public:
+	UWSClient()
+	{
+		RequestHandshake.Headers["Connection"] = "Upgrade";
+		RequestHandshake.Headers["Origin"] = "ASIO";
+		RequestHandshake.Headers["Sec-WebSocket-Key"] = "dGhlIHNhbXBsZSBub25jZQ==";
+		RequestHandshake.Headers["Sec-WebSocket-Protocol"] = "chat, superchat";
+		RequestHandshake.Headers["Sec-WebSocket-Version"] = "13";
+		RequestHandshake.Headers["Upgrade"] = "websocket";
+	}
+
 	virtual void BeginDestroy() override
 	{
-		ShouldStopContext = true;
 		TCP.resolver.cancel();
-		if (IsConnected()) Close();
-		ThreadPool->stop();
+		if (TCP.socket.is_open())
+		{
+			Close();
+		}
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Remote")
-	void SetHost(const FString& url = "localhost", const FString& port = "")
+	void SetHost(const FString& url = "localhost", const FString& port = "3000")
 	{
 		Host = url;
 		Service = port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString GetLocalAdress() const
-	{
-		return TCP.socket.local_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	int GetLocalPort() const
-	{
-		return TCP.socket.local_endpoint().port();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString GetRemoteAdress() const
-	{
-		return TCP.socket.remote_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	int GetRemotePort() const
-	{
-		return TCP.socket.remote_endpoint().port();
-	}
+	FTCPSocket GetSocket() { return TCP.socket; }
 
 	/*SETTINGS*/
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void SetTimeout(uint8 value = 3) { Timeout = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 GetTimeout() const { return Timeout; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 GetMaxAttemp() const { return Timeout; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
 	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
@@ -111,40 +95,26 @@ public:
 
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetPath(const FString& value = "chat") { Handshake.path = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetPath() const { return Handshake.path; }
+	void AppendHeader(const FString& Key, const FString& Value) { RequestHandshake.Headers[Key] = Value; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetVersion(const FString& value = "1.1") { Handshake.version = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetVersion() const { return Handshake.version; }
+	void ClearHeaders() { UHttpFunctionLibrary::ClearRequest(RequestHandshake); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetKey(const FString& value = "dGhlIHNhbXBsZSBub25jZQ==") { Handshake.Sec_WebSocket_Key = value; }
+	void RemoveHeader(const FString& Key)
+	{
+		if (!RequestHandshake.Headers.Contains(Key))
+		{
+			return;
+		}
+		RequestHandshake.Headers.Remove(Key);
+	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetKey() const { return Handshake.Sec_WebSocket_Key; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetOrigin(const FString& value = "client") { Handshake.origin = value; }
+	bool HasHeader(const FString& Key) { return RequestHandshake.Headers.Contains(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetOrigin() const { return Handshake.origin; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetSetProtocol(const FString& value = "chat, superchat") { Handshake.Sec_WebSocket_Protocol = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetSecProtocol() const { return Handshake.Sec_WebSocket_Protocol; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetSetVersion(const FString& value = "13") { Handshake.Sec_Websocket_Version = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetSecVersion() const { return Handshake.Sec_Websocket_Version; }
+	FString GetHeader(const FString& Key) { return RequestHandshake.Headers[Key]; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
@@ -173,87 +143,80 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool Send(const FString& message);
+	bool SendStr(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool SendRaw(const TArray<uint8> buffer);
+	bool SendBuffer(const TArray<uint8> buffer);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
 	bool SendPing();
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool AsyncRead();
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
 	bool Connect();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Connection")
-	bool IsConnected() const { return TCP.socket.is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
 	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	int GetErrorCode() const { return TCP.error_code.value(); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	FString GetErrorMessage() const { return TCP.error_code.message().c_str(); }
+	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsConnection OnConnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnectionRetry OnConnectionWillRetry;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnection OnClose;
+	FDelegateWsTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnection OnPongReceived;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnection OnCloseNotify;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsMessageReceived OnMessageReceived;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsConnectionCheck OnPongReveived;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsConnectionCheck OnCloseNotify;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsConnectionCheck OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsHandshakeError OnHandshakeFail;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsError OnSocketError;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	FCriticalSection MutexIO;
 	FCriticalSection MutexBuffer;
-	bool ShouldStopContext = false;
+	FCriticalSection MutexError;
+	bool IsClosing = false;
+	FAsioTcpClient TCP;
+	asio::error_code ErrorCode;
 	FString Host = "localhost";
-	FString Service;
-	uint8 Timeout = 3;
-	uint8 MaxAttemp = 3;
+	FString Service = "3000";
 	bool SplitBuffer = false;
 	int MaxSendBufferSize = 1400;
-	FAsioTcp TCP;
-	asio::streambuf RequestBuffer;
 	asio::streambuf ResponseBuffer;
-	FHandShake Handshake;
+	FClientRequest RequestHandshake;
+	FClientResponse ResponseHandshake;
 	FDataFrame SDataFrame;
 
 	void post_string(const FString& str);
 	void post_buffer(EOpcode opcode, const TArray<uint8>& buffer);
 	void package_string(const FString& str);
+	void consume_response_buffer();
 	std::string encode_string_payload(const std::string& payload);
 	void package_buffer(const TArray<uint8>& buffer);
 	std::vector<uint8> encode_buffer_payload(const std::vector<uint8>& payload);
 	size_t get_frame_encode_size(const size_t buffer_size);
 	std::array<uint8, 4> mask_gen();
 	bool decode_payload(FWsMessage& data_frame);
-
-	void consume_response_buffer()
-	{
-		RequestBuffer.consume(RequestBuffer.size());
-		ResponseBuffer.consume(ResponseBuffer.size());
-	}
-
+	TArray<uint8> sha1(const FString& input);
+	FString base64_encode(const uint8_t* input, size_t length);
+	FString generate_accept_key(const FString &sec_websocket_key);
 	void run_context_thread();
 	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
 	void conn(const std::error_code& error);
 	void write_handshake(const std::error_code& error, const size_t bytes_sent);
-	void read_handshake(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd);
-	void consume_header_buffer(const std::error_code& error);
+	void read_handshake(const std::error_code& error, const size_t bytes_recvd);
+	void read_headers(const std::error_code& error);
 	void write(const std::error_code& error, const size_t bytes_sent);
 	void read(const std::error_code& error, const size_t bytes_recvd);
 };
@@ -264,61 +227,45 @@ class INTERNETPROTOCOL_API UWSClientSsl : public UObject
 	GENERATED_BODY()
 
 public:
+	UWSClientSsl()
+	{
+		RequestHandshake.Headers["Connection"] = "Upgrade";
+		RequestHandshake.Headers["Origin"] = "ASIO";
+		RequestHandshake.Headers["Sec-WebSocket-Key"] = "dGhlIHNhbXBsZSBub25jZQ==";
+		RequestHandshake.Headers["Sec-WebSocket-Protocol"] = "chat, superchat";
+		RequestHandshake.Headers["Sec-WebSocket-Version"] = "13";
+		RequestHandshake.Headers["Upgrade"] = "websocket";
+	}
+
 	virtual void BeginDestroy() override
 	{
-		ShouldStopContext = true;
 		TCP.resolver.cancel();
-		if (IsConnected()) Close();
-		ThreadPool->stop();
+		if (TCP.ssl_socket.lowest_layer().is_open())
+		{
+			Close();
+		}
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Remote")
-	void SetHost(const FString& url = "localhost", const FString& port = "")
+	void SetHost(const FString& url = "localhost", const FString& port = "3000")
 	{
 		Host = url;
 		Service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	FString GetLocalAdress() const
-	{
-		return TCP.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str();
-	}
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Context")
+	FSslContext GetContext() { return TCP.ssl_context; }
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Socket")
+	FTCPSslSocket GetSocket() { return TCP.ssl_socket; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
-	int GetLocalPort() const
-	{
-		return TCP.ssl_socket.lowest_layer().local_endpoint().port();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	FString GetRemoteAdress() const
-	{
-		return TCP.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Remote")
-	int GetRemotePort() const
-	{
-		return TCP.ssl_socket.lowest_layer().remote_endpoint().port();
-	}
+	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Socket")
+	void UpdateSslSocket() { TCP.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(TCP.context, TCP.ssl_context); }
 
 	/*SETTINGS*/
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void SetTimeout(uint8 value = 3) { Timeout = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 GetTimeout() const { return Timeout; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
-	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Settings")
-	uint8 GetMaxAttemp() const { return Timeout; }
-
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Settings")
 	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
 
@@ -334,40 +281,26 @@ public:
 
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetPath(const FString& value = "chat") { Handshake.path = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetPath() const { return Handshake.path; }
+	void AppendHeader(const FString& Key, const FString& Value) { RequestHandshake.Headers[Key] = Value; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetVersion(const FString& value = "1.1") { Handshake.version = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetVersion() const { return Handshake.version; }
+	void ClearHeaders() { UHttpFunctionLibrary::ClearRequest(RequestHandshake); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetKey(const FString& value = "dGhlIHNhbXBsZSBub25jZQ==") { Handshake.Sec_WebSocket_Key = value; }
+	void RemoveHeader(const FString& Key)
+	{
+		if (!RequestHandshake.Headers.Contains(Key))
+		{
+			return;
+		}
+		RequestHandshake.Headers.Remove(Key);
+	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetKey() const { return Handshake.Sec_WebSocket_Key; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetOrigin(const FString& value = "client") { Handshake.origin = value; }
+	bool HasHeader(const FString& Key) { return RequestHandshake.Headers.Contains(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetOrigin() const { return Handshake.origin; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetSecProtocol(const FString& value = "chat, superchat") { Handshake.Sec_WebSocket_Protocol = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetSecProtocol() const { return Handshake.Sec_WebSocket_Protocol; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Handshake")
-	void SetSecVersion(const FString& value = "13") { Handshake.Sec_Websocket_Version = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Handshake")
-	FString GetSecVersion() const { return Handshake.Sec_Websocket_Version; }
+	FString GetHeader(const FString& Key) { return RequestHandshake.Headers[Key]; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Dataframe")
@@ -399,16 +332,14 @@ public:
 	bool LoadPrivateKeyData(const FString& key_data) noexcept
 	{
 		if (key_data.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string key = TCHAR_TO_UTF8(*key_data);
 		const asio::const_buffer buffer(key.data(), key.size());
-		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ec);
-		if (ec)
+		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -418,15 +349,13 @@ public:
 	bool LoadPrivateKeyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ec);
-		if (ec)
+		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -436,16 +365,14 @@ public:
 	bool LoadCertificateData(const FString& cert_data)
 	{
 		if (cert_data.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string cert = TCHAR_TO_UTF8(*cert_data);
 		const asio::const_buffer buffer(cert.data(), cert.size());
-		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
-		if (ec)
+		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -457,13 +384,12 @@ public:
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ec);
-		if (ec)
+		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -473,17 +399,15 @@ public:
 	bool LoadCertificateChainData(const FString& cert_chain_data)
 	{
 		if (cert_chain_data.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
 		const asio::const_buffer buffer(cert_chain.data(),
 										cert_chain.size());
-		TCP.ssl_context.use_certificate_chain(buffer, ec);
-		if (ec)
+		TCP.ssl_context.use_certificate_chain(buffer, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -493,15 +417,13 @@ public:
 	bool LoadCertificateChainFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.use_certificate_chain_file(file, ec);
-		if (ec)
+		TCP.ssl_context.use_certificate_chain_file(file, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -511,15 +433,13 @@ public:
 	bool LoadVerifyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.load_verify_file(file, ec);
-		if (ec)
+		TCP.ssl_context.load_verify_file(file, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -527,63 +447,59 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool Send(const FString& message);
+	bool SendStr(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool SendRaw(const TArray<uint8> buffer);
+	bool SendBuffer(const TArray<uint8> buffer);
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
 	bool SendPing();
-	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Message")
-	bool AsyncRead();
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
 	bool Connect();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Connection")
-	bool IsConnected() const { return TCP.ssl_socket.lowest_layer().is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Connection")
 	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	int GetErrorCode() const { return TCP.error_code.value(); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Error")
-	FString GetErrorMessage() const { return TCP.error_code.message().c_str(); }
+	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsConnection OnConnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnectionRetry OnConnectionWillRetry;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnection OnClose;
+	FDelegateWsTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnection OnPongReceived;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnection OnCloseNotify;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsMessageReceived OnMessageReceived;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsConnectionCheck OnPongReveived;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsConnectionCheck OnCloseNotify;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsConnectionCheck OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsHandshakeError OnHandshakeFail;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
+	FDelegateWsError OnSocketError;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	FCriticalSection MutexIO;
 	FCriticalSection MutexBuffer;
-	bool ShouldStopContext = true;
+	FCriticalSection MutexError;
+	bool IsClosing = false;
+	FAsioTcpSslClient TCP;
+	asio::error_code ErrorCode;
 	FString Host = "localhost";
-	FString Service;
-	uint8 Timeout = 3;
-	uint8 MaxAttemp = 3;
+	FString Service = "3000";
 	bool SplitBuffer = false;
 	int MaxSendBufferSize = 1400;
-	FAsioTcpSsl TCP;
-	asio::streambuf RequestBuffer;
 	asio::streambuf ResponseBuffer;
-	FHandShake Handshake;
+	FClientRequest RequestHandshake;
+	FClientResponse ResponseHandshake;
 	FDataFrame SDataFrame;
 
 	void post_string(const FString& str);
@@ -595,20 +511,17 @@ private:
 	size_t get_frame_encode_size(const size_t buffer_size);
 	std::array<uint8, 4> mask_gen();
 	bool decode_payload(FWsMessage& data_frame);
-
-	void consume_response_buffer()
-	{
-		RequestBuffer.consume(RequestBuffer.size());
-		ResponseBuffer.consume(ResponseBuffer.size());
-	}
-
+	void consume_response_buffer();
+	TArray<uint8> sha1(const FString& input);
+	FString base64_encode(const uint8_t* input, size_t length);
+	FString generate_accept_key(const FString &sec_websocket_key);
 	void run_context_thread();
 	void resolve(const std::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
 	void conn(const std::error_code& error);
 	void ssl_handshake(const std::error_code& error);
 	void write_handshake(const std::error_code& error, const size_t bytes_sent);
-	void read_handshake(const std::error_code& error, const size_t bytes_sent, const size_t bytes_recvd);
-	void consume_header_buffer(const std::error_code& error);
+	void read_handshake(const std::error_code& error, const size_t bytes_recvd);
+	void read_headers(const std::error_code& error);
 	void write(const std::error_code& error, const size_t bytes_sent);
 	void read(const std::error_code& error, const size_t bytes_recvd);
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -17,25 +17,11 @@
 #include "Serialization/MemoryReader.h"
 #include <typeinfo>
 
-FString UInternetProtocolFunctionLibrary::toString(const TArray<uint8>& value)
+FString UInternetProtocolFunctionLibrary::BufferToString(const TArray<uint8>& value)
 {
 	FUTF8ToTCHAR utf8_char(reinterpret_cast<const ANSICHAR*>(value.GetData()), value.Num());
 	FString str(utf8_char.Length(), utf8_char.Get());
 	return str;
-}
-
-TArray<FString> UInternetProtocolFunctionLibrary::DeserializeHeaderLine(const FString& value)
-{
-	TArray<FString> values;
-	value.ParseIntoArray(values, TEXT(";"), true);
-	for (FString& str : values)
-	{
-		FString Result = str;
-		Result.TrimStartAndEndInline();
-		str = Result;
-	}
-
-	return values;
 }
 
 TArray<uint8> UInternetProtocolFunctionLibrary::BoolToByteArray(bool value)
@@ -138,4 +124,159 @@ FTransform UInternetProtocolFunctionLibrary::ByteArrayToFTransform(const TArray<
 	FMemoryReader MemoryReader(ByteArray);
 	MemoryReader << Transform;
 	return Transform;
+}
+
+TArray<FString> UHttpFunctionLibrary::DeserializeHeaderLine(const FString& value)
+{
+	TArray<FString> values;
+	value.ParseIntoArray(values, TEXT(";"), true);
+	for (FString& str : values)
+	{
+		FString Result = str;
+		Result.TrimStartAndEndInline();
+		str = Result;
+	}
+
+	return values;
+}
+
+void UHttpFunctionLibrary::ClearRequest(FClientRequest& request)
+{
+	request.Params.Empty();
+	request.Method = EMethod::GET;
+	request.Path = "/";
+	request.Version = "1.1";
+	request.Headers.Empty();
+	request.Body.Empty();
+}
+
+void UHttpFunctionLibrary::AppendHeader(FClientResponse& response, const FString& headerline)
+{
+	int32 Pos;
+	if (headerline.FindChar(TEXT(':'), Pos))
+	{
+		FString key = TrimWhitespace(headerline.Left(Pos));
+		FString value = TrimWhitespace(headerline.Mid(Pos + 1));
+		if (key == "Content-Length")
+		{
+			response.ContentLength = FCString::Atoi(*value);
+			return;
+		}
+		response.Headers.Add(key, value);
+	}
+}
+
+void UHttpFunctionLibrary::ClearResponse(FClientResponse& response)
+{
+	response.Headers.Empty();
+	response.ContentLength = 0;
+	response.Body.Empty();
+}
+
+void UHttpFunctionLibrary::SetBody(FClientResponse& response, const FString& value)
+{
+	if (value.IsEmpty()) return;
+	response.Body = value;
+}
+
+void UHttpFunctionLibrary::AppendBody(FClientResponse& response, const FString& value)
+{
+	response.Body.Append(value);
+}
+
+FString UHttpFunctionLibrary::TrimWhitespace(const FString& str)
+{
+	FString Result = str;
+	Result.TrimStartAndEndInline();
+	return Result;
+}
+
+int UUDPFunctionLibrary::Port(const FUDPEndpoint& endpoint)
+{
+	return endpoint.Endpoint->port();
+}
+
+FAddress UUDPFunctionLibrary::Address(const FUDPEndpoint& endpoint)
+{
+	return endpoint.Endpoint->address();
+}
+
+bool UUDPFunctionLibrary::IsOpen(const FUDPSocket& socket)
+{
+	return socket.Socket->is_open();
+}
+
+FUDPEndpoint UUDPFunctionLibrary::GetRemoteEndpoint(const FUDPSocket& socket)
+{
+	return socket.Socket->remote_endpoint();
+}
+
+FUDPEndpoint UUDPFunctionLibrary::GetLocalEndpoint(const FUDPSocket& socket)
+{
+	return socket.Socket->local_endpoint();
+}
+
+int UTCPFunctionLibrary::Port(const FTCPEndpoint& endpoint)
+{
+	return endpoint.Endpoint->port();
+}
+
+FAddress UTCPFunctionLibrary::Address(const FTCPEndpoint& endpoint)
+{
+	return endpoint.Endpoint->address();
+}
+
+bool UTCPFunctionLibrary::IsOpen(const FTCPSocket& socket)
+{
+	return socket.Socket->is_open();
+}
+
+FTCPEndpoint UTCPFunctionLibrary::GetRemoteEndpoint(const FTCPSocket& socket)
+{
+	return socket.Socket->remote_endpoint();
+}
+
+FTCPEndpoint UTCPFunctionLibrary::GetLocalEndpoint(const FTCPSocket& socket)
+{
+	return socket.Socket->local_endpoint();
+}
+
+bool UTCPSslNextLayerFunctionLibrary::IsOpen(const FTCPSslNextLayer& next_layer)
+{
+	return next_layer.SslNextLayer->is_open();
+}
+
+FTCPEndpoint UTCPSslNextLayerFunctionLibrary::GetRemoteEndpoint(const FTCPSslNextLayer& socket)
+{
+	return socket.SslNextLayer->remote_endpoint();
+}
+
+FTCPEndpoint UTCPSslNextLayerFunctionLibrary::GetLocalEndpoint(const FTCPSslNextLayer& socket)
+{
+	return socket.SslNextLayer->local_endpoint();
+}
+
+bool UTCPSslLowestLayerFunctionLibrary::IsOpen(const FTCPSslLowestLayer& lowest_layer)
+{
+	return lowest_layer.SslLowestLayer->is_open();
+}
+
+FTCPEndpoint UTCPSslLowestLayerFunctionLibrary::GetRemoteEndpoint(const FTCPSslLowestLayer& lowest_layer)
+{
+	return lowest_layer.SslLowestLayer->remote_endpoint();
+}
+
+FTCPEndpoint UTCPSslLowestLayerFunctionLibrary::GetLocalEndpoint(const FTCPSslLowestLayer& lowest_layer)
+{
+	return lowest_layer.SslLowestLayer->local_endpoint();
+}
+
+FTCPSslNextLayer UTCPSslFunctionLibrary::NextLayer(const FTCPSslSocket& ssl_socket)
+{
+	return ssl_socket.SslSocket->next_layer();
+}
+
+FTCPSslLowestLayer UTCPSslFunctionLibrary::LowestLayer(const FTCPSslSocket& ssl_socket)
+{
+	return ssl_socket.SslSocket->lowest_layer();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -27,13 +27,13 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateTcpConnection);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpRetry, const int, attemp);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpTransferred, const int, BytesSent, const int, BytesRecvd);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpMessageSent, const int, size);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateTcpMessageSent);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpMessageReceived, const FTcpMessage, message);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpError, const int, code, const FString&, exception);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpError, FErrorCode, ErrorCode);
 
 UCLASS(Blueprintable, BlueprintType)
 class INTERNETPROTOCOL_API UTCPClient : public UObject
@@ -43,59 +43,24 @@ class INTERNETPROTOCOL_API UTCPClient : public UObject
 public:
 	virtual void BeginDestroy() override
 	{
-		ShouldStopContext = true;
 		TCP.resolver.cancel();
-		if (IsConnected()) Close();
-		ThreadPool->stop();
+		if (TCP.socket.is_open()) Close();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Remote")
-	void SetHost(const FString& ip, const FString& port)
+	void SetHost(const FString& ip = "localhost", const FString& port = "3000")
 	{
 		Host = ip;
 		Service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
-	FString GetLocalAdress() const
-	{
-		return TCP.socket.local_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
-	int GetLocalPort() const
-	{
-		return TCP.socket.local_endpoint().port();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
-	FString GetRemoteAdress() const
-	{
-		return TCP.socket.remote_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
-	int GetRemotePort() const
-	{
-		return TCP.socket.remote_endpoint().port();
-	}
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Socket")
+	FTCPSocket GetSocket() { return TCP.socket; }	
 
 	/*SETTINGS*/
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
-	void SetTimeout(uint8 value = 3) { Timeout = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Settings")
-	uint8 GetTimeout() const { return Timeout; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
-	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Settings")
-	uint8 GetMaxAttemp() const { return Timeout; }
-
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
 	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
 
@@ -110,64 +75,53 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	bool Send(const FString& message);
+	bool SendStr(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	bool SendRaw(const TArray<uint8>& buffer);
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	bool AsyncRead();
+	bool SendBuffer(const TArray<uint8>& buffer);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")
 	bool Connect();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Connection")
-	bool IsConnected() const { return TCP.socket.is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")
 	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Error")
-	int GetErrorCode() const { return TCP.error_code.value(); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Error")
-	FString GetErrorMessage() const { return TCP.error_code.message().data(); }
+	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpConnection OnConnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
-	FDelegateTcpRetry OnConnectionWillRetry;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
-	FDelegateTcpConnection OnClose;
+	FDelegateTcpTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpMessageReceived OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
+	FDelegateTcpConnection OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
+	FDelegateTcpError OnSocketError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	FCriticalSection MutexIO;
 	FCriticalSection MutexBuffer;
-	bool ShouldStopContext = false;
-	FAsioTcp TCP;
+	FCriticalSection MutexError;
+	bool IsClosing = false;
+	FAsioTcpClient TCP;
+	asio::error_code ErrorCode;
 	FString Host = "localhost";
-	FString Service;
-	uint8_t Timeout = 3;
-	uint8_t MaxAttemp = 3;
+	FString Service = "3000";
 	bool bSplitBuffer = true;
 	int MaxSendBufferSize = 1400;
 	asio::streambuf ResponseBuffer;
 
 	void package_string(const FString& str);
 	void package_buffer(const TArray<uint8>& buffer);
-
-	void consume_response_buffer()
-	{
-		ResponseBuffer.consume(ResponseBuffer.size());
-	}
-
+	void consume_response_buffer();
 	void run_context_thread();
 	void resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
 	void conn(const asio::error_code& error);
@@ -183,59 +137,30 @@ class INTERNETPROTOCOL_API UTCPClientSsl : public UObject
 public:	
 	virtual void BeginDestroy() override
 	{
-		ShouldStopContext = true;
 		TCP.resolver.cancel();
-		if (IsConnected()) Close();
-		ThreadPool->stop();
+		if (TCP.ssl_socket.lowest_layer().is_open()) Close();
 		consume_response_buffer();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Remote")
-	void SetHost(const FString& ip, const FString& port)
+	void SetHost(const FString& ip = "localhost", const FString& port = "3000")
 	{
 		Host = ip;
 		Service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
-	FString GetLocalAdress() const
-	{
-		return TCP.ssl_socket.lowest_layer().local_endpoint().address().to_string().c_str();
-	}
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Context")
+	FSslContext GetContext() { return TCP.ssl_context; }
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Socket")
+	FTCPSslSocket GetSocket() { return TCP.ssl_socket; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Local")
-	int GetLocalPort() const
-	{
-		return TCP.ssl_socket.lowest_layer().local_endpoint().port();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
-	FString GetRemoteAdress() const
-	{
-		return TCP.ssl_socket.lowest_layer().remote_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Remote")
-	int GetRemotePort() const
-	{
-		return TCP.ssl_socket.lowest_layer().remote_endpoint().port();
-	}
-
+	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Socket")
+	void UpdateSslSocket() { TCP.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(TCP.context, TCP.ssl_context); }
+	
 	/*SETTINGS*/
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
-	void SetTimeout(uint8 value = 3) { Timeout = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Settings")
-	uint8 GetTimeout() const { return Timeout; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
-	void SetMaxAttemp(uint8 value = 3) { MaxAttemp = value; }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Settings")
-	uint8 GetMaxAttemp() const { return Timeout; }
-
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Settings")
 	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
 
@@ -253,16 +178,14 @@ public:
 	bool LoadPrivateKeyData(const FString& key_data) noexcept
 	{
 		if (key_data.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string key = TCHAR_TO_UTF8(*key_data);
 		const asio::const_buffer buffer(key.data(), key.size());
-		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ec);
-		if (ec)
+		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -272,15 +195,13 @@ public:
 	bool LoadPrivateKeyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ec);
-		if (ec)
+		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -290,16 +211,14 @@ public:
 	bool LoadCertificateData(const FString& cert_data)
 	{
 		if (cert_data.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string cert = TCHAR_TO_UTF8(*cert_data);
 		const asio::const_buffer buffer(cert.data(), cert.size());
-		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem);
-		if (ec)
+		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -311,13 +230,12 @@ public:
 		if (filename.IsEmpty()) return false;
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ec);
-		if (ec)
+		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -327,17 +245,15 @@ public:
 	bool LoadCertificateChainData(const FString& cert_chain_data)
 	{
 		if (cert_chain_data.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
 		const asio::const_buffer buffer(cert_chain.data(),
 										cert_chain.size());
-		TCP.ssl_context.use_certificate_chain(buffer, ec);
-		if (ec)
+		TCP.ssl_context.use_certificate_chain(buffer, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -347,15 +263,13 @@ public:
 	bool LoadCertificateChainFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.use_certificate_chain_file(file, ec);
-		if (ec)
+		TCP.ssl_context.use_certificate_chain_file(file, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -365,15 +279,13 @@ public:
 	bool LoadVerifyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
-		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*filename);
-		TCP.ssl_context.load_verify_file(file, ec);
-		if (ec)
+		TCP.ssl_context.load_verify_file(file, ErrorCode);
+		if (ErrorCode)
 		{
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR>"));
-			UE_LOG(LogTemp, Error, TEXT("%hs"), ec.message().c_str());
-			UE_LOG(LogTemp, Error, TEXT("<ASIO ERROR/>"));
-			OnError.Broadcast(ec.value(), ec.message().c_str());
+			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
+					   ErrorCode.message().c_str());
+			OnError.Broadcast(ErrorCode);
 			return false;
 		}
 		return true;
@@ -381,64 +293,53 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	bool Send(const FString& message);
+	bool SendStr(const FString& message);
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	bool SendRaw(const TArray<uint8>& buffer);
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Message")
-	bool AsyncRead();
+	bool SendBuffer(const TArray<uint8>& buffer);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")
 	bool Connect();
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Connection")
-	bool IsConnected() const { return TCP.ssl_socket.lowest_layer().is_open(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Connection")
 	void Close();
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Error")
-	int GetErrorCode() const { return TCP.error_code.value(); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Error")
-	FString GetErrorMessage() const { return TCP.error_code.message().data(); }
+	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpConnection OnConnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
-	FDelegateTcpRetry OnConnectionWillRetry;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
-	FDelegateTcpConnection OnClose;
+	FDelegateTcpTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpMessageReceived OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
+	FDelegateTcpConnection OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
+	FDelegateTcpError OnSocketError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||TCP||Events")
 	FDelegateTcpError OnError;
 
 private:
-	TUniquePtr<asio::thread_pool> ThreadPool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 	FCriticalSection MutexIO;
 	FCriticalSection MutexBuffer;
-	bool ShouldStopContext = false;
-	FAsioTcpSsl TCP;
+	FCriticalSection MutexError;
+	bool IsClosing = false;
+	FAsioTcpSslClient TCP;
+	asio::error_code ErrorCode;
 	FString Host = "localhost";
-	FString Service;
-	uint8_t Timeout = 3;
-	uint8_t MaxAttemp = 3;
+	FString Service = "3000";
 	bool SplitBuffer = true;
 	int MaxSendBufferSize = 1400;
 	asio::streambuf ResponseBuffer;
 
 	void package_string(const FString& str);
 	void package_buffer(const TArray<uint8>& buffer);
-
-	void consume_response_buffer()
-	{
-		ResponseBuffer.consume(ResponseBuffer.size());
-	}
-
+	void consume_response_buffer();
 	void run_context_thread();
 	void resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
 	void conn(const asio::error_code& error);

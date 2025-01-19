@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -14,82 +14,65 @@
 
 #include "UDP/UDPClient.h"
 
-bool UUDPClient::Send(const FString& message)
+#include <corecrt_io.h>
+
+bool UUDPClient::SendStr(const FString& message)
 {
-	if (!Thread_Pool.IsValid() || !IsConnected() || message.IsEmpty())
+	if (!UDP.socket.is_open() || message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(*Thread_Pool, std::bind(&UUDPClient::package_string, this, message));
+	asio::post(GetThreadPool(), std::bind(&UUDPClient::package_string, this, message));
 	return true;
 }
 
-bool UUDPClient::SendRaw(const TArray<uint8>& buffer)
+bool UUDPClient::SendBuffer(const TArray<uint8>& buffer)
 {
-	if (!IsConnected() || buffer.Num() <= 0)
+	if (!UDP.socket.is_open() || buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	asio::post(*Thread_Pool, std::bind(&UUDPClient::package_buffer, this, buffer));
-	return true;
-}
-
-bool UUDPClient::AsyncRead()
-{
-	if (!IsConnected())
-	{
-		return false;
-	}
-
-	UDP.socket.async_receive_from(asio::buffer(RBuffer.RawData.GetData(), RBuffer.RawData.Num()), UDP.endpoints,
-	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
-	                                        asio::placeholders::bytes_transferred)
-	);
+	asio::post(GetThreadPool(), std::bind(&UUDPClient::package_buffer, this, buffer));
 	return true;
 }
 
 bool UUDPClient::Connect()
 {
-	if (!Thread_Pool.IsValid() || IsConnected())
+	if (UDP.socket.is_open())
 	{
 		return false;
 	}
 	
-	asio::post(*Thread_Pool, std::bind(&UUDPClient::run_context_thread, this));
+	asio::post(GetThreadPool(), std::bind(&UUDPClient::run_context_thread, this));
 	return true;
 }
 
 void UUDPClient::Close()
 {
-	asio::error_code ec_shutdown;
-	asio::error_code ec_close;
+	IsClosing = true;
 	UDP.context.stop();
-	UDP.socket.shutdown(asio::ip::udp::socket::shutdown_both, ec_shutdown);
-	UDP.socket.close(ec_close);
-	if (ShouldStopContext)
-	{
-		return;
+	if (UDP.socket.is_open()) {
+		UDP.socket.shutdown(asio::ip::udp::socket::shutdown_both, ErrorCode);
+		if (ErrorCode) {
+			FScopeLock Guard(&MutexError);
+			OnError.Broadcast(ErrorCode);
+		}
+		UDP.socket.close(ErrorCode);
+		if (ErrorCode) {
+			FScopeLock Guard(&MutexError);
+			OnError.Broadcast(ErrorCode);
+		}
 	}
-	if (ec_shutdown)
-	{
-		ensureMsgf(!ec_shutdown, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_shutdown.value(),
-		           ec_shutdown.message().c_str());
-		OnError.Broadcast(ec_shutdown.value(), ec_shutdown.message().c_str());
-	}
-	if (ec_close)
-	{
-		ensureMsgf(!ec_close, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ec_close.value(),
-		           ec_close.message().c_str());
-		OnError.Broadcast(ec_close.value(), ec_close.message().c_str());
-	}
+	UDP.context.restart();
 	OnClose.Broadcast();
+	IsClosing = false;
 }
 
 void UUDPClient::package_string(const FString& str)
 {
-	MutexBuffer.Lock();
+	FScopeLock Guard(&MutexBuffer);
 	std::string packaged_str;
 	if (!SplitBuffer || str.Len() <= MaxSendBufferSize)
 	{
@@ -97,7 +80,6 @@ void UUDPClient::package_string(const FString& str)
 		UDP.socket.async_send_to(asio::buffer(packaged_str.data(), packaged_str.size()), UDP.endpoints,
 		                         std::bind(&UUDPClient::send_to, this, asio::placeholders::error,
 		                                   asio::placeholders::bytes_transferred));
-		MutexBuffer.Unlock();
 		return;
 	}
 
@@ -114,19 +96,16 @@ void UUDPClient::package_string(const FString& str)
 		                                   asio::placeholders::bytes_transferred));
 		string_offset += package_size;
 	}
-	MutexBuffer.Unlock();
 }
 
 void UUDPClient::package_buffer(const TArray<uint8>& buffer)
 {
-	MutexBuffer.Lock();
+	FScopeLock Guard(&MutexBuffer);
 	if (!SplitBuffer || buffer.Num() <= MaxSendBufferSize)
 	{
 		UDP.socket.async_send_to(asio::buffer(buffer.GetData(), buffer.Num()), UDP.endpoints,
 		                         std::bind(&UUDPClient::send_to, this, asio::placeholders::error,
-		                                   asio::placeholders::bytes_transferred)
-		);
-		MutexBuffer.Unlock();
+		                                   asio::placeholders::bytes_transferred));
 		return;
 	}
 
@@ -140,81 +119,75 @@ void UUDPClient::package_buffer(const TArray<uint8>& buffer)
 		sbuffer.Append(buffer.GetData() + buffer_offset, package_size);
 		UDP.socket.async_send_to(asio::buffer(sbuffer.GetData(), sbuffer.Num()), UDP.endpoints,
 		                         std::bind(&UUDPClient::send_to, this, asio::placeholders::error,
-		                                   asio::placeholders::bytes_transferred)
-		);
+		                                   asio::placeholders::bytes_transferred));
 		buffer_offset += package_size;
 	}
-	MutexBuffer.Unlock();
+}
+
+void UUDPClient::consume_receive_buffer()
+{
+	RBuffer.Size = 0;
+	if (!RBuffer.RawData.Num() == 0) {
+		RBuffer.RawData.Empty();
+		RBuffer.RawData.Shrink();
+	}
+	if (RBuffer.RawData.Num() != MaxReceiveBufferSize)
+		RBuffer.RawData.SetNum(MaxReceiveBufferSize);
 }
 
 void UUDPClient::run_context_thread()
 {
-	MutexIO.Lock();
-	while (UDP.attemps_fail <= MaxAttemp && !ShouldStopContext)
-	{
-		if (UDP.attemps_fail > 0)
+	FScopeLock Guard(&MutexIO);
+	ErrorCode.clear();
+	UDP.resolver.async_resolve(ProtocolType == EProtocolType::V4 ? asio::ip::udp::v4() : asio::ip::udp::v6(), TCHAR_TO_UTF8(*Host), TCHAR_TO_UTF8(*Service),
+							   std::bind(&UUDPClient::resolve, this, asio::placeholders::error,
+										 asio::placeholders::results)
+	);
+	UDP.context.run();
+	if (UDP.socket.is_open() && !IsClosing)
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			AsyncTask(ENamedThreads::GameThread, [&]()
-			{
-				OnConnectionWillRetry.Broadcast(UDP.attemps_fail);
-			});
-		}
-		UDP.error_code.clear();
-		UDP.resolver.async_resolve(asio::ip::udp::v4(), TCHAR_TO_UTF8(*Host), TCHAR_TO_UTF8(*Service),
-		                           std::bind(&UUDPClient::resolve, this, asio::placeholders::error,
-		                                     asio::placeholders::results)
-		);
-		UDP.context.run();
-		UDP.context.restart();
-		if (!UDP.error_code)
-		{
-			break;
-		}
-		UDP.attemps_fail++;
-		FPlatformProcess::Sleep(Timeout);
-	}
-	consume_receive_buffer();
-	UDP.attemps_fail = 0;
-	MutexIO.Unlock();
+			Close();
+		});
 }
 
 void UUDPClient::resolve(const asio::error_code& error, const asio::ip::udp::resolver::results_type& results)
 {
 	if (error)
 	{
-		UDP.error_code = error;
+		FScopeLock Guard(&MutexError);
+		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnError.Broadcast(error.value(), error.message().c_str());
+			OnSocketError.Broadcast(error);
 		});
 		return;
 	}
 	UDP.endpoints = *results.begin();
 	UDP.socket.async_connect(UDP.endpoints,
-	                         std::bind(&UUDPClient::conn, this, asio::placeholders::error)
-	);
+	                         std::bind(&UUDPClient::conn, this, asio::placeholders::error));
 }
 
 void UUDPClient::conn(const asio::error_code& error)
 {
 	if (error)
 	{
-		UDP.error_code = error;
+		FScopeLock Guard(&MutexError);
+		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnError.Broadcast(error.value(), error.message().c_str());
+			OnSocketError.Broadcast(error);
 		});
 		return;
 	}
 	consume_receive_buffer();
 	UDP.socket.async_receive_from(asio::buffer(RBuffer.RawData.GetData(), RBuffer.RawData.Num()), UDP.endpoints,
 	                              std::bind(&UUDPClient::receive_from, this, asio::placeholders::error,
-	                                        asio::placeholders::bytes_transferred)
-	);
+	                                        asio::placeholders::bytes_transferred));
 	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnConnected.Broadcast();
@@ -225,17 +198,20 @@ void UUDPClient::send_to(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
+		FScopeLock Guard(&MutexError);
+		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-			           error.message().c_str());
-			OnError.Broadcast(error.value(), error.message().c_str());
+					   error.message().c_str());
+			OnSocketError.Broadcast(error);
 		});
 		return;
 	}
 	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
-		OnMessageSent.Broadcast(bytes_sent);
+		OnBytesTransferred.Broadcast(bytes_sent, 0);
+		OnMessageSent.Broadcast();
 	});
 }
 
@@ -243,20 +219,22 @@ void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_
 {
 	if (error)
 	{
+		FScopeLock Guard(&MutexError);
+		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnError.Broadcast(error.value(), error.message().c_str());
+			OnSocketError.Broadcast(error);
 		});
 		return;
 	}
-	UDP.attemps_fail = 0;
 	RBuffer.Size = bytes_recvd;
 	RBuffer.RawData.SetNum(bytes_recvd);
 	const FUdpMessage buffer = RBuffer;
 	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
+		OnBytesTransferred.Broadcast(0, bytes_recvd);
 		OnMessageReceived.Broadcast(buffer);
 	});
 	consume_receive_buffer();

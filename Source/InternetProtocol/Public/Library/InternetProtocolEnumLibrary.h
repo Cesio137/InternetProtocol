@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -25,21 +25,26 @@ enum EOutputExecPins
 	Failure,
 };
 
+/*UDP*/
+UENUM(BlueprintType, Category = "IP")
+enum class EProtocolType : uint8
+{
+	V4 = 0,
+	v6 = 1
+};
+
 /*HTTP*/
 UENUM(Blueprintable, Category = "IP||HTTP")
-enum class EVerb : uint8
+enum class EMethod : uint8
 {
-	GET = 0,
-	POST = 1,
-	PUT = 2,
-	PATCH = 3,
-	DEL = 4,
-	COPY = 5,
-	HEAD = 6,
-	OPTIONS = 7,
-	LOCK = 8,
-	UNLOCK = 9,
-	PROPFIND = 10
+	DEL = 0,
+	GET = 1,
+	HEAD = 2,
+	OPTIONS = 3,
+	PATCH = 4,
+	POST = 5,
+	PUT = 6,
+	TRACE = 7,
 };
 
 /*WEBSOCKET*/
