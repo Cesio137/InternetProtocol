@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -204,6 +204,15 @@ namespace InternetProtocol {
         asio::streambuf response_buffer;
         Client::FResponse response;
 
+        void consume_stream_buffers() {
+            const size_t req_size = request_buffer.size();
+            if (req_size > 0)
+                request_buffer.consume(req_size);
+            const size_t res_size = response_buffer.size();
+            if (res_size > 0)
+                response_buffer.consume(res_size);
+        }
+
         void run_context_thread() {
             if (tcp.socket.is_open()) {
                 std::ostream request_stream(&request_buffer);
@@ -225,15 +234,6 @@ namespace InternetProtocol {
                 close();
             else if (tcp.context.stopped() && !is_closing)
                 tcp.context.restart();
-        }
-
-        void consume_stream_buffers() {
-            const size_t req_size = request_buffer.size();
-            if (req_size > 0)
-                request_buffer.consume(req_size);
-            const size_t res_size = response_buffer.size();
-            if (res_size > 0)
-                response_buffer.consume(res_size);
         }
 
         void resolve(const asio::error_code &error,
@@ -327,11 +327,11 @@ namespace InternetProtocol {
 
             while (std::getline(response_stream, header) && header != "\r")
                 Client::res_append_header(response, header);
-            std::ostringstream content_buffer;
+            std::ostringstream body_buffer;
 
             if (response_buffer.size() > 0) {
-                content_buffer << &response_buffer;
-                Client::res_set_body(response, content_buffer.str());
+                body_buffer << &response_buffer;
+                Client::res_set_body(response, body_buffer.str());
             }
 
             std::ostringstream stream_buffer;
@@ -647,6 +647,15 @@ namespace InternetProtocol {
         asio::streambuf response_buffer;
         Client::FResponse response;
 
+        void consume_stream_buffers() {
+            const size_t req_size = request_buffer.size();
+            if (req_size > 0)
+                request_buffer.consume(req_size);
+            const size_t res_size = response_buffer.size();
+            if (res_size > 0)
+                response_buffer.consume(res_size);
+        }
+
         void run_context_thread() {
             if (get_ssl_socket().next_layer().is_open()) {
                 std::ostream request_stream(&request_buffer);
@@ -671,15 +680,6 @@ namespace InternetProtocol {
                 tcp.context.restart();
                 tcp.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(tcp.context, tcp.ssl_context);
             }
-        }
-
-        void consume_stream_buffers() {
-            const size_t req_size = request_buffer.size();
-            if (req_size > 0)
-                request_buffer.consume(req_size);
-            const size_t res_size = response_buffer.size();
-            if (res_size > 0)
-                response_buffer.consume(res_size);
         }
 
         void resolve(const asio::error_code &error,
@@ -724,13 +724,13 @@ namespace InternetProtocol {
         }
 
         void write_request(const asio::error_code &error, const size_t bytes_sent, const bool trigger_read_until) {
-            if (on_request_progress) on_request_progress(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_request_progress) on_request_progress(bytes_sent, 0);
             if (trigger_read_until) {
                 asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n",
                                        std::bind(&HttpClientSsl::read_status_line, this,
@@ -740,13 +740,13 @@ namespace InternetProtocol {
 
         void read_status_line(const asio::error_code &error,
                               const size_t bytes_recvd) {
-            if (on_request_progress) on_request_progress(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_request_progress) on_request_progress(0, bytes_recvd);
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
@@ -785,10 +785,10 @@ namespace InternetProtocol {
 
             while (std::getline(response_stream, header) && header != "\r")
                 Client::res_append_header(response, header);
-            std::ostringstream content_buffer;
+            std::ostringstream body_buffer;
             if (response_buffer.size() > 0) {
-                content_buffer << &response_buffer;
-                Client::res_set_body(response, content_buffer.str());
+                body_buffer << &response_buffer;
+                Client::res_set_body(response, body_buffer.str());
             }
 
             std::ostringstream stream_buffer;

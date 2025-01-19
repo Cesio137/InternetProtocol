@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024 Nathan Miguel
+# Copyright (c) 2023-2025 Nathan Miguel
 #
 # InternetProtocol is free library: you can redistribute it and/or modify it under the terms
 # of the GNU Affero General Public License as published by the Free Software Foundation,

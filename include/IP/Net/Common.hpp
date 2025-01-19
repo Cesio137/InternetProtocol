@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -31,6 +31,11 @@
 namespace InternetProtocol {
     static asio::thread_pool thread_pool(std::thread::hardware_concurrency());
 
+    enum class EProtocolType : uint8_t {
+        V4 = 0,
+        V6 = 1,
+    };
+
     /*HTTP REQUEST*/
     enum class EMethod : uint8_t {
         DEL = 0,
@@ -44,10 +49,7 @@ namespace InternetProtocol {
     };
 
     namespace Server {
-        enum class EServerProtocol : uint8_t {
-            V4 = 0,
-            V6 = 1,
-        };
+
 
         struct FAsioUdp {
             FAsioUdp() : socket(context) {

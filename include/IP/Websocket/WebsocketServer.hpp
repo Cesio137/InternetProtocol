@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -31,7 +31,7 @@ namespace InternetProtocol {
         }
 
         /*HOST*/
-        void set_socket(const Server::EServerProtocol protocol, const uint16_t port,
+        void set_socket(const EProtocolType protocol, const uint16_t port,
                         const int max_listen_conn = 2147483647) {
             tcp_protocol = protocol;
             tcp_port = port;
@@ -126,11 +126,11 @@ namespace InternetProtocol {
             if (get_acceptor().is_open())
                 return false;
 
-            asio::ip::tcp::endpoint endpoint(tcp_protocol == Server::EServerProtocol::V4
+            asio::ip::tcp::endpoint endpoint(tcp_protocol == EProtocolType::V4
                                                  ? asio::ip::tcp::v4()
                                                  : asio::ip::tcp::v6(), tcp_port);
             error_code = asio::error_code();
-            tcp.acceptor.open(tcp_protocol == Server::EServerProtocol::V4
+            tcp.acceptor.open(tcp_protocol == EProtocolType::V4
                                   ? asio::ip::tcp::v4()
                                   : asio::ip::tcp::v6(), error_code);
             if (error_code && on_error) {
@@ -214,7 +214,7 @@ namespace InternetProtocol {
         std::mutex mutex_io;
         std::mutex mutex_buffer;
         std::mutex mutex_error;
-        Server::EServerProtocol tcp_protocol = Server::EServerProtocol::V4;
+        EProtocolType tcp_protocol = EProtocolType::V4;
         uint16_t tcp_port = 3000;
         int max_listen_connection = 2147483647;
         bool split_buffer = false;
@@ -878,7 +878,7 @@ namespace InternetProtocol {
         }
 
         /*HOST*/
-        void set_socket(const Server::EServerProtocol protocol, const uint16_t port,
+        void set_socket(const EProtocolType protocol, const uint16_t port,
                         const int max_listen_conn = 2147483647) {
             tcp_protocol = protocol;
             tcp_port = port;
@@ -1050,11 +1050,11 @@ namespace InternetProtocol {
             if (get_acceptor().is_open())
                 return false;
 
-            asio::ip::tcp::endpoint endpoint(tcp_protocol == Server::EServerProtocol::V4
+            asio::ip::tcp::endpoint endpoint(tcp_protocol == EProtocolType::V4
                                                  ? asio::ip::tcp::v4()
                                                  : asio::ip::tcp::v6(), tcp_port);
             error_code = asio::error_code();
-            tcp.acceptor.open(tcp_protocol == Server::EServerProtocol::V4
+            tcp.acceptor.open(tcp_protocol == EProtocolType::V4
                                   ? asio::ip::tcp::v4()
                                   : asio::ip::tcp::v6(), error_code);
             if (error_code && on_error) {
@@ -1138,7 +1138,7 @@ namespace InternetProtocol {
         std::mutex mutex_io;
         std::mutex mutex_buffer;
         std::mutex mutex_error;
-        Server::EServerProtocol tcp_protocol = Server::EServerProtocol::V4;
+        EProtocolType tcp_protocol = EProtocolType::V4;
         uint16_t tcp_port = 3000;
         int max_listen_connection = 2147483647;
         bool split_buffer = false;

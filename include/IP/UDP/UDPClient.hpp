@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -25,9 +25,10 @@ namespace InternetProtocol {
         }
 
         /*HOST | LOCAL*/
-        void set_host(const std::string &ip = "localhost", const std::string &port = "3000") {
+        void set_host(const std::string &ip = "localhost", const std::string &port = "3000", const EProtocolType protocol = EProtocolType::V4) {
             host = ip;
             service = port;
+            protocol_type = protocol;
         }
 
         asio::ip::udp::socket &get_socket() { return udp.socket; }
@@ -108,6 +109,7 @@ namespace InternetProtocol {
         asio::error_code error_code;
         std::string host = "localhost";
         std::string service = "3000";
+        EProtocolType protocol_type = EProtocolType::V4;
         bool split_buffer = true;
         int max_send_buffer_size = 1024;
         int max_receive_buffer_size = 1024;
@@ -171,7 +173,7 @@ namespace InternetProtocol {
         void run_context_thread() {
             std::lock_guard<std::mutex> guard(mutex_io);
             error_code.clear();
-            udp.resolver.async_resolve(asio::ip::udp::v4(), host, service,
+            udp.resolver.async_resolve(protocol_type == EProtocolType::V4 ? asio::ip::udp::v4() : asio::ip::udp::v6(), host, service,
                                        std::bind(&UDPClient::resolve, this, asio::placeholders::error,
                                                  asio::placeholders::results));
             udp.context.run();
@@ -186,7 +188,7 @@ namespace InternetProtocol {
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
-            udp.endpoints = *results.begin();
+            udp.endpoints = results.begin()->endpoint();
             udp.socket.async_connect(udp.endpoints,
                                      std::bind(&UDPClient::conn, this, asio::placeholders::error));
         }

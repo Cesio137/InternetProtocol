@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -166,13 +166,13 @@ namespace InternetProtocol {
         std::mutex mutex_io;
         std::mutex mutex_buffer;
         std::mutex mutex_error;
+        bool is_closing = false;
+        Client::FAsioTcp tcp;
+        asio::error_code error_code;
         std::string host = "localhost";
         std::string service = "3000";
         bool split_buffer = false;
         int max_send_buffer_size = 1400;
-        bool is_closing = false;
-        Client::FAsioTcp tcp;
-        asio::error_code error_code;
         asio::streambuf response_buffer;
         Client::FRequest req_handshake;
         Client::FResponse res_handshake;
@@ -538,7 +538,7 @@ namespace InternetProtocol {
         }
 
         std::string base64_encode(const uint8_t *input, size_t length) {
-            static const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
             std::string result;
             int i = 0;
@@ -637,26 +637,26 @@ namespace InternetProtocol {
         }
 
         void write_handshake(const asio::error_code &error, const size_t bytes_sent) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             asio::async_read_until(tcp.socket, response_buffer, "\r\n",
                                    std::bind(&WebsocketClient::read_handshake, this,
                                              asio::placeholders::error, asio::placeholders::bytes_transferred));
         }
 
         void read_handshake(const asio::error_code &error, const size_t bytes_recvd) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
@@ -681,11 +681,7 @@ namespace InternetProtocol {
             }
 
             if (response_buffer.size() == 0) {
-                if (on_connected) on_connected(Client::FResponse());
-                asio::async_read(
-                    tcp.socket, response_buffer, asio::transfer_at_least(1),
-                    std::bind(&WebsocketClient::read, this, asio::placeholders::error,
-                              asio::placeholders::bytes_transferred));
+                if (on_handshake_fail) on_handshake_fail(505, ResponseStatusCode.at(505));
                 return;
             }
             asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
@@ -708,28 +704,28 @@ namespace InternetProtocol {
             consume_response_buffer();
 
             if (res_handshake.headers.empty()) {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Empty");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_socket().is_open() && !is_closing)
                     close();
                 return;
             }
             if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] !=
                 "websocket") {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Connection");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_socket().is_open() && !is_closing)
                     close();
             }
             std::string protocol = req_handshake.headers.at("Sec-WebSocket-Protocol");
             std::string res_protocol = res_handshake.headers.at("Sec-WebSocket-Protocol")[0];
             if (protocol.find(res_protocol) == protocol.npos) {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Sec-WebSocket-Protocol");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_socket().is_open() && !is_closing)
                     close();
             }
             std::string accept_key = res_handshake.headers.at("Sec-WebSocket-Accept")[0];
             std::string encoded_key = generate_accept_key(req_handshake.headers.at("Sec-WebSocket-Key"));
             if (accept_key != encoded_key) {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid Sec-WebSocket-Accept");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_socket().is_open() && !is_closing)
                     close();
             }
@@ -742,24 +738,24 @@ namespace InternetProtocol {
         }
 
         void write(const asio::error_code &error, const std::size_t bytes_sent) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (on_message_sent) on_message_sent();
         }
 
         void read(const asio::error_code &error, const size_t bytes_recvd) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             FWsMessage rDataFrame;
             if (!decode_payload(rDataFrame)) {
                 response_buffer.consume(response_buffer.size());
@@ -770,9 +766,7 @@ namespace InternetProtocol {
                 return;
             }
             if (rDataFrame.data_frame.opcode == EOpcode::PING) {
-                std::vector<uint8_t> pong_buffer = {
-                    uint8_t('p'), uint8_t('o'), uint8_t('n'), uint8_t('g'), uint8_t('\0')
-                };
+                std::vector<uint8_t> pong_buffer = {'p', 'o', 'n', 'g', '\0'};
                 post_buffer(EOpcode::PONG, pong_buffer);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
                 if (on_pong_received) on_pong_received();
@@ -1501,13 +1495,13 @@ namespace InternetProtocol {
         }
 
         void write_handshake(const asio::error_code &error, const size_t bytes_sent) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             // Read the response status line. The response_ streambuf will
             // automatically grow to accommodate the entire line. The growth may be
             // limited by passing a maximum size to the streambuf constructor.
@@ -1517,13 +1511,13 @@ namespace InternetProtocol {
         }
 
         void read_handshake(const asio::error_code &error, size_t bytes_recvd) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             // Check that response is OK.
             std::istream response_stream(&response_buffer);
             std::string http_version;
@@ -1579,28 +1573,28 @@ namespace InternetProtocol {
             consume_response_buffer();
 
             if (res_handshake.headers.empty()) {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Empty");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_ssl_socket().next_layer().is_open() && !is_closing)
                     close();
                 return;
             }
             if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] !=
                 "websocket") {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Connection");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_ssl_socket().next_layer().is_open() && !is_closing)
                     close();
             }
             std::string protocol = req_handshake.headers.at("Sec-WebSocket-Protocol");
             std::string res_protocol = res_handshake.headers.at("Sec-WebSocket-Protocol")[0];
             if (protocol.find(res_protocol) == protocol.npos) {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid header: Sec-WebSocket-Protocol");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_ssl_socket().next_layer().is_open() && !is_closing)
                     close();
             }
             std::string accept_key = res_handshake.headers.at("Sec-WebSocket-Accept")[0];
             std::string encoded_key = generate_accept_key(req_handshake.headers.at("Sec-WebSocket-Key"));
             if (accept_key != encoded_key) {
-                if (on_handshake_fail) on_handshake_fail(-1, "Invalid Sec-WebSocket-Accept");
+                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
                 if (get_ssl_socket().next_layer().is_open() && !is_closing)
                     close();
             }
@@ -1613,25 +1607,25 @@ namespace InternetProtocol {
         }
 
         void write(const asio::error_code &error, const std::size_t bytes_sent) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
 
             if (on_message_sent) on_message_sent(bytes_sent);
         }
 
         void read(const asio::error_code &error, const size_t bytes_recvd) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
                 if (on_socket_error) on_socket_error(error);
                 return;
             }
+            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
 
             FWsMessage rDataFrame;
             if (!decode_payload(rDataFrame)) {
@@ -1644,10 +1638,7 @@ namespace InternetProtocol {
             }
 
             if (rDataFrame.data_frame.opcode == EOpcode::PING) {
-                std::vector<uint8_t> pong_buffer;
-                pong_buffer.resize(1);
-                if (pong_buffer.back() != uint8_t('\0'))
-                    pong_buffer.push_back(uint8_t('\0'));
+                std::vector<uint8_t> pong_buffer = {'p', 'o', 'n', 'g', '\0'};
                 post_buffer(EOpcode::PONG, pong_buffer);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
                 if (on_pong_received) on_pong_received();

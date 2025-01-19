@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -24,8 +24,8 @@ namespace InternetProtocol {
         }
 
         /*HOST | LOCAL*/
-        void set_socket(const Server::EServerProtocol protocol, const uint16_t port) {
-            udp_protocol = protocol;
+        void set_socket(const EProtocolType protocol, const uint16_t port) {
+            protocol_type = protocol;
             udp_port = port;
         }
 
@@ -61,7 +61,7 @@ namespace InternetProtocol {
             if (udp.socket.is_open())
                 return false;
 
-            udp.socket.open(udp_protocol == Server::EServerProtocol::V4 ? asio::ip::udp::v4() : asio::ip::udp::v6(),
+            udp.socket.open(protocol_type == EProtocolType::V4 ? asio::ip::udp::v4() : asio::ip::udp::v6(),
                             error_code);
             if (error_code) {
                 std::lock_guard<std::mutex> guard(mutex_error);
@@ -69,7 +69,7 @@ namespace InternetProtocol {
                 return false;
             }
             udp.socket.bind(
-                asio::ip::udp::endpoint(udp_protocol == Server::EServerProtocol::V4
+                asio::ip::udp::endpoint(protocol_type == EProtocolType::V4
                                             ? asio::ip::udp::v4()
                                             : asio::ip::udp::v6(), udp_port), error_code);
             if (error_code) {
@@ -124,7 +124,7 @@ namespace InternetProtocol {
         bool is_closing = false;
         Server::FAsioUdp udp;
         asio::error_code error_code;
-        Server::EServerProtocol udp_protocol = Server::EServerProtocol::V4;
+        EProtocolType protocol_type = EProtocolType::V4;
         uint16_t udp_port = 3000;
         bool split_buffer = true;
         int max_send_buffer_size = 1024;
