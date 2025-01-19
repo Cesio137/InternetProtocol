@@ -153,8 +153,9 @@ void UTCPClient::resolve(const asio::error_code& error, const asio::ip::tcp::res
 {
 	if (error)
 	{
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
@@ -172,11 +173,12 @@ void UTCPClient::conn(const asio::error_code& error)
 {
 	if (error)
 	{
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-			           error.message().c_str());
+					   error.message().c_str());
 			OnSocketError.Broadcast(error);
 		});
 		return;
@@ -196,10 +198,12 @@ void UTCPClient::write(const asio::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		FScopeLock Guard(&MutexError);
+		ErrorCode = error;
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-			           error.message().c_str());
+					   error.message().c_str());
 			OnSocketError.Broadcast(error);
 		});
 		return;
@@ -215,10 +219,12 @@ void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		FScopeLock Guard(&MutexError);
+		ErrorCode = error;
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-			           error.message().c_str());
+					   error.message().c_str());
 			OnSocketError.Broadcast(error);
 		});
 		return;
@@ -381,7 +387,7 @@ void UTCPClientSsl::resolve(const asio::error_code& error, const asio::ip::tcp::
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
@@ -401,7 +407,7 @@ void UTCPClientSsl::conn(const asio::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -420,7 +426,7 @@ void UTCPClientSsl::ssl_handshake(const asio::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -445,7 +451,7 @@ void UTCPClientSsl::write(const asio::error_code& error, const size_t bytes_sent
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -466,7 +472,7 @@ void UTCPClientSsl::read(const asio::error_code& error, const size_t bytes_recvd
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());

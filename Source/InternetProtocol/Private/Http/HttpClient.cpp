@@ -146,7 +146,7 @@ void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::res
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -165,7 +165,7 @@ void UHttpClient::connect(const std::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -186,7 +186,7 @@ void UHttpClient::write_request(const std::error_code& error, const size_t bytes
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -209,7 +209,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -217,7 +217,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, error]()
 	{
 		OnRequestProgress.Broadcast(0, bytes_recvd);
 	});
@@ -257,7 +257,7 @@ void UHttpClient::read_headers(const std::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -307,7 +307,7 @@ void UHttpClient::read_body(const std::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -459,7 +459,7 @@ void UHttpClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -478,7 +478,7 @@ void UHttpClientSsl::connect(const std::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -497,7 +497,7 @@ void UHttpClientSsl::ssl_handshake(const std::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -518,7 +518,7 @@ void UHttpClientSsl::write_request(const std::error_code& error, const size_t by
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -532,8 +532,7 @@ void UHttpClientSsl::write_request(const std::error_code& error, const size_t by
 	});
 	if (trigger_read_until)
 		asio::async_read_until(TCP.ssl_socket, ResponseBuffer, "\r\n",
-							   std::bind(&UHttpClientSsl::read_status_line, this, asio::placeholders::error, bytes_sent,
-										 asio::placeholders::bytes_transferred));
+							   std::bind(&UHttpClientSsl::read_status_line, this, asio::placeholders::error, asio::placeholders::bytes_transferred));
 }
 
 void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t bytes_recvd)
@@ -542,7 +541,7 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -588,7 +587,7 @@ void UHttpClientSsl::read_headers(const std::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -638,7 +637,7 @@ void UHttpClientSsl::read_body(const std::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());

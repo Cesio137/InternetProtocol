@@ -48,12 +48,12 @@ class INTERNETPROTOCOL_API UWSClient : public UObject
 public:
 	UWSClient()
 	{
-		RequestHandshake.Headers["Connection"] = "Upgrade";
-		RequestHandshake.Headers["Origin"] = "ASIO";
-		RequestHandshake.Headers["Sec-WebSocket-Key"] = "dGhlIHNhbXBsZSBub25jZQ==";
-		RequestHandshake.Headers["Sec-WebSocket-Protocol"] = "chat, superchat";
-		RequestHandshake.Headers["Sec-WebSocket-Version"] = "13";
-		RequestHandshake.Headers["Upgrade"] = "websocket";
+		RequestHandshake.Headers.Add("Connection", "Upgrade");
+		RequestHandshake.Headers.Add("Origin", "ASIO");
+		RequestHandshake.Headers.Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==");
+		RequestHandshake.Headers.Add("Sec-WebSocket-Protocol", "chat, superchat");
+		RequestHandshake.Headers.Add("Sec-WebSocket-Version", "13");
+		RequestHandshake.Headers.Add("Upgrade", "websocket");
 	}
 
 	virtual void BeginDestroy() override
@@ -75,7 +75,7 @@ public:
 		Service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Local")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Socket")
 	FTCPSocket GetSocket() { return TCP.socket; }
 
 	/*SETTINGS*/
@@ -170,7 +170,7 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsMessageReceived OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
-	FDelegateWsConnectionCheck OnPongReveived;
+	FDelegateWsConnectionCheck OnPongReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
 	FDelegateWsConnectionCheck OnCloseNotify;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||Websocket||Events")
@@ -229,12 +229,12 @@ class INTERNETPROTOCOL_API UWSClientSsl : public UObject
 public:
 	UWSClientSsl()
 	{
-		RequestHandshake.Headers["Connection"] = "Upgrade";
-		RequestHandshake.Headers["Origin"] = "ASIO";
-		RequestHandshake.Headers["Sec-WebSocket-Key"] = "dGhlIHNhbXBsZSBub25jZQ==";
-		RequestHandshake.Headers["Sec-WebSocket-Protocol"] = "chat, superchat";
-		RequestHandshake.Headers["Sec-WebSocket-Version"] = "13";
-		RequestHandshake.Headers["Upgrade"] = "websocket";
+		RequestHandshake.Headers.Add("Connection", "Upgrade");
+		RequestHandshake.Headers.Add("Origin", "ASIO");
+		RequestHandshake.Headers.Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==");
+		RequestHandshake.Headers.Add("Sec-WebSocket-Protocol", "chat, superchat");
+		RequestHandshake.Headers.Add("Sec-WebSocket-Version", "13");
+		RequestHandshake.Headers.Add("Upgrade", "websocket");
 	}
 
 	virtual void BeginDestroy() override
@@ -256,13 +256,13 @@ public:
 		Service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Context")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Context")
 	FSslContext GetContext() { return TCP.ssl_context; }
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Socket")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||Websocket||Socket")
 	FTCPSslSocket GetSocket() { return TCP.ssl_socket; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||TCP||Socket")
+	UFUNCTION(BlueprintCallable, Category = "IP||Websocket||Socket")
 	void UpdateSslSocket() { TCP.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(TCP.context, TCP.ssl_context); }
 
 	/*SETTINGS*/

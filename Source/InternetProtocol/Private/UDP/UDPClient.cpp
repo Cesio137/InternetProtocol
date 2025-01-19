@@ -157,7 +157,7 @@ void UUDPClient::resolve(const asio::error_code& error, const asio::ip::udp::res
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -176,7 +176,7 @@ void UUDPClient::conn(const asio::error_code& error)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -200,7 +200,7 @@ void UUDPClient::send_to(const asio::error_code& error, const size_t bytes_sent)
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
@@ -221,7 +221,7 @@ void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_
 	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
-		AsyncTask(ENamedThreads::GameThread, [&]()
+		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());

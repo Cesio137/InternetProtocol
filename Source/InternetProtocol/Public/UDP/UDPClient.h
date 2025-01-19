@@ -62,30 +62,6 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Socket")
 	FUDPSocket GetSocket() { return UDP.socket; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
-	FString GetLocalAdress() const
-	{
-		return UDP.socket.local_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Local")
-	int GetLocalPort() const
-	{
-		return UDP.socket.local_endpoint().port();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	FString GetRemoteAdress() const
-	{
-		return UDP.socket.remote_endpoint().address().to_string().c_str();
-	}
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Remote")
-	int GetRemotePort() const
-	{
-		return UDP.socket.remote_endpoint().port();
-	}
-
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
 	void SetMaxSendBufferSize(int value = 1024) { MaxSendBufferSize = value; }

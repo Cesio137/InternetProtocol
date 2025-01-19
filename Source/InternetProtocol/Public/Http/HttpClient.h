@@ -59,7 +59,7 @@ public:
 
 	/*HTTP SETTINGS*/
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Remote")
 	void SetHost(const FString& url = "localhost", const FString& port = "3000")
 	{
 		Host = url;
@@ -225,19 +225,13 @@ public:
 
 	virtual void BeginDestroy() override
 	{
-		IsClosing = true;
-		TCP.resolver.cancel();
-		if (!TCP.context.stopped() || TCP.ssl_socket.lowest_layer().is_open()) Close();
-		ThreadPool->stop();
-		ClearRequest();
-		ClearPayload();
-		ClearResponse();
+		if (TCP.ssl_socket.lowest_layer().is_open()) Close();
 		Super::BeginDestroy();
 	}
 
 	/*HTTP SETTINGS*/
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Settings")
+	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Remote")
 	void SetHost(const FString& url = "localhost", const FString& port = "3000")
 	{
 		Host = url;

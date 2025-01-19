@@ -49,17 +49,17 @@ struct FErrorCode
 		return *this;
 	}
 	FErrorCode() = default;
-	FErrorCode(const asio::error_code error_code)
+	FErrorCode(const asio::error_code& error_code)
 	{
 		Value = error_code.value();
 		Message = error_code.message().c_str();
 	}
 
 	UPROPERTY(BlueprintReadWrite, Category = "IP||Error Code")
-	int Value = 0;
+	int Value;
 
 	UPROPERTY(BlueprintReadWrite, Category = "IP||Error Code")
-	FString Message = "";
+	FString Message;
 };
 
 /*ADDRESS*/
