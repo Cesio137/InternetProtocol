@@ -232,6 +232,18 @@ struct FUDPEndpoint
 		Endpoint = &endpoint;
 		return *this;
 	}
+	bool operator==(const FUDPEndpoint& endpoint) const
+	{
+		if (this == &endpoint)
+			return true;
+		return false;
+	}
+	bool operator!=(const FUDPEndpoint& endpoint) const
+	{
+		if (this != &endpoint)
+			return true;
+		return false;
+	}
 
 	const asio::ip::udp::endpoint* Endpoint;
 };

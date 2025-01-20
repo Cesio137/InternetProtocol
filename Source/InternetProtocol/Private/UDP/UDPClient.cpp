@@ -29,7 +29,7 @@ bool UUDPClient::SendStr(const FString& message)
 
 bool UUDPClient::SendBuffer(const TArray<uint8>& buffer)
 {
-	if (!UDP.socket.is_open() || buffer.Num() <= 0)
+	if (!UDP.socket.is_open() || buffer.Num() == 0)
 	{
 		return false;
 	}

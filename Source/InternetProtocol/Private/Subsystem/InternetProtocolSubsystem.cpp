@@ -14,50 +14,56 @@
 
 #include "Subsystem/InternetProtocolSubsystem.h"
 
+UUDPServer* UInternetProtocolSubsystem::CreateUDPServer()
+{
+	UUDPServer* server = NewObject<UUDPServer>();
+	return server;
+}
+
 UUDPClient* UInternetProtocolSubsystem::CreateUDPClient()
 {
-	UUDPClient* udpClient = NewObject<UUDPClient>();
-	return udpClient;
+	UUDPClient* client = NewObject<UUDPClient>();
+	return client;
 }
 
 UTCPClient* UInternetProtocolSubsystem::CreateTcpClient()
 {
-	UTCPClient* tcpClient = NewObject<UTCPClient>();
-	return tcpClient;
+	UTCPClient* client = NewObject<UTCPClient>();
+	return client;
 }
 
 UTCPClientSsl* UInternetProtocolSubsystem::CreateTcpClientSsl()
 {
-	UTCPClientSsl* tcpClient = NewObject<UTCPClientSsl>();
-	return tcpClient;
+	UTCPClientSsl* client = NewObject<UTCPClientSsl>();
+	return client;
 }
 
 UHttpClient* UInternetProtocolSubsystem::CreateHttpClient()
 {
-	UHttpClient* httpClient = NewObject<UHttpClient>();
-	return httpClient;
+	UHttpClient* client = NewObject<UHttpClient>();
+	return client;
 }
 
 UHttpClientSsl* UInternetProtocolSubsystem::CreateHttpClientSsl()
 {
-	UHttpClientSsl* httpClient = NewObject<UHttpClientSsl>();
-	return httpClient;
+	UHttpClientSsl* client = NewObject<UHttpClientSsl>();
+	return client;
 }
 
 UWSClient* UInternetProtocolSubsystem::CreateWebsocketClient()
 {
-	UWSClient* websocketClient = NewObject<UWSClient>();
-	return websocketClient;
+	UWSClient* client = NewObject<UWSClient>();
+	return client;
 }
 
 UWSClientSsl* UInternetProtocolSubsystem::CreateWebsocketClientSsl()
 {
-	UWSClientSsl* websocketClient = NewObject<UWSClientSsl>();
-	return websocketClient;
+	UWSClientSsl* client = NewObject<UWSClientSsl>();
+	return client;
 }
 
 UJavaScriptObjectNotation* UInternetProtocolSubsystem::CreateJsonObject()
 {
-	UJavaScriptObjectNotation* Json = NewObject<UJavaScriptObjectNotation>();
-	return Json;
+	UJavaScriptObjectNotation* json = NewObject<UJavaScriptObjectNotation>();
+	return json;
 }

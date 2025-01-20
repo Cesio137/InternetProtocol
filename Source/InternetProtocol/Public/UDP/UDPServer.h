@@ -1,62 +1,42 @@
-/*
- * Copyright (c) 2023-2025 Nathan Miguel
- *
- * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
- * of the GNU Affero General Public License as published by the Free Software Foundation,
- * version 3.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU Affero General Public License for more details.
- *
- * For complete copyright and license terms please see the LICENSE at the root of this distribution.
-*/
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
+
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
 #include "Net/Commons.h"
 #include "Net/Message.h"
 #include "Delegates/DelegateSignatureImpl.inl"
-#include "UDPClient.generated.h"
-
+#include "UDPServer.generated.h"
 /**
  * 
  */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpServerConnection);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpConnection);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpServerTransferred, const int, BytesSent, const int, BytesRecvd);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpTransferred, const int, BytesSent, const int, BytesRecvd);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpServerMessageSent, const FUDPEndpoint, Endpoint);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpMessageSent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpServerMessageReceived, const FUdpMessage, Message, const FUDPEndpoint, Endpoint);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpMessageReceived, const FUdpMessage, Message);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpError, FErrorCode, ErrorCode);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpServerError, FErrorCode, ErrorCode);
 
 UCLASS(Blueprintable, BlueprintType)
-class INTERNETPROTOCOL_API UUDPClient : public UObject
+class INTERNETPROTOCOL_API UUDPServer : public UObject
 {
 	GENERATED_BODY()
-
-public:	
+public:
 	virtual void BeginDestroy() override
 	{
-		UDP.resolver.cancel();
-		if (GetSocket().Socket->is_open())
-		{
-			Close();
-		}
+		if (UDP.socket.is_open()) Close();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Remote")
-	void SetHost(const FString& ip = "localhost", const FString& port = "3000", const EProtocolType protocol = EProtocolType::V4)
+	UFUNCTION(BlueprintCallable, Category = "UDP||Socket")
+	void SetSocket(const EProtocolType protocol = EProtocolType::V4, const int port = 3000)
 	{
-		Host = ip;
-		Service = port;
 		ProtocolType = protocol;
+		UdpPort = port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Socket")
@@ -83,14 +63,14 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool SendStr(const FString& message);
+	bool SendStr(const FString& message, const FUDPEndpoint& endpoint);
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool SendBuffer(const TArray<uint8>& buffer);
+	bool SendBuffer(const TArray<uint8>& buffer, const FUDPEndpoint& endpoint);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
-	bool Connect();
+	bool Open();
 
 	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
 	void Close();
@@ -104,41 +84,38 @@ public:
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpConnection OnConnected;
+	FDelegateUdpServerConnection OnOpen;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpTransferred OnBytesTransferred;
+	FDelegateUdpServerTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpMessageSent OnMessageSent;
+	FDelegateUdpServerMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpMessageReceived OnMessageReceived;
+	FDelegateUdpServerMessageReceived OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpConnection OnClose;
+	FDelegateUdpServerConnection OnClose;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpError OnSocketError;
+	FDelegateUdpServerError OnSocketError;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpError OnError;
+	FDelegateUdpServerError OnError;
 
 private:
 	FCriticalSection MutexIO;
 	FCriticalSection MutexBuffer;
 	FCriticalSection MutexError;
 	bool IsClosing = false;
-	FAsioUdpClient UDP;
+	FAsioUdpServer UDP;
 	asio::error_code ErrorCode;
-	FString Host = "localhost";
-	FString Service = "3000";
 	EProtocolType ProtocolType = EProtocolType::V4;
+	int UdpPort = 3000;
 	bool SplitBuffer = true;
 	int MaxSendBufferSize = 1024;
 	int MaxReceiveBufferSize = 1024;
 	FUdpMessage RBuffer;
 
-	void package_string(const FString& str);
-	void package_buffer(const TArray<uint8>& buffer);
+	void package_string(const FString& str, const FUDPEndpoint& endpoint);
+	void package_buffer(const TArray<uint8>& buffer, const FUDPEndpoint& endpoint);
 	void consume_receive_buffer();
 	void run_context_thread();
-	void resolve(const asio::error_code& error, const asio::ip::udp::resolver::results_type& results);
-	void conn(const asio::error_code& error);
-	void send_to(const asio::error_code& error, const size_t bytes_sent);
+	void send_to(const asio::error_code& error, const size_t bytes_sent, const FUDPEndpoint& endpoint);
 	void receive_from(const asio::error_code& error, const size_t bytes_recvd);
 };

@@ -64,6 +64,26 @@ static asio::thread_pool& GetThreadPool()
 	return *ThreadPool.Get();
 }
 
+USTRUCT(BlueprintType, Category = "IP")
+struct FAsioUdpServer {
+	GENERATED_BODY()
+	FAsioUdpServer() : socket(context) {
+	}
+
+	FAsioUdpServer(const FAsioUdpServer &asio) : socket(context) {
+	}
+
+	FAsioUdpServer &operator=(const FAsioUdpServer &asio) {
+		if (this != &asio) {
+		}
+		return *this;
+	}
+
+	asio::io_context context;
+	asio::ip::udp::socket socket;
+	asio::ip::udp::endpoint remote_endpoint;
+};
+
 USTRUCT(Blueprintable, Category = "IP")
 struct FAsioTcpClient {
 	GENERATED_BODY()

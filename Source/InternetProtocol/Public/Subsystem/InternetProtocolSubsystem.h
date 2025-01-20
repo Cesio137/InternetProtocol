@@ -16,6 +16,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "UDP/UDPServer.h"
 #include "UDP/UDPClient.h"
 #include "TCP/TCPClient.h"
 #include "Http/HttpClient.h"
@@ -31,6 +32,9 @@ class INTERNETPROTOCOL_API UInternetProtocolSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
 public:
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UUDPServer* CreateUDPServer();
+	
 	UFUNCTION(BlueprintCallable, Category="IP")
 	UUDPClient* CreateUDPClient();
 
