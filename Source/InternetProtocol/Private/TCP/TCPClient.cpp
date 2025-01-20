@@ -157,6 +157,7 @@ void UTCPClient::resolve(const asio::error_code& error, const asio::ip::tcp::res
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -177,6 +178,7 @@ void UTCPClient::conn(const asio::error_code& error)
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -202,13 +204,14 @@ void UTCPClient::write(const asio::error_code& error, const size_t bytes_sent)
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
 		OnMessageSent.Broadcast();
@@ -223,6 +226,7 @@ void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -233,7 +237,7 @@ void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 	rbuffer.Size = bytes_recvd;
 	rbuffer.RawData.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), bytes_recvd), ResponseBuffer.data());
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, bytes_recvd, rbuffer]()
 	{
 		OnBytesTransferred.Broadcast(0, bytes_recvd);
 		OnMessageReceived.Broadcast(rbuffer);
@@ -389,6 +393,7 @@ void UTCPClientSsl::resolve(const asio::error_code& error, const asio::ip::tcp::
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -409,6 +414,7 @@ void UTCPClientSsl::conn(const asio::error_code& error)
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -428,6 +434,7 @@ void UTCPClientSsl::ssl_handshake(const asio::error_code& error)
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -453,13 +460,14 @@ void UTCPClientSsl::write(const asio::error_code& error, const size_t bytes_sent
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
 		OnMessageSent.Broadcast();
@@ -474,6 +482,7 @@ void UTCPClientSsl::read(const asio::error_code& error, const size_t bytes_recvd
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -484,7 +493,7 @@ void UTCPClientSsl::read(const asio::error_code& error, const size_t bytes_recvd
 	rbuffer.Size = bytes_recvd;
 	rbuffer.RawData.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), bytes_recvd), ResponseBuffer.data());
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, bytes_recvd, rbuffer]()
 	{
 		OnBytesTransferred.Broadcast(0, bytes_recvd);
 		OnMessageReceived.Broadcast(rbuffer);

@@ -159,6 +159,7 @@ void UUDPClient::resolve(const asio::error_code& error, const asio::ip::udp::res
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -178,6 +179,7 @@ void UUDPClient::conn(const asio::error_code& error)
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -202,13 +204,14 @@ void UUDPClient::send_to(const asio::error_code& error, const size_t bytes_sent)
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
 		OnMessageSent.Broadcast();
@@ -223,6 +226,7 @@ void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
+			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnSocketError.Broadcast(error);
@@ -232,7 +236,7 @@ void UUDPClient::receive_from(const asio::error_code& error, const size_t bytes_
 	RBuffer.Size = bytes_recvd;
 	RBuffer.RawData.SetNum(bytes_recvd);
 	const FUdpMessage buffer = RBuffer;
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, buffer, bytes_recvd]()
 	{
 		OnBytesTransferred.Broadcast(0, bytes_recvd);
 		OnMessageReceived.Broadcast(buffer);

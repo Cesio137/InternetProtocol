@@ -144,6 +144,19 @@ public:
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP")
+class INTERNETPROTOCOL_API UTCPSslContextFunctionLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+public:
+	/*TCP functions*/
+	UFUNCTION(BlueprintCallable, Category = "IP||TCP SSL||Context")
+	static void SetOptions(FSslContext& context, const ESslVerifyMode options);
+
+	UFUNCTION(BlueprintCallable, Category = "IP||TCP SSL||Context")
+	static void ClearOptions(FSslContext& context, const ESslVerifyMode options);
+};
+
+UCLASS(Blueprintable, BlueprintType, Category = "IP")
 class INTERNETPROTOCOL_API UTCPSslNextLayerFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()

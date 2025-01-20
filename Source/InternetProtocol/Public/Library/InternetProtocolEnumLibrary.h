@@ -69,3 +69,13 @@ enum class ERSV : uint8
 	RSV2 = 0x20,
 	RSV3 = 0x10
 };
+
+/*SSL*/
+UENUM(Blueprintable, Category = "IP||SSL")
+enum class ESslVerifyMode : uint8
+{
+	VERIFY_NONE = 0,
+	VERIFY_PEER = 1,
+	VERIFY_FAIL_IF_NO_PEER = 2,
+	VERIFY_CLIENT_ONCE = 4
+};

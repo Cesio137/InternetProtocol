@@ -241,6 +241,16 @@ FTCPEndpoint UTCPFunctionLibrary::GetLocalEndpoint(const FTCPSocket& socket)
 	return socket.Socket->local_endpoint();
 }
 
+void UTCPSslContextFunctionLibrary::SetOptions(FSslContext& context, const ESslVerifyMode options)
+{
+	context.SslContext->set_options(static_cast<asio::ssl::context_base::options>(options));
+}
+
+void UTCPSslContextFunctionLibrary::ClearOptions(FSslContext& context, const ESslVerifyMode options)
+{
+	context.SslContext->clear_options(static_cast<asio::ssl::context_base::options>(options));
+}
+
 bool UTCPSslNextLayerFunctionLibrary::IsOpen(const FTCPSslNextLayer& next_layer)
 {
 	return next_layer.SslNextLayer->is_open();
