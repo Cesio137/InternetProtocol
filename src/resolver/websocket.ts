@@ -6,23 +6,22 @@ import { rl } from "#io";
 
 const httpServer = https.createServer(credentials);
 let server: WebSocketServer;
-const clients: [WebSocket, IncomingMessage][] = [];
+const remotes: [WebSocket, IncomingMessage][] = [];
 
 function connection() {
     server.on("connection", function connection(ws, req) {
         if (typeof req.socket.remotePort === "number") {
-            clients.push([ws, req]);
+            remotes.push([ws, req]);
             console.log(
-                `(${req.socket.remotePort} -> login, ${clients.length} client(s))`
+                `(${req.socket.remotePort} -> login, ${remotes.length} client(s))`
             );
         }
 
         ws.on("message", function message(data: RawData) {
             const response = `${req.socket.remotePort} -> ${data.toString()}`;
-            console.log(response)
-            for (const client of clients) {
-                if (client[0] === ws) continue;
-                client[0].send(response, function (error) {
+            for (const remote of remotes) {
+                if (remote[0] === ws) continue;
+                remote[0].send(response, function (error) {
                     if (error) {
                         console.error(
                             `Erro trying send message: ${error.message}`
@@ -33,10 +32,10 @@ function connection() {
         });
 
         ws.on("close", function () {
-            const index = clients.indexOf([ws, req]);
-            clients.splice(index);
+            const index = remotes.indexOf([ws, req]);
+            remotes.splice(index);
             console.log(
-                `(${req.socket.remotePort} -> logout, ${clients.length} client(s))`
+                `(${req.socket.remotePort} -> logout, ${remotes.length} client(s))`
             );
         });
 
@@ -60,7 +59,7 @@ function connection() {
             return;
         }
         const message = Buffer.from("Server -> " + input);
-        for (const client of clients) {
+        for (const client of remotes) {
             client[0].send(message, function (error) {
                 if (error) {
                     console.error("Error trying to send message!\n", error);

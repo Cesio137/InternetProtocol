@@ -5,32 +5,31 @@ import { rl } from "#io";
 // Server
 
 const server: dgram.Socket = dgram.createSocket("udp4");
-const clients: dgram.RemoteInfo[] = [];
+const remotes: dgram.RemoteInfo[] = [];
 
 server.on("message", function (msg: Buffer, rinfo: dgram.RemoteInfo) {
     if (msg.length === 0) return;
     const data = msg.toString();
     switch (data) {
         case "login":
-            if (clients.indexOf(rinfo) !== -1) return;
-            clients.push(rinfo);
+            if (remotes.indexOf(rinfo) !== -1) return;
+            remotes.push(rinfo);
             console.log(
-                `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
+                `(${rinfo.port} -> ${msg}, ${remotes.length} client(s))`
             );
             return;
         case "logout":
-            const index = clients.indexOf(rinfo);
-            clients.splice(index);
+            const index = remotes.indexOf(rinfo);
+            remotes.splice(index);
             console.log(
-                `(${rinfo.port} -> ${msg}, ${clients.length} client(s))`
+                `(${rinfo.port} -> ${msg}, ${remotes.length} client(s))`
             );
             return;
     }
     const response = `${rinfo.port} -> ${data}`;
-    console.log(response);
-    for (const client of clients) {
-        if (client.port === rinfo.port) continue;
-        server.send(response, client.port, client.address, function (error) {
+    for (const remote of remotes) {
+        if (remote.port === rinfo.port) continue;
+        server.send(response, remote.port, remote.address, function (error) {
             if (error) {
                 console.error(`Erro trying send message: ${error.message}`);
             }
@@ -40,7 +39,7 @@ server.on("message", function (msg: Buffer, rinfo: dgram.RemoteInfo) {
 
 server.on("listening", function () {
     const address: AddressInfo = server.address();
-    console.log(`UDP listening at adress: localhost:${address.port}`);
+    console.log(`UDP listening at adress: ${address.address}:${address.port}`);
     rl.on("SIGINT", function () {
         server.close();
         console.log("bye!");
@@ -56,7 +55,7 @@ server.on("listening", function () {
             return;
         }
         const response = Buffer.from(input);
-        for (const client of clients) {
+        for (const client of remotes) {
             server.send(response, client.port, client.address, function (error) {
                 if (error) {
                     console.error(`Erro trying send message: ${error.message}`);

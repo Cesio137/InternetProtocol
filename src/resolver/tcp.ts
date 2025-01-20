@@ -10,22 +10,22 @@ server.on("error", error);
 const ssl_server = tls.createServer(credentials, socket);
 ssl_server.on("error", error);
 
-const clients: (net.Socket | tls.TLSSocket)[] = [];
+const remotes: (net.Socket | tls.TLSSocket)[] = [];
 
 function socket(socket: net.Socket | tls.TLSSocket) {
-    if (clients.indexOf(socket) === -1) {
-        clients.push(socket);
+    if (remotes.indexOf(socket) === -1) {
+        remotes.push(socket);
         console.log(
-            `(${socket.remotePort} -> login, ${clients.length} client(s))`
+            `(${socket.remoteAddress}:${socket.remotePort} -> login, ${remotes.length} client(s))`
         );
     }
 
-    socket.on("data", (data: Buffer) => {
+    socket.on("data", function (data: Buffer | String) {
         if (data.length === 0) return;
         const response = `${socket.remotePort} -> ${data.toString()}`;
-        for (const client of clients) {
-            if (client.remotePort === socket.remotePort) continue;
-            client.write(response, function (error) {
+        for (const remote of remotes) {
+            if (remote.remotePort === socket.remotePort) continue;
+            remote.write(response, function (error) {
                 if (error) {
                     console.error(
                         `erroro trying send message: ${error.message}`
@@ -36,20 +36,20 @@ function socket(socket: net.Socket | tls.TLSSocket) {
     });
 
     socket.on("end", function () {
-        const index = clients.indexOf(socket);
+        const index = remotes.indexOf(socket);
         if (index < 0) return;
-        clients.splice(index);
+        remotes.splice(index);
         console.log(
-            `(${socket.remotePort} -> logout, ${clients.length} client(s))`
+            `(${socket.remoteAddress}:${socket.remotePort} -> logout, ${remotes.length} client(s))`
         );
     });
 
     socket.on("close", function (haderroror: boolean) {
-        const index = clients.indexOf(socket);
+        const index = remotes.indexOf(socket);
         if (index < 0) return;
-        clients.splice(index);
+        remotes.splice(index);
         console.log(
-            `(${socket.remotePort} -> logout, ${clients.length} client(s))`
+            `(${socket.remoteAddress}:${socket.remotePort} -> logout, ${remotes.length} client(s))`
         );
     });
 
@@ -72,12 +72,14 @@ function socket(socket: net.Socket | tls.TLSSocket) {
             return;
         }
         const message = Buffer.from(input);
-        socket.write(message, function (error) {
-            if (error) {
-                console.error("Error trying to send message!\n", error);
-                return;
-            }
-        });
+        for (const remote of remotes) {
+            remote.write(message, function (error) {
+                if (error) {
+                    console.error("Error trying to send message!\n", error);
+                    return;
+                }
+            });
+        }
     });
 }
 
@@ -85,6 +87,7 @@ export function resolve(port: number) {
     server.listen(port, () => {
         console.log(`TCP server listening on locahost:${port}`);
     });
+    
 }
 
 export function ssl_resolve(port: number) {
