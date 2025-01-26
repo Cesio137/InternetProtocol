@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Nathan Miguel
+ * Copyright (c) 2023-2025 Nathan Miguel
  *
  * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
  * of the GNU Affero General Public License as published by the Free Software Foundation,
@@ -26,10 +26,22 @@ UUDPClient* UInternetProtocolSubsystem::CreateUDPClient()
 	return client;
 }
 
+UTCPServer* UInternetProtocolSubsystem::CreateTcpServer()
+{
+	UTCPServer* server = NewObject<UTCPServer>();
+	return server;
+}
+
 UTCPClient* UInternetProtocolSubsystem::CreateTcpClient()
 {
 	UTCPClient* client = NewObject<UTCPClient>();
 	return client;
+}
+
+UTCPServerSsl* UInternetProtocolSubsystem::CreateTcpServerSsl()
+{
+	UTCPServerSsl* server = NewObject<UTCPServerSsl>();
+	return server;
 }
 
 UTCPClientSsl* UInternetProtocolSubsystem::CreateTcpClientSsl()
@@ -38,16 +50,34 @@ UTCPClientSsl* UInternetProtocolSubsystem::CreateTcpClientSsl()
 	return client;
 }
 
+UHttpServer* UInternetProtocolSubsystem::CreateHttpServer()
+{
+	UHttpServer* server = NewObject<UHttpServer>();
+	return server;
+}
+
 UHttpClient* UInternetProtocolSubsystem::CreateHttpClient()
 {
 	UHttpClient* client = NewObject<UHttpClient>();
 	return client;
 }
 
+UHttpServerSsl* UInternetProtocolSubsystem::CreateHttpServerSsl()
+{
+	UHttpServerSsl* server = NewObject<UHttpServerSsl>();
+	return server;
+}
+
 UHttpClientSsl* UInternetProtocolSubsystem::CreateHttpClientSsl()
 {
 	UHttpClientSsl* client = NewObject<UHttpClientSsl>();
 	return client;
+}
+
+UWSServer* UInternetProtocolSubsystem::CreateWebsocketServer()
+{
+	UWSServer* server = NewObject<UWSServer>();
+	return server;
 }
 
 UWSClient* UInternetProtocolSubsystem::CreateWebsocketClient()

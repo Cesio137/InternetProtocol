@@ -14,11 +14,6 @@
 
 #include "WS/WSClient.h"
 
-#include <corecrt_io.h>
-
-#include "AnalyticsProviderETEventCache.h"
-#include "EditorFontGlyphs.h"
-
 bool UWSClient::SendStr(const FString& message)
 {
 	if (!TCP.socket.is_open() || message.IsEmpty())
@@ -622,7 +617,7 @@ void UWSClient::resolve(const std::error_code& error, const asio::ip::tcp::resol
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -646,7 +641,7 @@ void UWSClient::conn(const std::error_code& error)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -684,7 +679,7 @@ void UWSClient::write_handshake(const std::error_code& error, const size_t bytes
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -711,7 +706,7 @@ void UWSClient::read_handshake(const std::error_code& error, const size_t bytes_
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -779,16 +774,16 @@ void UWSClient::read_headers(const std::error_code& error)
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
-	UHttpFunctionLibrary::ClearResponse(ResponseHandshake);
+	UHttpFunctionLibrary::ClientClearResponse(ResponseHandshake);
 	std::istream response_stream(&ResponseBuffer);
 	std::string header;
 	while (std::getline(response_stream, header) && header != "\r")
 	{
-		UHttpFunctionLibrary::AppendHeader(ResponseHandshake, UTF8_TO_TCHAR(header.c_str()));
+		UHttpFunctionLibrary::ClientAppendHeader(ResponseHandshake, UTF8_TO_TCHAR(header.c_str()));
 	}
 	consume_response_buffer();
 	if (ResponseHandshake.Headers.Num() == 0)
@@ -870,14 +865,15 @@ void UWSClient::write(const std::error_code& error, const size_t bytes_sent)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnMessageSent.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent]()
+	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent, error]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnMessageSent.Broadcast();
+		OnMessageSent.Broadcast(error);
 	});
 }
 
@@ -895,7 +891,7 @@ void UWSClient::read(const std::error_code& error, const size_t bytes_recvd)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -1554,7 +1550,7 @@ void UWSClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::re
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -1578,7 +1574,7 @@ void UWSClientSsl::conn(const std::error_code& error)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -1601,7 +1597,7 @@ void UWSClientSsl::ssl_handshake(const std::error_code& error)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -1639,7 +1635,7 @@ void UWSClientSsl::write_handshake(const std::error_code& error, const size_t by
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -1666,7 +1662,7 @@ void UWSClientSsl::read_handshake(const std::error_code& error, const size_t byt
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -1738,16 +1734,16 @@ void UWSClientSsl::read_headers(const std::error_code& error)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
-	UHttpFunctionLibrary::ClearResponse(ResponseHandshake);
+	UHttpFunctionLibrary::ClientClearResponse(ResponseHandshake);
 	std::istream response_stream(&ResponseBuffer);
 	std::string header;
 	while (std::getline(response_stream, header) && header != "\r")
 	{
-		UHttpFunctionLibrary::AppendHeader(ResponseHandshake, UTF8_TO_TCHAR(header.c_str()));
+		UHttpFunctionLibrary::ClientAppendHeader(ResponseHandshake, UTF8_TO_TCHAR(header.c_str()));
 	}
 	consume_response_buffer();
 	if (ResponseHandshake.Headers.Num() == 0)
@@ -1828,15 +1824,15 @@ void UWSClientSsl::write(const std::error_code& error, const size_t bytes_sent)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
 
-	AsyncTask(ENamedThreads::GameThread, [&]()
+	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent, error]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnMessageSent.Broadcast();
+		OnMessageSent.Broadcast(error);
 	});
 }
 
@@ -1854,7 +1850,7 @@ void UWSClientSsl::read(const std::error_code& error, const size_t bytes_recvd)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}

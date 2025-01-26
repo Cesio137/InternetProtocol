@@ -18,7 +18,7 @@
 #include "InternetProtocolEnumLibrary.generated.h"
 
 /*Exec Pin*/
-UENUM(Blueprintable, Category="IP")
+UENUM(Blueprintable, Category="IP|ENUM|Exec Pins")
 enum EOutputExecPins
 {
 	Success,
@@ -26,7 +26,7 @@ enum EOutputExecPins
 };
 
 /*UDP*/
-UENUM(BlueprintType, Category = "IP")
+UENUM(BlueprintType, Category = "IP|ENUM|Protocol Type")
 enum class EProtocolType : uint8
 {
 	V4 = 0,
@@ -34,7 +34,7 @@ enum class EProtocolType : uint8
 };
 
 /*HTTP*/
-UENUM(Blueprintable, Category = "IP||HTTP")
+UENUM(Blueprintable, Category = "IP|ENUM|HTTP")
 enum class EMethod : uint8
 {
 	DEL = 0,
@@ -48,7 +48,7 @@ enum class EMethod : uint8
 };
 
 /*WEBSOCKET*/
-UENUM(Blueprintable, Category = "IP||WEBSOCKET")
+UENUM(Blueprintable, Category = "IP|ENUM|Websocket")
 enum class EOpcode : uint8
 {
 	FRAME_CON = 0x00,
@@ -61,7 +61,7 @@ enum class EOpcode : uint8
 	FURTHER_FRAMES = 0x0B
 };
 
-UENUM(Blueprintable, Category = "IP||WEBSOCKET")
+UENUM(Blueprintable, Category = "IP|ENUM|Websocket")
 enum class ERSV : uint8
 {
 	RSV0 = 0x00,
@@ -71,7 +71,7 @@ enum class ERSV : uint8
 };
 
 /*SSL*/
-UENUM(Blueprintable, Category = "IP||SSL")
+UENUM(Blueprintable, Category = "IP|ENUM|SSL")
 enum class ESslVerifyMode : uint8
 {
 	VERIFY_NONE = 0,

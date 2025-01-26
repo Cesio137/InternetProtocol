@@ -1,26 +1,28 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/*
+ * Copyright (c) 2023-2025 Nathan Miguel
+ *
+ * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
+ * of the GNU Affero General Public License as published by the Free Software Foundation,
+ * version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * For complete copyright and license terms please see the LICENSE at the root of this distribution.
+*/
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Net/Commons.h"
-#include "Net/Message.h"
-#include "Delegates/DelegateSignatureImpl.inl"
 #include "UDPServer.generated.h"
+
 /**
  * 
  */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpServerConnection);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpServerTransferred, const int, BytesSent, const int, BytesRecvd);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpServerMessageSent, const FUDPEndpoint, Endpoint);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpServerMessageReceived, const FUdpMessage, Message, const FUDPEndpoint, Endpoint);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpServerError, FErrorCode, ErrorCode);
-
-UCLASS(Blueprintable, BlueprintType)
+UCLASS(Blueprintable, BlueprintType, Category = "IP|UDP")
 class INTERNETPROTOCOL_API UUDPServer : public UObject
 {
 	GENERATED_BODY()
@@ -32,71 +34,67 @@ public:
 	}
 
 	/*HOST*/
-	UFUNCTION(BlueprintCallable, Category = "UDP||Socket")
-	void SetSocket(const EProtocolType protocol = EProtocolType::V4, const int port = 3000)
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Socket")
+	void SetSocket(const EProtocolType Protocol = EProtocolType::V4, const int Port = 3000)
 	{
-		ProtocolType = protocol;
-		UdpPort = port;
+		ProtocolType = Protocol;
+		UdpPort = Port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Socket")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Socket")
 	FUDPSocket GetSocket() { return UDP.socket; }
 
 	/*SETTINGS*/
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void SetMaxSendBufferSize(int value = 1024) { MaxSendBufferSize = value; }
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Settings")
+	void SetMaxSendBufferSize(int Value = 1024) { MaxSendBufferSize = Value; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Settings")
 	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void SetMaxReceiveBufferSize(int value = 1024) { MaxReceiveBufferSize = value; }
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Settings")
+	void SetMaxReceiveBufferSize(int Value = 1024) { MaxReceiveBufferSize = Value; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Settings")
 	int GetMaxReceiveBufferSize() const { return MaxReceiveBufferSize; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Settings")
-	void SetSplitPackage(bool value = true) { SplitBuffer = value; }
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Settings")
+	void SetSplitPackage(bool Value = true) { SplitBuffer = Value; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Settings")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Settings")
 	bool GetSplitPackage() const { return SplitBuffer; }
 
 	/*MESSAGE*/
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool SendStr(const FString& message, const FUDPEndpoint& endpoint);
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Message")
+	bool SendStrTo(const FString& Message, const FUDPEndpoint& Endpoint);
 
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Message")
-	bool SendBuffer(const TArray<uint8>& buffer, const FUDPEndpoint& endpoint);
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Message")
+	bool SendBufferTo(const TArray<uint8>& Buffer, const FUDPEndpoint& Endpoint);
 
 	/*CONNECTION*/
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Connection")
 	bool Open();
 
-	UFUNCTION(BlueprintCallable, Category = "IP||UDP||Connection")
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Connection")
 	void Close();
 
 	/*ERRORS*/
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Error")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Error")
 	FErrorCode GetErrorCode() const
 	{
 		return ErrorCode;
 	}
 
 	/*EVENTS*/
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpServerConnection OnOpen;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpServerTransferred OnBytesTransferred;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpServerMessageSent OnMessageSent;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpServerMessageReceived OnMessageReceived;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpServerConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpServerError OnSocketError;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateUdpServerError OnError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
+	FDelegateBytesTransferred OnBytesTransferred;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
+	FDelegateMessageSent OnMessageSent;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
+	FDelegateUdpMessage OnMessageReceived;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
+	FDelegateConnection OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
+	FDelegateError OnError;
 
 private:
 	FCriticalSection MutexIO;

@@ -38,7 +38,7 @@ THIRD_PARTY_INCLUDES_END
 #include "InternetProtocolStructLibrary.generated.h"
 
 /*ERROR CODE*/
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT")
 struct FErrorCode
 {
 	GENERATED_BODY()
@@ -55,15 +55,15 @@ struct FErrorCode
 		Message = error_code.message().c_str();
 	}
 
-	UPROPERTY(BlueprintReadWrite, Category = "IP||Error Code")
+	UPROPERTY(BlueprintReadWrite, Category = "IP|Error Code")
 	int Value;
 
-	UPROPERTY(BlueprintReadWrite, Category = "IP||Error Code")
+	UPROPERTY(BlueprintReadWrite, Category = "IP|Error Code")
 	FString Message;
 };
 
 /*ADDRESS*/
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT")
 struct FAddress
 {
 	GENERATED_BODY()
@@ -83,153 +83,236 @@ struct FAddress
 		return *this;
 	}
 	
-	UPROPERTY(BlueprintReadWrite, Category = "IP||Adress")
+	UPROPERTY(BlueprintReadWrite, Category = "IP|Adress")
 	FString Adress;
 
-	UPROPERTY(BlueprintReadWrite, Category = "IP||Adress")
+	UPROPERTY(BlueprintReadWrite, Category = "IP|Adress")
 	bool IsV4;
 
-	UPROPERTY(BlueprintReadWrite, Category = "IP||Adress")
+	UPROPERTY(BlueprintReadWrite, Category = "IP|Adress")
 	bool IsV6;
 };
 
 /*TCP*/
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT")
 struct FTCPEndpoint
 {
 	GENERATED_BODY()
 	FTCPEndpoint() = default;
-	FTCPEndpoint(const asio::ip::tcp::endpoint& endpoint) : Endpoint(&endpoint)
+	FTCPEndpoint(const asio::ip::tcp::endpoint& endpoint) : RawPtr(&endpoint)
 	{
 	}
 
 	FTCPEndpoint& operator=(const asio::ip::tcp::endpoint& endpoint)
 	{
-		if (Endpoint == &endpoint)
+		if (RawPtr == &endpoint)
 			return *this;
-		Endpoint = &endpoint;
+		RawPtr = &endpoint;
 		return *this;
 	}
 
-	const asio::ip::tcp::endpoint* Endpoint;
+	const asio::ip::tcp::endpoint* RawPtr;
 };
 
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|TCP")
+struct FTCPAcceptor
+{
+	GENERATED_BODY()
+	FTCPAcceptor() = default;
+	FTCPAcceptor(asio::ip::tcp::acceptor& acceptor)
+		: RawPtr(&acceptor)
+	{
+	}
+	FTCPAcceptor& operator=(asio::ip::tcp::acceptor& acceptor)
+	{
+		if (RawPtr == &acceptor)
+			return *this;
+		RawPtr = &acceptor;
+		return *this;
+	}
+
+	asio::ip::tcp::acceptor* RawPtr;
+};
+
+USTRUCT(BlueprintType, Category = "IP|STRUCT|TCP")
 struct FTCPSocket
 {
 	GENERATED_BODY()
 	FTCPSocket() = default;
-	FTCPSocket(const asio::ip::tcp::socket& socket)
-		: Socket(&socket)
+	FTCPSocket(const TSharedPtr<asio::ip::tcp::socket>& socket) : RawPtr(socket.Get()), SmartPtr(socket)
 	{
 	}
-	FTCPSocket& operator=(const asio::ip::tcp::socket& socket)
+	FTCPSocket(asio::ip::tcp::socket* socket) : RawPtr(socket)
 	{
-		if (Socket == &socket)
+	}
+	FTCPSocket(asio::ip::tcp::socket& socket) : RawPtr(&socket)
+	{
+	}
+
+	FTCPSocket& operator=(asio::ip::tcp::socket* socket)
+	{
+		if (RawPtr == socket)
 			return *this;
-		Socket = &socket;
+		RawPtr = socket;
+		return *this;
+	}
+	FTCPSocket& operator=(asio::ip::tcp::socket& socket)
+	{
+		if (RawPtr == &socket)
+			return *this;
+		RawPtr = &socket;
 		return *this;
 	}
 
-	const asio::ip::tcp::socket* Socket;
+	asio::ip::tcp::socket* RawPtr;
+	TSharedPtr<asio::ip::tcp::socket> SmartPtr;
 };
 
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|SSL")
+struct FTCPSslContext
+{
+	GENERATED_BODY()
+	FTCPSslContext() = default;
+	FTCPSslContext(const asio::ssl::context* context)
+		: RawPtr(context)
+	{
+	}
+	FTCPSslContext(const asio::ssl::context& context)
+		: RawPtr(&context)
+	{
+	}
+	FTCPSslContext& operator=(const asio::ssl::context& context)
+	{
+		if (RawPtr == &context)
+			return *this;
+		RawPtr = &context;
+		return *this;
+	}
+
+	const asio::ssl::context* RawPtr;
+};
+
+USTRUCT(BlueprintType, Category = "IP|STRUCT|SSL|TCP")
 struct FTCPSslSocket
 {
 	GENERATED_BODY()
 	FTCPSslSocket() = default;
-	FTCPSslSocket(const asio::ssl::stream<asio::ip::tcp::socket>& socket)
-		: SslSocket(&socket)
+	FTCPSslSocket(const TSharedPtr<asio::ssl::stream<asio::ip::tcp::socket>>& socket)
+		: SmartPtr(socket), RawPtr(socket.Get())
 	{
 	}
-	FTCPSslSocket& operator=(const asio::ssl::stream<asio::ip::tcp::socket>& socket)
+	FTCPSslSocket(asio::ssl::stream<asio::ip::tcp::socket>* socket)
+		: RawPtr(socket)
 	{
-		if (SslSocket == &socket)
+	}
+	FTCPSslSocket(asio::ssl::stream<asio::ip::tcp::socket>& socket)
+		: RawPtr(&socket)
+	{
+	}
+
+	FTCPSslSocket& operator=(const TSharedPtr<asio::ssl::stream<asio::ip::tcp::socket>>& socket)
+	{
+		if (SmartPtr == socket && RawPtr == socket.Get())
 			return *this;
-		SslSocket = &socket;
+		SmartPtr = socket;
+		RawPtr = socket.Get();
+		return *this;
+	}
+	FTCPSslSocket& operator=(asio::ssl::stream<asio::ip::tcp::socket>* socket)
+	{
+		if (RawPtr == socket)
+			return *this;
+		RawPtr = socket;
+		return *this;
+	}
+	FTCPSslSocket& operator=(asio::ssl::stream<asio::ip::tcp::socket>& socket)
+	{
+		if (RawPtr == &socket)
+			return *this;
+		RawPtr = &socket;
 		return *this;
 	}
 
-	const asio::ssl::stream<asio::ip::tcp::socket>* SslSocket;
+	asio::ssl::stream<asio::ip::tcp::socket>* RawPtr;
+	TSharedPtr<asio::ssl::stream<asio::ip::tcp::socket>> SmartPtr;
 };
 
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|SSL|TCP")
 struct FTCPSslNextLayer
 {
 	GENERATED_BODY()
 	FTCPSslNextLayer() = default;
 	FTCPSslNextLayer(const asio::ssl::stream<asio::ip::tcp::socket>::next_layer_type& socket)
-		: SslNextLayer(&socket)
+		: RawPtr(&socket)
 	{
 	}
 	FTCPSslNextLayer& operator=(const asio::ssl::stream<asio::ip::tcp::socket>::next_layer_type& socket)
 	{
-		if (SslNextLayer == &socket)
+		if (RawPtr == &socket)
 			return *this;
-		SslNextLayer = &socket;
+		RawPtr = &socket;
 		return *this;
 	}
 
-	const asio::ssl::stream<asio::ip::tcp::socket>::next_layer_type* SslNextLayer;
+	const asio::ssl::stream<asio::ip::tcp::socket>::next_layer_type* RawPtr;
 };
 
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|SSL|TCP")
 struct FTCPSslLowestLayer
 {
 	GENERATED_BODY()
 	FTCPSslLowestLayer() = default;
 	FTCPSslLowestLayer(const asio::ssl::stream<asio::ip::tcp::socket>::lowest_layer_type& socket)
-		: SslLowestLayer(&socket)
+		: RawPtr(&socket)
 	{
 	}
 	FTCPSslLowestLayer& operator=(const asio::ssl::stream<asio::ip::tcp::socket>::lowest_layer_type& socket)
 	{
-		if (SslLowestLayer == &socket)
+		if (RawPtr == &socket)
 			return *this;
-		SslLowestLayer = &socket;
+		RawPtr = &socket;
 		return *this;
 	}
 
-	const asio::ssl::stream<asio::ip::tcp::socket>::lowest_layer_type* SslLowestLayer;
+	const asio::ssl::stream<asio::ip::tcp::socket>::lowest_layer_type* RawPtr;
 };
 
 /*SSL Context*/
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|SSL")
 struct FSslContext
 {
 	GENERATED_BODY()
 	FSslContext() = default;
 	FSslContext(asio::ssl::context& ex)
-		: SslContext(&ex)
+		: RawPtr(&ex)
 	{
 	}
 	FSslContext& operator=(asio::ssl::context& ex)
 	{
-		if (SslContext == &ex)
+		if (RawPtr == &ex)
 			return *this;
-		SslContext = &ex;
+		RawPtr = &ex;
 		return *this;
 	}
 
-	asio::ssl::context* SslContext;
+	asio::ssl::context* RawPtr;
 };
 
 /*UDP*/
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|UDP")
 struct FUDPEndpoint
 {
 	GENERATED_BODY()
 	FUDPEndpoint() = default;
-	FUDPEndpoint(const asio::ip::udp::endpoint& endpoint) : Endpoint(&endpoint)
+	FUDPEndpoint(const asio::ip::udp::endpoint& endpoint) : RawPtr(&endpoint)
 	{
 	}
 
 	FUDPEndpoint& operator=(const asio::ip::udp::endpoint& endpoint)
 	{
-		if (Endpoint == &endpoint)
+		if (RawPtr == &endpoint)
 			return *this;
-		Endpoint = &endpoint;
+		RawPtr = &endpoint;
 		return *this;
 	}
 	bool operator==(const FUDPEndpoint& endpoint) const
@@ -245,100 +328,134 @@ struct FUDPEndpoint
 		return false;
 	}
 
-	const asio::ip::udp::endpoint* Endpoint;
+	const asio::ip::udp::endpoint* RawPtr;
 };
 
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|UDP")
 struct FUDPSocket
 {
 	GENERATED_BODY()
 	FUDPSocket() = default;
 	FUDPSocket(const asio::ip::udp::socket& socket)
-		: Socket(&socket)
+		: RawPtr(&socket)
 	{
 	}
 	FUDPSocket& operator=(const asio::ip::udp::socket& socket)
 	{
-		if (Socket == &socket)
+		if (RawPtr == &socket)
 			return *this;
-		Socket = &socket;
+		RawPtr = &socket;
 		return *this;
 	}
 
-	const asio::ip::udp::socket* Socket;
+	const asio::ip::udp::socket* RawPtr;
 };
 
 /*HTTP*/
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|HTTP")
+struct FServerRequest {
+	GENERATED_BODY()
+	~FServerRequest() {
+		Headers.Empty();
+	}
+
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	EMethod Method = EMethod::GET;
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	FString Path = "/";
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	FString Version = "1.1";
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	TMap<FString, FString> Headers;
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	FString Body;
+};
+
+USTRUCT(BlueprintType, Category = "IP|STRUCT|HTTP")
+struct FServerResponse {
+	GENERATED_BODY()
+	~FServerResponse() {
+		Headers.Empty();
+	}
+
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	FString Version = "1.1";
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	TMap<FString, FString> Headers;
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	FString Body;
+};
+
+USTRUCT(BlueprintType, Category = "IP|STRUCT|HTTP")
 struct FClientRequest
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	TMap<FString, FString> Params;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	EMethod Method = EMethod::GET;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	FString Path = "/";
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	FString Version = "1.1";
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	TMap<FString, FString> Headers;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	FString Body;
 };
 
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|HTTP")
 struct FClientResponse
 {
 	GENERATED_BODY()
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	TMap<FString, FString> Headers;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	FString Body;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	int ContentLength;
 };
 
 /*WEBSOCKET*/
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|Websocket")
 struct FDataFrame
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	bool fin = true;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	bool rsv1 = false;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	bool rsv2 = false;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	bool rsv3 = false;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	bool mask = true;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	EOpcode opcode = EOpcode::TEXT_FRAME;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	int length = 0;
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	TArray<uint8> masking_key;
 };
 
-USTRUCT(BlueprintType, Category = "IP")
+USTRUCT(BlueprintType, Category = "IP|STRUCT|Websocket")
 struct FHandShake
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	FString path = "chat";
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	FString version = "1.1";
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	FString Sec_WebSocket_Key = "dGhlIHNhbXBsZSBub25jZQ==";
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	FString origin = "client";
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	FString Sec_WebSocket_Protocol = "chat, superchat";
-	UPROPERTY(BlueprintReadWrite, Category="IP||HTTP")
+	UPROPERTY(BlueprintReadWrite, Category="IP|Websocket")
 	FString Sec_Websocket_Version = "13";
 };

@@ -15,10 +15,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
 #include "Net/Commons.h"
-#include "Library/InternetProtocolStructLibrary.h"
-#include "Delegates/DelegateSignatureImpl.inl"
 #include "Library/InternetProtocolFunctionLibrary.h"
 #include "HttpClient.generated.h"
 
@@ -26,19 +23,7 @@
  * 
  */
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateHttpPayload);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateHttpConnection);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateHttpTransferred, const int, BytesSent, const int, BytesRecvd);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateHttpRequestCompleted, const FClientResponse, Response);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateHttpResponseError, const int, Code, const FString&, Message);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateHttpError, const FErrorCode, ErrorCode);
-
-UCLASS(Blueprintable, BlueprintType)
+UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpClient : public UObject
 {
 	GENERATED_BODY()
@@ -57,133 +42,131 @@ public:
 		Super::BeginDestroy();
 	}
 
-	/*HTTP SETTINGS*/
+	/*HOST*/
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Remote")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Remote")
 	void SetHost(const FString& url = "localhost", const FString& port = "3000")
 	{
 		Host = url;
 		Service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Socket")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Socket")
 	FTCPSocket GetSocket() { return TCP.socket; }
 
 	/*REQUEST DATA*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetRequest(const FClientRequest& value) { Request = value; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FClientRequest GetRequest() const { return Request; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetRequestMethod(EMethod requestMethod = EMethod::GET) { Request.Method = requestMethod; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	EMethod GetRequestMethod() const { return Request.Method; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetVersion(const FString& version = "1.1") { Request.Version = version; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetVersion() const { return Request.Version; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetPath(const FString& path = "/") { Request.Path = path.IsEmpty() ? "/" : path; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetPath() const { return Request.Path; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void AppendParams(const FString& key, const FString& value) { Request.Params.Add(key, value); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearParams() { Request.Params.Empty(); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void RemoveParam(const FString& key) { Request.Params.Remove(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	bool HasParam(const FString& key) const { return Request.Params.Contains(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetParams() const { return Request.Params; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void AppendHeaders(const FString& key, const FString& value) { Request.Headers.Add(key, value); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearHeaders() { Request.Headers.Empty(); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void RemoveHeader(const FString& key) { Request.Headers.Remove(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	bool HasHeader(const FString& key) const { return Request.Headers.Contains(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetHeaders() const { return Request.Headers; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetBody(const FString& value) { Request.Body = value; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearBody() { Request.Body.Empty(); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetBody() const { return Request.Body; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	FClientRequest GetRequestData() const { return Request; }
 
 	/*PAYLOAD*/
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
 	void PreparePayload();
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
 	bool AsyncPreparePayload();
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Payload")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Payload")
 	FString GetPayloadData() const { return Payload; }
 
 	/*RESPONSE DATA*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Response")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
 	FClientResponse GetResponseData() const { return Response; }
 
 	/*CONNECTION*/
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
 	bool ProcessRequest();
 
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
 	void Close();
 
 	/*MEMORY MANAGER*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Memory")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Memory")
 	void ClearRequest() {  UHttpFunctionLibrary::ClearRequest(Request); }
 
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Memory")
 	void ClearPayload() { Payload.Empty(); }
 
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
-	void ClearResponse() { UHttpFunctionLibrary::ClearResponse(Response); }
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Memory")
+	void ClearResponse() { UHttpFunctionLibrary::ClientClearResponse(Response); }
 
 	/*ERRORS*/
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Error")
 	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpPayload OnAsyncPayloadFinished;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpTransferred OnRequestProgress;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpRequestCompleted OnRequestCompleted;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpResponseError OnResponseError;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpError OnSocketError;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpError OnError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateConnection OnAsyncPayloadFinished;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateBytesTransferred OnRequestProgress;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateHttpClientResponse OnRequestCompleted;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateHttpDataError OnResponseError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateConnection OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateError OnError;
 
 private:
 	FCriticalSection MutexIO;
@@ -210,7 +193,7 @@ private:
 	void read_body(const std::error_code& error);
 };
 
-UCLASS(Blueprintable, BlueprintType)
+UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpClientSsl : public UObject
 {
 	GENERATED_BODY()
@@ -229,93 +212,93 @@ public:
 		Super::BeginDestroy();
 	}
 
-	/*HTTP SETTINGS*/
+	/*HOST*/
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Remote")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Remote")
 	void SetHost(const FString& url = "localhost", const FString& port = "3000")
 	{
 		Host = url;
 		Service = port;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Context")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Context")
 	FSslContext GetContext() { return TCP.ssl_context; }
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Socket")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Socket")
 	FTCPSslSocket GetSocket() { return TCP.ssl_socket; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Socket")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Socket")
 	void UpdateSslSocket() { TCP.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(TCP.context, TCP.ssl_context); }
 
 	/*REQUEST DATA*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetRequest(const FClientRequest& value) { Request = value; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FClientRequest GetRequest() const { return Request; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetRequestMethod(EMethod requestMethod = EMethod::GET) { Request.Method = requestMethod; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	EMethod GetRequestMethod() const { return Request.Method; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetVersion(const FString& version = "1.1") { Request.Version = version; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetVersion() const { return Request.Version; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetPath(const FString& path = "/") { Request.Path = path.IsEmpty() ? "/" : path; }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetPath() const { return Request.Path; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void AppendParams(const FString& key, const FString& value) { Request.Params.Add(key, value); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearParams() { Request.Params.Empty(); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void RemoveParam(const FString& key) { Request.Params.Remove(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	bool HasParam(const FString& key) const { return Request.Params.Contains(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetParams() const { return Request.Params; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void AppendHeaders(const FString& key, const FString& value) { Request.Headers.Add(key, value); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearHeaders() { Request.Headers.Empty(); }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void RemoveHeader(const FString& key) { Request.Headers.Remove(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	bool HasHeader(const FString& key) const { return Request.Headers.Contains(key); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetHeaders() const { return Request.Headers; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetBody(const FString& value) { Request.Body = value; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearBody() { Request.Body.Empty(); }
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetBody() const { return Request.Body; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Request")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	FClientRequest GetRequestData() const { return Request; }
 
 	/*SECURITY LAYER*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadPrivateKeyData(const FString& key_data) noexcept
 	{
 		if (key_data.IsEmpty()) return false;
@@ -332,7 +315,7 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadPrivateKeyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
@@ -348,7 +331,7 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateData(const FString& cert_data)
 	{
 		if (cert_data.IsEmpty()) return false;
@@ -365,7 +348,7 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
@@ -382,7 +365,7 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateChainData(const FString& cert_chain_data)
 	{
 		if (cert_chain_data.IsEmpty()) return false;
@@ -400,7 +383,7 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateChainFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
@@ -416,7 +399,7 @@ public:
 		return true;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Security Layer")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadVerifyFile(const FString& filename)
 	{
 		if (filename.IsEmpty()) return false;
@@ -433,53 +416,51 @@ public:
 	}
 
 	/*PAYLOAD*/
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
 	void PreparePayload();
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Payload")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
 	bool AsyncPreparePayload();
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Payload")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Payload")
 	FString GetPayloadData() const { return Payload; }
 
 	/*RESPONSE DATA*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Response")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
 	FClientResponse GetResponseData() const { return Response; }
 
 	/*CONNECTION*/
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
 	bool ProcessRequest();
 
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Connection")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
 	void Close();
 
 	/*MEMORY MANAGER*/
-	UFUNCTION(BlueprintCallable, Category = "IP||HTTP||Memory")
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Memory")
 	void ClearRequest() { UHttpFunctionLibrary::ClearRequest(Request); }
 
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Memory")
 	void ClearPayload() { Payload.Empty(); }
 
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Memory")
-	void ClearResponse() { UHttpFunctionLibrary::ClearResponse(Response); }
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Memory")
+	void ClearResponse() { UHttpFunctionLibrary::ClientClearResponse(Response); }
 
 	/*ERRORS*/
-	UFUNCTION(BlueprintCallable, Category="IP||HTTP||Error")
+	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Error")
 	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpPayload OnAsyncPayloadFinished;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpTransferred OnRequestProgress;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpRequestCompleted OnRequestCompleted;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpResponseError OnResponseError;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpError OnSocketError;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||HTTP||Events")
-	FDelegateHttpError OnError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateConnection OnAsyncPayloadFinished;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateBytesTransferred OnRequestProgress;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateHttpClientResponse OnRequestCompleted;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateHttpDataError OnResponseError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateConnection OnClose;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
+	FDelegateError OnError;
 
 private:
 	FCriticalSection MutexIO;

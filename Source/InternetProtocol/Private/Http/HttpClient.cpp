@@ -18,7 +18,7 @@ void UHttpClient::PreparePayload()
 {
 	Payload.Empty();
 
-	Payload = RequestMethod[Request.Method] + " " + Request.Path;
+	Payload = ClientRequestMethod[Request.Method] + " " + Request.Path;
 
 	if (Request.Params.Num() > 0)
 	{
@@ -151,7 +151,7 @@ void UHttpClient::resolve(const std::error_code& error, const asio::ip::tcp::res
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -171,7 +171,7 @@ void UHttpClient::connect(const std::error_code& error)
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -193,7 +193,7 @@ void UHttpClient::write_request(const std::error_code& error, const size_t bytes
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -217,7 +217,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -266,29 +266,29 @@ void UHttpClient::read_headers(const std::error_code& error)
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
-	UHttpFunctionLibrary::ClearResponse(Response);
+	UHttpFunctionLibrary::ClientClearResponse(Response);
 	std::istream response_stream(&ResponseBuffer);
 	std::string header;
 
 	while (std::getline(response_stream, header) && header != "\r")
 	{
-		UHttpFunctionLibrary::AppendHeader(Response, header.data());
+		UHttpFunctionLibrary::ClientAppendHeader(Response, header.data());
 	}
 	std::ostringstream body_buffer;
 	
 	if (ResponseBuffer.size() > 0)
 	{
 		body_buffer << &ResponseBuffer;
-		UHttpFunctionLibrary::SetBody(Response, body_buffer.str().data());
+		UHttpFunctionLibrary::ClientSetBody(Response, body_buffer.str().data());
 	}
 
 	std::ostringstream stream_buffer;
 	stream_buffer << &ResponseBuffer;
-	if (!stream_buffer.str().empty()) UHttpFunctionLibrary::AppendBody(Response, stream_buffer.str().c_str());
+	if (!stream_buffer.str().empty()) UHttpFunctionLibrary::ClientAppendBody(Response, stream_buffer.str().c_str());
 	if (ResponseBuffer.size() > 0) {
 		asio::async_read(
 			TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
@@ -320,13 +320,13 @@ void UHttpClient::read_body(const std::error_code& error)
 		{
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
 	std::ostringstream body_buffer;
 	body_buffer << &ResponseBuffer;
-	if (!body_buffer.str().empty()) UHttpFunctionLibrary::AppendBody(Response, body_buffer.str().c_str());
+	if (!body_buffer.str().empty()) UHttpFunctionLibrary::ClientAppendBody(Response, body_buffer.str().c_str());
 	if (ResponseBuffer.size() > 0) {
 		asio::async_read(
 			TCP.socket, ResponseBuffer, asio::transfer_at_least(1),
@@ -352,7 +352,7 @@ void UHttpClientSsl::PreparePayload()
 {
 	Payload.Empty();
 
-	Payload = RequestMethod[Request.Method] + " " + Request.Path;
+	Payload = ClientRequestMethod[Request.Method] + " " + Request.Path;
 
 	if (Request.Params.Num() > 0)
 	{
@@ -477,7 +477,7 @@ void UHttpClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -497,7 +497,7 @@ void UHttpClientSsl::connect(const std::error_code& error)
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -517,7 +517,7 @@ void UHttpClientSsl::ssl_handshake(const std::error_code& error)
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -539,7 +539,7 @@ void UHttpClientSsl::write_request(const std::error_code& error, const size_t by
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -563,7 +563,7 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -610,29 +610,29 @@ void UHttpClientSsl::read_headers(const std::error_code& error)
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
-	UHttpFunctionLibrary::ClearResponse(Response);
+	UHttpFunctionLibrary::ClientClearResponse(Response);
 	std::istream response_stream(&ResponseBuffer);
 	std::string header;
 
 	while (std::getline(response_stream, header) && header != "\r")
 	{
-		UHttpFunctionLibrary::AppendHeader(Response, header.data());
+		UHttpFunctionLibrary::ClientAppendHeader(Response, header.data());
 	}
 	std::ostringstream body_buffer;
 	
 	if (ResponseBuffer.size() > 0)
 	{
 		body_buffer << &ResponseBuffer;
-		UHttpFunctionLibrary::SetBody(Response, body_buffer.str().data());
+		UHttpFunctionLibrary::ClientSetBody(Response, body_buffer.str().data());
 	}
 
 	std::ostringstream stream_buffer;
 	stream_buffer << &ResponseBuffer;
-	if (!stream_buffer.str().empty()) UHttpFunctionLibrary::AppendBody(Response, stream_buffer.str().c_str());
+	if (!stream_buffer.str().empty()) UHttpFunctionLibrary::ClientAppendBody(Response, stream_buffer.str().c_str());
 	if (ResponseBuffer.size() > 0) {
 		asio::async_read(
 			TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),
@@ -665,13 +665,13 @@ void UHttpClientSsl::read_body(const std::error_code& error)
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
 	std::ostringstream body_buffer;
 	body_buffer << &ResponseBuffer;
-	if (!body_buffer.str().empty()) UHttpFunctionLibrary::AppendBody(Response, body_buffer.str().c_str());
+	if (!body_buffer.str().empty()) UHttpFunctionLibrary::ClientAppendBody(Response, body_buffer.str().c_str());
 	if (ResponseBuffer.size() > 0) {
 		asio::async_read(
 			TCP.ssl_socket, ResponseBuffer, asio::transfer_at_least(1),

@@ -1,23 +1,34 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+/*
+ * Copyright (c) 2023-2025 Nathan Miguel
+ *
+ * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
+ * of the GNU Affero General Public License as published by the Free Software Foundation,
+ * version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ *
+ * For complete copyright and license terms please see the LICENSE at the root of this distribution.
+*/
 
 #include "UDP/UDPServer.h"
 
-bool UUDPServer::SendStr(const FString& message, const FUDPEndpoint& endpoint)
+bool UUDPServer::SendStrTo(const FString& Message, const FUDPEndpoint& Endpoint)
 {
-	if (!UDP.socket.is_open() || message.IsEmpty())
+	if (!UDP.socket.is_open() || Message.IsEmpty())
 		return false;
 
-	asio::post(GetThreadPool(), std::bind(&UUDPServer::package_string, this, message, endpoint));
+	asio::post(GetThreadPool(), std::bind(&UUDPServer::package_string, this, Message, Endpoint));
 	return true;
 }
 
-bool UUDPServer::SendBuffer(const TArray<uint8>& buffer, const FUDPEndpoint& endpoint)
+bool UUDPServer::SendBufferTo(const TArray<uint8>& Buffer, const FUDPEndpoint& Endpoint)
 {
-	if (!UDP.socket.is_open() || buffer.Num() == 0)
+	if (!UDP.socket.is_open() || Buffer.Num() == 0)
 		return false;
 
-	asio::post(GetThreadPool(), std::bind(&UUDPServer::package_buffer, this, buffer, endpoint));
+	asio::post(GetThreadPool(), std::bind(&UUDPServer::package_buffer, this, Buffer, Endpoint));
 	return true;
 }
 
@@ -42,7 +53,6 @@ bool UUDPServer::Open()
 		OnError.Broadcast(ErrorCode);
 		return false;
 	}
-	OnOpen.Broadcast();
 
 	asio::post(GetThreadPool(), std::bind(&UUDPServer::run_context_thread, this));
 	return true;
@@ -76,7 +86,7 @@ void UUDPServer::package_string(const FString& str, const FUDPEndpoint& endpoint
 	if (!SplitBuffer || str.Len() <= MaxSendBufferSize)
 	{
 		packaged_str = TCHAR_TO_UTF8(*str);
-		UDP.socket.async_send_to(asio::buffer(packaged_str.data(), packaged_str.size()), *endpoint.Endpoint,
+		UDP.socket.async_send_to(asio::buffer(packaged_str.data(), packaged_str.size()), *endpoint.RawPtr,
 								 std::bind(&UUDPServer::send_to, this, asio::placeholders::error,
 										   asio::placeholders::bytes_transferred, endpoint));
 		return;
@@ -90,7 +100,7 @@ void UUDPServer::package_string(const FString& str, const FUDPEndpoint& endpoint
 		size_t package_size = std::min(max_size, str_len - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		packaged_str = TCHAR_TO_UTF8(*strshrink);
-		UDP.socket.async_send_to(asio::buffer(packaged_str.data(), packaged_str.size()), *endpoint.Endpoint,
+		UDP.socket.async_send_to(asio::buffer(packaged_str.data(), packaged_str.size()), *endpoint.RawPtr,
 								 std::bind(&UUDPServer::send_to, this, asio::placeholders::error,
 										   asio::placeholders::bytes_transferred, endpoint));
 		string_offset += package_size;
@@ -102,7 +112,7 @@ void UUDPServer::package_buffer(const TArray<uint8>& buffer, const FUDPEndpoint&
 	FScopeLock Guard(&MutexBuffer);
 	if (!SplitBuffer || buffer.Num() <= MaxSendBufferSize)
 	{
-		UDP.socket.async_send_to(asio::buffer(buffer.GetData(), buffer.Num()), *endpoint.Endpoint,
+		UDP.socket.async_send_to(asio::buffer(buffer.GetData(), buffer.Num()), *endpoint.RawPtr,
 								 std::bind(&UUDPServer::send_to, this, asio::placeholders::error,
 										   asio::placeholders::bytes_transferred, endpoint));
 		return;
@@ -116,7 +126,7 @@ void UUDPServer::package_buffer(const TArray<uint8>& buffer, const FUDPEndpoint&
 		size_t package_size = std::min(max_size, buf_len - buffer_offset);
 		TArray<uint8> sbuffer;
 		sbuffer.Append(buffer.GetData() + buffer_offset, package_size);
-		UDP.socket.async_send_to(asio::buffer(sbuffer.GetData(), sbuffer.Num()), *endpoint.Endpoint,
+		UDP.socket.async_send_to(asio::buffer(sbuffer.GetData(), sbuffer.Num()), *endpoint.RawPtr,
 								 std::bind(&UUDPServer::send_to, this, asio::placeholders::error,
 										   asio::placeholders::bytes_transferred, endpoint));
 		buffer_offset += package_size;
@@ -160,14 +170,14 @@ void UUDPServer::send_to(const asio::error_code& error, const size_t bytes_sent,
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}
 	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnMessageSent.Broadcast(endpoint);
+		OnMessageSent.Broadcast(error);
 	});
 }
 
@@ -182,7 +192,7 @@ void UUDPServer::receive_from(const asio::error_code& error, const size_t bytes_
 			if (!error) return;
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error);
+			OnError.Broadcast(error);
 		});
 		return;
 	}

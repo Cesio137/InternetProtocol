@@ -150,7 +150,30 @@ void UHttpFunctionLibrary::ClearRequest(FClientRequest& request)
 	request.Body.Empty();
 }
 
-void UHttpFunctionLibrary::AppendHeader(FClientResponse& response, const FString& headerline)
+void UHttpFunctionLibrary::ServerAppendHeader(FServerRequest& request, const FString& headerline)
+{
+	int32 Pos;
+	if (headerline.FindChar(TEXT(':'), Pos))
+	{
+		FString key = TrimWhitespace(headerline.Left(Pos));
+		FString value = TrimWhitespace(headerline.Mid(Pos + 1));
+		request.Headers.Add(key, value);
+	}
+}
+
+void UHttpFunctionLibrary::ServerSetBody(FServerRequest& response, const FString& value)
+{
+	if (value.IsEmpty()) return;
+	response.Body = value;
+}
+
+void UHttpFunctionLibrary::ServerClearResponse(FServerResponse& response)
+{
+	response.Headers.Empty();
+	response.Body.Empty();
+}
+
+void UHttpFunctionLibrary::ClientAppendHeader(FClientResponse& response, const FString& headerline)
 {
 	int32 Pos;
 	if (headerline.FindChar(TEXT(':'), Pos))
@@ -166,20 +189,20 @@ void UHttpFunctionLibrary::AppendHeader(FClientResponse& response, const FString
 	}
 }
 
-void UHttpFunctionLibrary::ClearResponse(FClientResponse& response)
+void UHttpFunctionLibrary::ClientClearResponse(FClientResponse& response)
 {
 	response.Headers.Empty();
 	response.ContentLength = 0;
 	response.Body.Empty();
 }
 
-void UHttpFunctionLibrary::SetBody(FClientResponse& response, const FString& value)
+void UHttpFunctionLibrary::ClientSetBody(FClientResponse& response, const FString& value)
 {
 	if (value.IsEmpty()) return;
 	response.Body = value;
 }
 
-void UHttpFunctionLibrary::AppendBody(FClientResponse& response, const FString& value)
+void UHttpFunctionLibrary::ClientAppendBody(FClientResponse& response, const FString& value)
 {
 	response.Body.Append(value);
 }
@@ -193,100 +216,110 @@ FString UHttpFunctionLibrary::TrimWhitespace(const FString& str)
 
 int UUDPFunctionLibrary::Port(const FUDPEndpoint& endpoint)
 {
-	return endpoint.Endpoint->port();
+	return endpoint.RawPtr->port();
 }
 
 FAddress UUDPFunctionLibrary::Address(const FUDPEndpoint& endpoint)
 {
-	return endpoint.Endpoint->address();
+	return endpoint.RawPtr->address();
 }
 
 bool UUDPFunctionLibrary::IsOpen(const FUDPSocket& socket)
 {
-	return socket.Socket->is_open();
+	return socket.RawPtr->is_open();
 }
 
 FUDPEndpoint UUDPFunctionLibrary::GetRemoteEndpoint(const FUDPSocket& socket)
 {
-	return socket.Socket->remote_endpoint();
+	return socket.RawPtr->remote_endpoint();
 }
 
 FUDPEndpoint UUDPFunctionLibrary::GetLocalEndpoint(const FUDPSocket& socket)
 {
-	return socket.Socket->local_endpoint();
+	return socket.RawPtr->local_endpoint();
+}
+
+bool UTCPAcceptorFunctionLibrary::IsOpen(const FTCPAcceptor& acceptor)
+{
+	return acceptor.RawPtr->is_open();
+}
+
+FTCPEndpoint UTCPAcceptorFunctionLibrary::GetLocalEndpoint(const FTCPAcceptor& acceptor)
+{
+	return acceptor.RawPtr->local_endpoint();
 }
 
 int UTCPFunctionLibrary::Port(const FTCPEndpoint& endpoint)
 {
-	return endpoint.Endpoint->port();
+	return endpoint.RawPtr->port();
 }
 
 FAddress UTCPFunctionLibrary::Address(const FTCPEndpoint& endpoint)
 {
-	return endpoint.Endpoint->address();
+	return endpoint.RawPtr->address();
 }
 
 bool UTCPFunctionLibrary::IsOpen(const FTCPSocket& socket)
 {
-	return socket.Socket->is_open();
+	return socket.RawPtr->is_open();
 }
 
 FTCPEndpoint UTCPFunctionLibrary::GetRemoteEndpoint(const FTCPSocket& socket)
 {
-	return socket.Socket->remote_endpoint();
+	return socket.RawPtr->remote_endpoint();
 }
 
 FTCPEndpoint UTCPFunctionLibrary::GetLocalEndpoint(const FTCPSocket& socket)
 {
-	return socket.Socket->local_endpoint();
+	return socket.RawPtr->local_endpoint();
 }
 
 void UTCPSslContextFunctionLibrary::SetOptions(FSslContext& context, const ESslVerifyMode options)
 {
-	context.SslContext->set_options(static_cast<asio::ssl::context_base::options>(options));
+	context.RawPtr->set_options(static_cast<asio::ssl::context_base::options>(options));
 }
 
 void UTCPSslContextFunctionLibrary::ClearOptions(FSslContext& context, const ESslVerifyMode options)
 {
-	context.SslContext->clear_options(static_cast<asio::ssl::context_base::options>(options));
+	context.RawPtr->clear_options(static_cast<asio::ssl::context_base::options>(options));
 }
 
 bool UTCPSslNextLayerFunctionLibrary::IsOpen(const FTCPSslNextLayer& next_layer)
 {
-	return next_layer.SslNextLayer->is_open();
+	return next_layer.RawPtr->is_open();
 }
 
 FTCPEndpoint UTCPSslNextLayerFunctionLibrary::GetRemoteEndpoint(const FTCPSslNextLayer& socket)
 {
-	return socket.SslNextLayer->remote_endpoint();
+	return socket.RawPtr->remote_endpoint();
 }
 
 FTCPEndpoint UTCPSslNextLayerFunctionLibrary::GetLocalEndpoint(const FTCPSslNextLayer& socket)
 {
-	return socket.SslNextLayer->local_endpoint();
+	return socket.RawPtr->local_endpoint();
 }
 
 bool UTCPSslLowestLayerFunctionLibrary::IsOpen(const FTCPSslLowestLayer& lowest_layer)
 {
-	return lowest_layer.SslLowestLayer->is_open();
+	return lowest_layer.RawPtr->is_open();
 }
 
 FTCPEndpoint UTCPSslLowestLayerFunctionLibrary::GetRemoteEndpoint(const FTCPSslLowestLayer& lowest_layer)
 {
-	return lowest_layer.SslLowestLayer->remote_endpoint();
+	return lowest_layer.RawPtr->remote_endpoint();
 }
 
 FTCPEndpoint UTCPSslLowestLayerFunctionLibrary::GetLocalEndpoint(const FTCPSslLowestLayer& lowest_layer)
 {
-	return lowest_layer.SslLowestLayer->local_endpoint();
+	return lowest_layer.RawPtr->local_endpoint();
 }
 
 FTCPSslNextLayer UTCPSslFunctionLibrary::NextLayer(const FTCPSslSocket& ssl_socket)
 {
-	return ssl_socket.SslSocket->next_layer();
+	return ssl_socket.RawPtr->next_layer();
 }
 
 FTCPSslLowestLayer UTCPSslFunctionLibrary::LowestLayer(const FTCPSslSocket& ssl_socket)
 {
-	return ssl_socket.SslSocket->lowest_layer();
+	return ssl_socket.RawPtr->lowest_layer();
 }

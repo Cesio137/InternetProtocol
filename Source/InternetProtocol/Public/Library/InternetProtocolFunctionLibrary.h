@@ -88,12 +88,17 @@ public:
 
 	/*Response functions*/
 	static void ClearRequest(FClientRequest& request);
+
+	/*Response functions*/
+	static void ServerAppendHeader(FServerRequest& request, const FString& headerline);
+	static void ServerSetBody(FServerRequest& response, const FString& value);
+	static void ServerClearResponse(FServerResponse& response);
 	
 	/*Response functions*/
-	static void AppendHeader(FClientResponse& response, const FString& headerline);
-	static void ClearResponse(FClientResponse& response);
-	static void SetBody(FClientResponse& response, const FString& value);
-	static void AppendBody(FClientResponse& response, const FString& value);
+	static void ClientAppendHeader(FClientResponse& response, const FString& headerline);
+	static void ClientClearResponse(FClientResponse& response);
+	static void ClientSetBody(FClientResponse& response, const FString& value);
+	static void ClientAppendBody(FClientResponse& response, const FString& value);
 
 private:
 	static FString TrimWhitespace(const FString& str);
@@ -119,6 +124,19 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||UDP||Socket")
 	static FUDPEndpoint GetLocalEndpoint(const FUDPSocket& socket);
+};
+
+UCLASS(Blueprintable, BlueprintType, Category = "IP")
+class INTERNETPROTOCOL_API UTCPAcceptorFunctionLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+public:
+	/*TCP functions*/
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Acceptor")
+	static bool IsOpen(const FTCPAcceptor& acceptor);
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP||TCP||Acceptor")
+	static FTCPEndpoint GetLocalEndpoint(const FTCPAcceptor& acceptor);
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP")

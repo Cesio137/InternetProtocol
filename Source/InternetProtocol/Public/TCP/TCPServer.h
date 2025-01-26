@@ -16,79 +16,98 @@
 
 #include "CoreMinimal.h"
 #include "Net/Commons.h"
-#include "TCPClient.generated.h"
+#include "TCPServer.generated.h"
 
 /**
  * 
  */
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
-class INTERNETPROTOCOL_API UTCPClient : public UObject
+class INTERNETPROTOCOL_API UTCPServer : public UObject
 {
 	GENERATED_BODY()
-
 public:
 	virtual void BeginDestroy() override
 	{
-		TCP.resolver.cancel();
-		if (TCP.socket.is_open()) Close();
-		consume_response_buffer();
+		if (TCP.acceptor.is_open()) Close();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Remote")
-	void SetHost(const FString& ip = "localhost", const FString& port = "3000")
+	void SetSocket(const EProtocolType Protocol = EProtocolType::V4, const int Port = 3000, const int MaxListenningConnection = 2147483647)
 	{
-		Host = ip;
-		Service = port;
+		TcpProtocol = Protocol;
+		TcpPort = Port;
+		Backlog = MaxListenningConnection;
 	}
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Acceptor")
+	FTCPAcceptor GetAcceptor()
+	{
+		return TCP.acceptor;
+	}
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Socket")
-	FTCPSocket GetSocket() { return TCP.socket; }	
+	const TArray<FTCPSocket> GetSockets()
+	{
+		TArray<FTCPSocket> sockets;
+		for (const socket_ptr& socket_ref : TCP.sockets)
+		{
+			sockets.Add(socket_ref);
+		}
+		return sockets;
+	}	
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int Value = 1400) { MaxSendBufferSize = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
 	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetSplitPackage(bool value = true) { bSplitBuffer = value; }
+	void SetSplitPackage(bool Value = true) { bSplitBuffer = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
 	bool GetSplitPackage() const { return bSplitBuffer; }
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendStr(const FString& message);
+	bool SendStrTo(const FString& Message, const FTCPSocket& Socket);
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendBuffer(const TArray<uint8>& buffer);
+	bool SendBufferTo(const TArray<uint8>& Buffer, const FTCPSocket& Socket);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")
-	bool Connect();
+	bool Open();
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")
 	void Close();
+
+	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")
+	void DisconnectSocket(const FTCPSocket& Socket);
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Error")
 	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateConnection OnConnected;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpAcceptor OnSocketAccepted;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateBytesTransferred OnBytesTransferred;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateMessageSent OnMessageSent;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpMessage OnMessageReceived;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSocketMessage OnMessageReceived;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSocketError OnSocketDisconnected;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSocketError OnSocketError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateError OnError;
 
 private:
@@ -96,74 +115,86 @@ private:
 	FCriticalSection MutexBuffer;
 	FCriticalSection MutexError;
 	bool IsClosing = false;
-	FAsioTcpClient TCP;
+	FAsioTcpServer TCP;
 	asio::error_code ErrorCode;
-	FString Host = "localhost";
-	FString Service = "3000";
-	bool bSplitBuffer = true;
+	EProtocolType TcpProtocol = EProtocolType::V4;
+	uint16_t TcpPort = 3000;
+	int Backlog = 2147483647;
+	bool bSplitBuffer = false;
 	int MaxSendBufferSize = 1400;
-	asio::streambuf ResponseBuffer;
+	TMap<socket_ptr, TSharedPtr<asio::streambuf>> ListenerBuffer;
 
-	void package_string(const FString& str);
-	void package_buffer(const TArray<uint8>& buffer);
-	void consume_response_buffer();
+	void package_string(const FString& str, const socket_ptr &socket);
+	void package_buffer(const TArray<uint8>& buffer, const socket_ptr &socket);
+	void consume_response_buffer(const socket_ptr &socket);
 	void run_context_thread();
-	void resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
-	void conn(const asio::error_code& error);
-	void write(const asio::error_code& error, const size_t bytes_sent);
-	void read(const asio::error_code& error, const size_t bytes_recvd);
+	void accept(const asio::error_code& error, const socket_ptr& socket);
+	void write(const asio::error_code& error, const size_t bytes_sent, const socket_ptr& socket);
+	void read(const asio::error_code& error, const size_t bytes_recvd, const socket_ptr& socket);
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
-class INTERNETPROTOCOL_API UTCPClientSsl : public UObject
+class INTERNETPROTOCOL_API UTCPServerSsl : public UObject
 {
 	GENERATED_BODY()
-
-public:	
+public:
 	virtual void BeginDestroy() override
 	{
-		TCP.resolver.cancel();
-		if (TCP.ssl_socket.lowest_layer().is_open()) Close();
-		consume_response_buffer();
+		if (TCP.acceptor.is_open()) Close();
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Remote")
-	void SetHost(const FString& ip = "localhost", const FString& port = "3000")
+	void SetSocket(const EProtocolType Protocol = EProtocolType::V4, const int Port = 3000, const int MaxListenningConnection = 2147483647)
 	{
-		Host = ip;
-		Service = port;
+		TcpProtocol = Protocol;
+		TcpPort = Port;
+		Backlog = MaxListenningConnection;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Context")
-	FSslContext GetSslContext() { return TCP.ssl_context; }
+	FTCPSslContext GetSslContext()
+	{
+		return TCP.ssl_context;
+	}
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Acceptor")
+	FTCPAcceptor GetAcceptor()
+	{
+		return TCP.acceptor;
+	}
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Socket")
-	FTCPSslSocket GetSslSocket() { return TCP.ssl_socket; }
+	const TArray<FTCPSslSocket> GetSslSockets()
+	{
+		TArray<FTCPSslSocket> sockets;
+		for (const ssl_socket_ptr& socket_ref : TCP.ssl_sockets)
+		{
+			sockets.Add(*socket_ref);
+		}
+		return sockets;
+	}	
 
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Socket")
-	void UpdateSslSocket() { TCP.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(TCP.context, TCP.ssl_context); }
-	
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int Value = 1400) { MaxSendBufferSize = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
 	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetSplitPackage(bool value = true) { SplitBuffer = value; }
+	void SetSplitPackage(bool Value = true) { bSplitBuffer = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
-	bool GetSplitPackage() const { return SplitBuffer; }
+	bool GetSplitPackage() const { return bSplitBuffer; }
 
 	/*SECURITY LAYER*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadPrivateKeyData(const FString& key_data) noexcept
+	bool LoadPrivateKeyData(const FString& KeyData) noexcept
 	{
-		if (key_data.IsEmpty()) return false;
-		std::string key = TCHAR_TO_UTF8(*key_data);
+		if (KeyData.IsEmpty()) return false;
+		std::string key = TCHAR_TO_UTF8(*KeyData);
 		const asio::const_buffer buffer(key.data(), key.size());
 		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
@@ -177,10 +208,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadPrivateKeyFile(const FString& filename)
+	bool LoadPrivateKeyFile(const FString& FileName)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (FileName.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
@@ -193,10 +224,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateData(const FString& cert_data)
+	bool LoadCertificateData(const FString& CertData)
 	{
-		if (cert_data.IsEmpty()) return false;
-		std::string cert = TCHAR_TO_UTF8(*cert_data);
+		if (CertData.IsEmpty()) return false;
+		std::string cert = TCHAR_TO_UTF8(*CertData);
 		const asio::const_buffer buffer(cert.data(), cert.size());
 		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
@@ -210,11 +241,11 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateFile(const FString& filename)
+	bool LoadCertificateFile(const FString& FileName)
 	{
-		if (filename.IsEmpty()) return false;
+		if (FileName.IsEmpty()) return false;
 		asio::error_code ec;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
@@ -227,10 +258,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateChainData(const FString& cert_chain_data)
+	bool LoadCertificateChainData(const FString& CertChainData)
 	{
-		if (cert_chain_data.IsEmpty()) return false;
-		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
+		if (CertChainData.IsEmpty()) return false;
+		std::string cert_chain = TCHAR_TO_UTF8(*CertChainData);
 		const asio::const_buffer buffer(cert_chain.data(),
 										cert_chain.size());
 		TCP.ssl_context.use_certificate_chain(buffer, ErrorCode);
@@ -245,10 +276,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateChainFile(const FString& filename)
+	bool LoadCertificateChainFile(const FString& FileName)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (FileName.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_certificate_chain_file(file, ErrorCode);
 		if (ErrorCode)
 		{
@@ -261,10 +292,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadVerifyFile(const FString& filename)
+	bool LoadVerifyFile(const FString& FileName)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (FileName.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.load_verify_file(file, ErrorCode);
 		if (ErrorCode)
 		{
@@ -278,33 +309,40 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendStr(const FString& message);
+	bool SendStrTo(const FString& Message, const FTCPSslSocket& SslSocket);
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendBuffer(const TArray<uint8>& buffer);
+	bool SendBufferTo(const TArray<uint8>& Buffer, const FTCPSslSocket& SslSocket);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")
-	bool Connect();
+	bool Open();
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")
 	void Close();
+
+	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")
+	void DisconnectSocket(const FTCPSslSocket& SslSocket);
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Error")
 	FErrorCode GetErrorCode() const { return ErrorCode; }
 
 	/*EVENTS*/
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateConnection OnConnected;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSslAcceptor OnSocketAccepted;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateBytesTransferred OnBytesTransferred;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateMessageSent OnMessageSent;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpMessage OnMessageReceived;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSslSocketMessage OnMessageReceived;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSslSocketError OnSocketDisconnected;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSslSocketError  OnSocketError;
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateError OnError;
 
 private:
@@ -312,21 +350,21 @@ private:
 	FCriticalSection MutexBuffer;
 	FCriticalSection MutexError;
 	bool IsClosing = false;
-	FAsioTcpSslClient TCP;
+	FAsioTcpServerSsl TCP;
 	asio::error_code ErrorCode;
-	FString Host = "localhost";
-	FString Service = "3000";
-	bool SplitBuffer = true;
+	EProtocolType TcpProtocol = EProtocolType::V4;
+	uint16_t TcpPort = 3000;
+	int Backlog = 2147483647;
+	bool bSplitBuffer = true;
 	int MaxSendBufferSize = 1400;
-	asio::streambuf ResponseBuffer;
+	TMap<ssl_socket_ptr, TSharedPtr<asio::streambuf>> ListenerBuffer;
 
-	void package_string(const FString& str);
-	void package_buffer(const TArray<uint8>& buffer);
-	void consume_response_buffer();
+	void package_string(const FString& str, const ssl_socket_ptr &ssl_socket);
+	void package_buffer(const TArray<uint8>& buffer, const ssl_socket_ptr &ssl_socket);
+	void consume_response_buffer(const ssl_socket_ptr &socket);
 	void run_context_thread();
-	void resolve(const asio::error_code& error, const asio::ip::tcp::resolver::results_type& endpoints);
-	void conn(const asio::error_code& error);
-	void ssl_handshake(const asio::error_code& error);
-	void write(const asio::error_code& error, const size_t bytes_sent);
-	void read(const asio::error_code& error, const size_t bytes_recvd);
+	void accept(const asio::error_code& error, ssl_socket_ptr &ssl_socket);
+	void ssl_handshake(const asio::error_code &error, ssl_socket_ptr &ssl_socket);
+	void write(const asio::error_code& error, const size_t bytes_sent, const ssl_socket_ptr &ssl_socket);
+	void read(const asio::error_code& error, const size_t bytes_recvd, const ssl_socket_ptr &ssl_socket);
 };
