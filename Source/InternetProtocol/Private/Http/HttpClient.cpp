@@ -61,7 +61,6 @@ void UHttpClient::PreparePayload()
 
 bool UHttpClient::AsyncPreparePayload()
 {
-	if (!ThreadPool.IsValid()) return false;
 	asio::post(GetThreadPool(), [&]()
 	{
 		FScopeLock Guard(&MutexPayload);
@@ -91,15 +90,13 @@ void UHttpClient::Close()
 	IsClosing = true;
 	TCP.context.stop();
 	if (TCP.socket.is_open()) {
+		FScopeLock Guard(&MutexError);
 		TCP.socket.shutdown(asio::ip::udp::socket::shutdown_both, ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
-
 		TCP.socket.close(ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 	}

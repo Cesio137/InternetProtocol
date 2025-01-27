@@ -63,14 +63,13 @@ void UUDPServer::Close()
 	IsClosing = true;
 	UDP.context.stop();
 	if (UDP.socket.is_open()) {
+		FScopeLock Guard(&MutexError);
 		UDP.socket.shutdown(asio::ip::udp::socket::shutdown_both, ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 		UDP.socket.close(ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 	}

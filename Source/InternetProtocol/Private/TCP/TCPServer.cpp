@@ -17,7 +17,9 @@
 bool UTCPServer::SendStrTo(const FString& Message, const FTCPSocket& Socket)
 {
 	if (!Socket.RawPtr->is_open() || Message.IsEmpty())
+	{
 		return false;
+	}
 
 	asio::post(GetThreadPool(), std::bind(&UTCPServer::package_string, this, Message, Socket.SmartPtr));
 	return true;
@@ -26,7 +28,9 @@ bool UTCPServer::SendStrTo(const FString& Message, const FTCPSocket& Socket)
 bool UTCPServer::SendBufferTo(const TArray<uint8>& Buffer, const FTCPSocket& Socket)
 {
 	if (!Socket.RawPtr->is_open() || Buffer.Num() == 0)
+	{
 		return false;
+	}
 
 	asio::post(GetThreadPool(), std::bind(&UTCPServer::package_buffer, this, Buffer, Socket.SmartPtr));
 	return true;
@@ -35,34 +39,40 @@ bool UTCPServer::SendBufferTo(const TArray<uint8>& Buffer, const FTCPSocket& Soc
 bool UTCPServer::Open()
 {
 	if (TCP.acceptor.is_open())
+	{
 		return false;
+	}
 
 	asio::ip::tcp::endpoint endpoint(TcpProtocol == EProtocolType::V4
-										 ? asio::ip::tcp::v4()
-										 : asio::ip::tcp::v6(), TcpPort);
+		                                 ? asio::ip::tcp::v4()
+		                                 : asio::ip::tcp::v6(), TcpPort);
 	ErrorCode = asio::error_code();
 	TCP.acceptor.open(TcpProtocol == EProtocolType::V4
-						  ? asio::ip::tcp::v4()
-						  : asio::ip::tcp::v6(), ErrorCode);
-	if (ErrorCode) {
+		                  ? asio::ip::tcp::v4()
+		                  : asio::ip::tcp::v6(), ErrorCode);
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
 	}
 	TCP.acceptor.set_option(asio::socket_base::reuse_address(true), ErrorCode);
-	if (ErrorCode) {
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
 	}
 	TCP.acceptor.bind(endpoint, ErrorCode);
-	if (ErrorCode) {
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
 	}
 	TCP.acceptor.listen(Backlog, ErrorCode);
-	if (ErrorCode) {
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
@@ -76,28 +86,45 @@ void UTCPServer::Close()
 {
 	IsClosing = true;
 	if (TCP.sockets.Num() > 0)
-		for (const socket_ptr &socket: TCP.sockets) {
-			if (socket->is_open()) {
+	{
+		for (const socket_ptr& socket : TCP.sockets)
+		{
+			if (socket->is_open())
+			{
+				FScopeLock Guard(&MutexError);
 				socket->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
+				bool has_error = false;
 				if (ErrorCode)
 				{
-					FScopeLock Guard(&MutexError);
-					OnSocketError.Broadcast(ErrorCode, socket);
+					has_error = true;
+					OnSocketDisconnected.Broadcast(ErrorCode, socket);
 				}
 				socket->close(ErrorCode);
 				if (ErrorCode)
 				{
-					FScopeLock Guard(&MutexError);
-					OnSocketError.Broadcast(ErrorCode, socket);
+					has_error = true;
+					OnSocketDisconnected.Broadcast(ErrorCode, socket);
+				}
+				if (!has_error)
+				{
+					OnSocketDisconnected.Broadcast(FErrorCode(), socket);
 				}
 			}
 		}
+	}
 	TCP.context.stop();
-	if (TCP.sockets.Num() > 0) TCP.sockets.Empty();
-	if (ListenerBuffer.Num() > 0) ListenerBuffer.Empty();
-	if (TCP.acceptor.is_open()) {
-		TCP.acceptor.close(ErrorCode);
+	if (TCP.sockets.Num() > 0)
+	{
+		TCP.sockets.Empty();
+	}
+	if (ListenerBuffer.Num() > 0)
+	{
+		ListenerBuffer.Empty();
+	}
+	if (TCP.acceptor.is_open())
+	{
 		FScopeLock Guard(&MutexError);
+		TCP.acceptor.close(ErrorCode);
 		OnError.Broadcast(ErrorCode);
 	}
 	TCP.context.restart();
@@ -108,20 +135,38 @@ void UTCPServer::Close()
 
 void UTCPServer::DisconnectSocket(const FTCPSocket& Socket)
 {
-	if (Socket.RawPtr->is_open()) {
+	bool has_error = false;
+	if (Socket.RawPtr->is_open())
+	{
+		FScopeLock Guard(&MutexError);
 		Socket.RawPtr->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
-		if (ErrorCode) OnSocketError.Broadcast(ErrorCode, Socket.RawPtr);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
+		}
 		Socket.RawPtr->close(ErrorCode);
-		if (ErrorCode) OnSocketError.Broadcast(ErrorCode, Socket.RawPtr);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
+		}
 	}
 	if (ListenerBuffer.Contains(Socket.SmartPtr))
+	{
 		ListenerBuffer.Remove(Socket.SmartPtr);
+	}
 	if (TCP.sockets.Contains(Socket.SmartPtr))
+	{
 		TCP.sockets.Remove(Socket.SmartPtr);
-	OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
+	}
+	if (!has_error)
+	{
+		OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
+	}
 }
 
-void UTCPServer::package_string(const FString& str, const socket_ptr &socket)
+void UTCPServer::package_string(const FString& str, const socket_ptr& socket)
 {
 	FScopeLock Guard(&MutexBuffer);
 	std::string packaged_str;
@@ -129,33 +174,34 @@ void UTCPServer::package_string(const FString& str, const socket_ptr &socket)
 	{
 		packaged_str = TCHAR_TO_UTF8(*str);
 		asio::async_write(*socket, asio::buffer(packaged_str.data(), packaged_str.size()),
-						  std::bind(&UTCPServer::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, socket));
+		                  std::bind(&UTCPServer::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, socket));
 		return;
 	}
 
 	size_t string_offset = 0;
-	const size_t max_size = MaxSendBufferSize; const size_t str_len = static_cast<size_t>(str.Len());
+	const size_t max_size = MaxSendBufferSize;
+	const size_t str_len = static_cast<size_t>(str.Len());
 	while (string_offset < str_len)
 	{
 		size_t package_size = std::min(max_size, str_len - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		packaged_str = TCHAR_TO_UTF8(*strshrink);
 		asio::async_write(*socket, asio::buffer(packaged_str.data(), packaged_str.size()),
-						  std::bind(&UTCPServer::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, socket));
+		                  std::bind(&UTCPServer::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, socket));
 		string_offset += package_size;
 	}
 }
 
-void UTCPServer::package_buffer(const TArray<uint8>& buffer, const socket_ptr &socket)
+void UTCPServer::package_buffer(const TArray<uint8>& buffer, const socket_ptr& socket)
 {
 	FScopeLock Guard(&MutexBuffer);
 	if (!bSplitBuffer || buffer.Num() <= MaxSendBufferSize)
 	{
 		asio::async_write(*socket, asio::buffer(buffer.GetData(), buffer.Num()),
-						  std::bind(&UTCPServer::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, socket));
+		                  std::bind(&UTCPServer::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, socket));
 		return;
 	}
 
@@ -172,20 +218,24 @@ void UTCPServer::package_buffer(const TArray<uint8>& buffer, const socket_ptr &s
 			sbuffer.Add('\0');
 		}
 		asio::async_write(*socket, asio::buffer(sbuffer.GetData(), sbuffer.Num()),
-						  std::bind(&UTCPServer::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, socket));
+		                  std::bind(&UTCPServer::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, socket));
 		buffer_offset += package_size;
 	}
 }
 
-void UTCPServer::consume_response_buffer(const socket_ptr &socket)
+void UTCPServer::consume_response_buffer(const socket_ptr& socket)
 {
 	if (!ListenerBuffer.Contains(socket))
+	{
 		return;
-	asio::streambuf &streambuf = *ListenerBuffer[socket];
+	}
+	asio::streambuf& streambuf = *ListenerBuffer[socket];
 	const size_t size = streambuf.size();
 	if (size > 0)
+	{
 		streambuf.consume(size);
+	}
 }
 
 void UTCPServer::run_context_thread()
@@ -197,23 +247,29 @@ void UTCPServer::run_context_thread()
 		*conn_socket, std::bind(&UTCPServer::accept, this, asio::placeholders::error, conn_socket));
 	TCP.context.run();
 	if (TCP.acceptor.is_open() && !IsClosing)
+	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			Close();
 		});
+	}
 }
 
 void UTCPServer::accept(const asio::error_code& error, const socket_ptr& socket)
 {
-	if (error) {
+	if (error)
+	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error, socket]()
 		{
-			if (!error) return;
+			if (!error)
+			{
+				return;
+			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-					   error.message().c_str());
-			OnSocketError.Broadcast(error, socket);
+			           error.message().c_str());
+			OnSocketDisconnected.Broadcast(error, socket);
 		});
 		socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
 		TCP.acceptor.async_accept(
@@ -225,8 +281,8 @@ void UTCPServer::accept(const asio::error_code& error, const socket_ptr& socket)
 	TSharedPtr<asio::streambuf> response_buffer = MakeShared<asio::streambuf>();
 	ListenerBuffer.Add(socket, response_buffer);
 	asio::async_read(*socket, *ListenerBuffer[socket], asio::transfer_at_least(1),
-					 std::bind(&UTCPServer::read, this, asio::placeholders::error,
-							   asio::placeholders::bytes_transferred, socket));
+	                 std::bind(&UTCPServer::read, this, asio::placeholders::error,
+	                           asio::placeholders::bytes_transferred, socket));
 
 	AsyncTask(ENamedThreads::GameThread, [&, socket]()
 	{
@@ -246,34 +302,41 @@ void UTCPServer::write(const asio::error_code& error, const size_t bytes_sent, c
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error, socket]()
 		{
-			if (!error) return;
+			if (!error)
+			{
+				return;
+			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-					   error.message().c_str());
-			OnMessageSent.Broadcast(error);
-			OnSocketError.Broadcast(error, socket);
+			           error.message().c_str());
+			OnMessageSent.Broadcast(error, socket);
 		});
 		return;
 	}
 	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent, socket]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnMessageSent.Broadcast(error);
+		OnMessageSent.Broadcast(error, socket);
 	});
 }
 
 void UTCPServer::read(const asio::error_code& error, const size_t bytes_recvd, const socket_ptr& socket)
 {
-	if (error) {
+	if (error)
+	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error, socket]()
 		{
-			if (!error) return;
+			if (!error)
+			{
+				return;
+			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-					   error.message().c_str());
-			OnSocketError.Broadcast(error, socket);
+			           error.message().c_str());
 			if (!IsClosing)
+			{
 				DisconnectSocket(socket);
+			}
 		});
 		return;
 	}
@@ -281,7 +344,7 @@ void UTCPServer::read(const asio::error_code& error, const size_t bytes_recvd, c
 	rbuffer.Size = bytes_recvd;
 	rbuffer.RawData.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), bytes_recvd),
-					  ListenerBuffer[socket]->data());
+	                  ListenerBuffer[socket]->data());
 
 	AsyncTask(ENamedThreads::GameThread, [&, bytes_recvd, rbuffer, socket]()
 	{
@@ -293,12 +356,15 @@ void UTCPServer::read(const asio::error_code& error, const size_t bytes_recvd, c
 	asio::async_read(
 		*socket, *ListenerBuffer[socket], asio::transfer_at_least(1),
 		std::bind(&UTCPServer::read, this, asio::placeholders::error,
-				  asio::placeholders::bytes_transferred, socket));
+		          asio::placeholders::bytes_transferred, socket));
 }
 
 bool UTCPServerSsl::SendStrTo(const FString& Message, const FTCPSslSocket& SslSocket)
 {
-	if (!SslSocket.RawPtr->lowest_layer().is_open() || Message.IsEmpty()) return false;
+	if (!SslSocket.RawPtr->lowest_layer().is_open() || Message.IsEmpty())
+	{
+		return false;
+	}
 
 	asio::post(GetThreadPool(), std::bind(&UTCPServerSsl::package_string, this, Message, SslSocket.SmartPtr));
 	return true;
@@ -306,7 +372,10 @@ bool UTCPServerSsl::SendStrTo(const FString& Message, const FTCPSslSocket& SslSo
 
 bool UTCPServerSsl::SendBufferTo(const TArray<uint8>& Buffer, const FTCPSslSocket& SslSocket)
 {
-	if (!SslSocket.RawPtr->lowest_layer().is_open() || Buffer.Num() == 0) return false;
+	if (!SslSocket.RawPtr->lowest_layer().is_open() || Buffer.Num() == 0)
+	{
+		return false;
+	}
 
 	asio::post(GetThreadPool(), std::bind(&UTCPServerSsl::package_buffer, this, Buffer, SslSocket.SmartPtr));
 	return true;
@@ -315,36 +384,42 @@ bool UTCPServerSsl::SendBufferTo(const TArray<uint8>& Buffer, const FTCPSslSocke
 bool UTCPServerSsl::Open()
 {
 	if (TCP.acceptor.is_open())
+	{
 		return false;
+	}
 
 	asio::ip::tcp::endpoint endpoint(TcpProtocol == EProtocolType::V4
-										 ? asio::ip::tcp::v4()
-										 : asio::ip::tcp::v6(), TcpPort);
+		                                 ? asio::ip::tcp::v4()
+		                                 : asio::ip::tcp::v6(), TcpPort);
 	TCP.acceptor.open(TcpProtocol == EProtocolType::V4
-						  ? asio::ip::tcp::v4()
-						  : asio::ip::tcp::v6(), ErrorCode);
-	if (ErrorCode) {
+		                  ? asio::ip::tcp::v4()
+		                  : asio::ip::tcp::v6(), ErrorCode);
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
 	}
 	TCP.acceptor.set_option(asio::socket_base::reuse_address(true), ErrorCode);
-	if (ErrorCode) {
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
 	}
 	TCP.acceptor.bind(endpoint, ErrorCode);
-	if (ErrorCode) {
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
 	}
 	TCP.acceptor.listen(Backlog > 0
-							? Backlog
-							: asio::socket_base::max_listen_connections,
-						ErrorCode);
-	if (ErrorCode) {
+		                    ? Backlog
+		                    : asio::socket_base::max_listen_connections,
+	                    ErrorCode);
+	if (ErrorCode)
+	{
 		FScopeLock Guard(&MutexError);
 		OnError.Broadcast(ErrorCode);
 		return false;
@@ -358,27 +433,47 @@ void UTCPServerSsl::Close()
 {
 	IsClosing = true;
 	if (!TCP.ssl_sockets.Num() == 0)
-		for (const ssl_socket_ptr &ssl_socket: TCP.ssl_sockets) {
-			if (ssl_socket->next_layer().is_open()) {
+	{
+		for (const ssl_socket_ptr& ssl_socket : TCP.ssl_sockets)
+		{
+			if (ssl_socket->next_layer().is_open())
+			{
+				FScopeLock Guard(&MutexError);
 				ssl_socket->shutdown(ErrorCode);
-				if (ErrorCode) {
-					FScopeLock Guard(&MutexError);
-					OnError.Broadcast(ErrorCode);
+				bool has_error = false;
+				if (ErrorCode)
+				{
+					has_error = true;
+					OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
 				}
 				ssl_socket->next_layer().close(ErrorCode);
-				if (ErrorCode) {
-					FScopeLock Guard(&MutexError);
-					OnError.Broadcast(ErrorCode);
+				if (ErrorCode)
+				{
+					has_error = true;
+					OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
+				}
+				if (!has_error)
+				{
+					OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
 				}
 			}
 		}
+	}
 	TCP.context.stop();
-	if (TCP.ssl_sockets.Num() > 0) TCP.ssl_sockets.Empty();
-	if (ListenerBuffer.Num() > 0) ListenerBuffer.Empty();
-	if (TCP.acceptor.is_open()) {
+	if (TCP.ssl_sockets.Num() > 0)
+	{
+		TCP.ssl_sockets.Empty();
+	}
+	if (ListenerBuffer.Num() > 0)
+	{
+		ListenerBuffer.Empty();
+	}
+	if (TCP.acceptor.is_open())
+	{
+		FScopeLock Guard(&MutexError);
 		TCP.acceptor.close(ErrorCode);
-		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
+		if (ErrorCode)
+		{
 			OnError.Broadcast(ErrorCode);
 		}
 	}
@@ -390,15 +485,35 @@ void UTCPServerSsl::Close()
 
 void UTCPServerSsl::DisconnectSocket(const FTCPSslSocket& SslSocket)
 {
-	if (SslSocket.RawPtr->next_layer().is_open()) {
+	bool has_error = false;
+	if (SslSocket.RawPtr->next_layer().is_open())
+	{
+		FScopeLock Guard(&MutexError);
 		SslSocket.RawPtr->shutdown(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
+		}
 		SslSocket.RawPtr->next_layer().close(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
+		}
 	}
 	if (ListenerBuffer.Contains(SslSocket.SmartPtr))
+	{
 		ListenerBuffer.Remove(SslSocket.SmartPtr);
+	}
 	if (TCP.ssl_sockets.Contains(SslSocket.SmartPtr))
+	{
 		TCP.ssl_sockets.Remove(SslSocket.SmartPtr);
-	OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
+	}
+	if (!has_error)
+	{
+		OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
+	}
 }
 
 void UTCPServerSsl::package_string(const FString& str, const ssl_socket_ptr& ssl_socket)
@@ -409,21 +524,22 @@ void UTCPServerSsl::package_string(const FString& str, const ssl_socket_ptr& ssl
 	{
 		packaged_str = TCHAR_TO_UTF8(*str);
 		asio::async_write(*ssl_socket, asio::buffer(packaged_str.data(), packaged_str.size()),
-						  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, ssl_socket));
+		                  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, ssl_socket));
 		return;
 	}
 
 	size_t string_offset = 0;
-	const size_t max_size = MaxSendBufferSize; const size_t str_len = static_cast<size_t>(str.Len());
+	const size_t max_size = MaxSendBufferSize;
+	const size_t str_len = static_cast<size_t>(str.Len());
 	while (string_offset < str_len)
 	{
 		size_t package_size = std::min(max_size, str_len - string_offset);
 		FString strshrink = str.Mid(string_offset, package_size);
 		packaged_str = TCHAR_TO_UTF8(*strshrink);
 		asio::async_write(*ssl_socket, asio::buffer(packaged_str.data(), packaged_str.size()),
-						  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, ssl_socket));
+		                  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, ssl_socket));
 		string_offset += package_size;
 	}
 }
@@ -434,8 +550,8 @@ void UTCPServerSsl::package_buffer(const TArray<uint8>& buffer, const ssl_socket
 	if (!bSplitBuffer || buffer.Num() <= MaxSendBufferSize)
 	{
 		asio::async_write(*ssl_socket, asio::buffer(buffer.GetData(), buffer.Num()),
-						  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, ssl_socket));
+		                  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, ssl_socket));
 		return;
 	}
 
@@ -452,8 +568,8 @@ void UTCPServerSsl::package_buffer(const TArray<uint8>& buffer, const ssl_socket
 			sbuffer.Add('\0');
 		}
 		asio::async_write(*ssl_socket, asio::buffer(sbuffer.GetData(), sbuffer.Num()),
-						  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
-									asio::placeholders::bytes_transferred, ssl_socket));
+		                  std::bind(&UTCPServerSsl::write, this, asio::placeholders::error,
+		                            asio::placeholders::bytes_transferred, ssl_socket));
 		buffer_offset += package_size;
 	}
 }
@@ -461,11 +577,15 @@ void UTCPServerSsl::package_buffer(const TArray<uint8>& buffer, const ssl_socket
 void UTCPServerSsl::consume_response_buffer(const ssl_socket_ptr& socket)
 {
 	if (!ListenerBuffer.Contains(socket))
+	{
 		return;
+	}
 	const TSharedPtr<asio::streambuf> streambuf = ListenerBuffer[socket];
 	const size_t size = streambuf->size();
 	if (size > 0)
+	{
 		streambuf->consume(size);
+	}
 }
 
 void UTCPServerSsl::run_context_thread()
@@ -474,61 +594,74 @@ void UTCPServerSsl::run_context_thread()
 	ErrorCode.clear();
 	ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(TCP.context, TCP.ssl_context);
 	TCP.acceptor.async_accept(ssl_conn_socket->lowest_layer(),
-							  std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error,
-										ssl_conn_socket));
+	                          std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error,
+	                                    ssl_conn_socket));
 	TCP.context.run();
 	if (TCP.acceptor.is_open() && !IsClosing)
+	{
 		Close();
+	}
 }
 
 void UTCPServerSsl::accept(const asio::error_code& error, ssl_socket_ptr& ssl_socket)
 {
-	if (error) {
+	if (error)
+	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error, ssl_socket]()
 		{
-			if (!error) return;
+			if (!error)
+			{
+				return;
+			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-					   error.message().c_str());
+			           error.message().c_str());
 			OnSocketError.Broadcast(error, ssl_socket);
 		});
-		ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(TCP.context, TCP.ssl_context);
+		ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(
+			TCP.context, TCP.ssl_context);
 		TCP.acceptor.async_accept(
-			ssl_conn_socket->lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
+			ssl_conn_socket->lowest_layer(),
+			std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
 		return;
 	}
-	
+
 	ssl_socket->async_handshake(asio::ssl::stream_base::server,
-								std::bind(&UTCPServerSsl::ssl_handshake, this,
-										  asio::placeholders::error, ssl_socket));
+	                            std::bind(&UTCPServerSsl::ssl_handshake, this,
+	                                      asio::placeholders::error, ssl_socket));
 
 	ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(TCP.context, TCP.ssl_context);
 	TCP.acceptor.async_accept(
-		ssl_conn_socket->lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
+		ssl_conn_socket->lowest_layer(),
+		std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
 }
 
 void UTCPServerSsl::ssl_handshake(const asio::error_code& error, ssl_socket_ptr& ssl_socket)
 {
-	if (error) {
+	if (error)
+	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error, ssl_socket]()
 		{
-			if (!error) return;
+			if (!error)
+			{
+				return;
+			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-					   error.message().c_str());
+			           error.message().c_str());
 			OnSocketError.Broadcast(error, ssl_socket);
 		});
 		return;
 	}
-	
+
 	TCP.ssl_sockets.Add(ssl_socket);
 	TSharedPtr<asio::streambuf> response_buffer = MakeShared<asio::streambuf>();
 	ListenerBuffer.Add(ssl_socket, response_buffer);
 	asio::async_read(*ssl_socket, *ListenerBuffer[ssl_socket], asio::transfer_at_least(1),
-					 std::bind(&UTCPServerSsl::read, this, asio::placeholders::error,
-							   asio::placeholders::bytes_transferred, ssl_socket));
+	                 std::bind(&UTCPServerSsl::read, this, asio::placeholders::error,
+	                           asio::placeholders::bytes_transferred, ssl_socket));
 
 	AsyncTask(ENamedThreads::GameThread, [&, ssl_socket]()
 	{
@@ -544,34 +677,42 @@ void UTCPServerSsl::write(const asio::error_code& error, const size_t bytes_sent
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error, ssl_socket]()
 		{
-			if (!error) return;
+			if (!error)
+			{
+				return;
+			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-					   error.message().c_str());
-			OnMessageSent.Broadcast(error);
-			OnSocketError.Broadcast(error, ssl_socket);
+			           error.message().c_str());
+			OnMessageSent.Broadcast(error, ssl_socket);
 		});
 		return;
 	}
 	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent, ssl_socket, error]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnMessageSent.Broadcast(error);
+		OnMessageSent.Broadcast(error, ssl_socket);
 	});
 }
 
 void UTCPServerSsl::read(const asio::error_code& error, const size_t bytes_recvd, const ssl_socket_ptr& ssl_socket)
 {
-	if (error) {
+	if (error)
+	{
 		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error, ssl_socket]()
 		{
-			if (!error) return;
+			if (!error)
+			{
+				return;
+			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
-					   error.message().c_str());
+			           error.message().c_str());
 			OnSocketError.Broadcast(error, ssl_socket);
 			if (!IsClosing)
+			{
 				DisconnectSocket(ssl_socket);
+			}
 		});
 		return;
 	}
@@ -579,7 +720,7 @@ void UTCPServerSsl::read(const asio::error_code& error, const size_t bytes_recvd
 	rbuffer.Size = bytes_recvd;
 	rbuffer.RawData.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(rbuffer.RawData.GetData(), bytes_recvd),
-					  ListenerBuffer[ssl_socket]->data());
+	                  ListenerBuffer[ssl_socket]->data());
 
 	AsyncTask(ENamedThreads::GameThread, [&, bytes_recvd, rbuffer, ssl_socket]()
 	{
@@ -591,5 +732,5 @@ void UTCPServerSsl::read(const asio::error_code& error, const size_t bytes_recvd
 	asio::async_read(
 		*ssl_socket, *ListenerBuffer[ssl_socket], asio::transfer_at_least(1),
 		std::bind(&UTCPServerSsl::read, this, asio::placeholders::error,
-				  asio::placeholders::bytes_transferred, ssl_socket));
+		          asio::placeholders::bytes_transferred, ssl_socket));
 }

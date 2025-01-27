@@ -98,15 +98,15 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateBytesTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateMessageSent OnMessageSent;
+	FDelegateSocketMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateTcpSocketMessage OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateConnection OnClose;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateTcpSocketError OnSocketDisconnected;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateTcpSocketError OnSocketError;
+	/*UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
+	FDelegateTcpSocketError OnSocketError;*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateError OnError;
 
@@ -333,7 +333,7 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateBytesTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateMessageSent OnMessageSent;
+	FDelegateSslSocketMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateTcpSslSocketMessage OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")

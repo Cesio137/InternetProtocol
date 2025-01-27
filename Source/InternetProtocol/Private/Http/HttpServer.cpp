@@ -237,7 +237,7 @@ void UHttpServer::accept(const std::error_code& error, socket_ptr& socket)
 			           error.message().c_str());
 			OnSocketError.Broadcast(error, socket);
 		});
-		TSharedPtr<asio::ip::tcp::socket> conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
+		socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
 		TCP.acceptor.async_accept(
 			*conn_socket, std::bind(&UHttpServer::accept, this, asio::placeholders::error, conn_socket));
 		return;
@@ -255,7 +255,7 @@ void UHttpServer::accept(const std::error_code& error, socket_ptr& socket)
 		OnSocketAccepted.Broadcast(socket);
 	});
 
-	TSharedPtr<asio::ip::tcp::socket> conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
+	socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
 	TCP.acceptor.async_accept(
 		*conn_socket, std::bind(&UHttpServer::accept, this, asio::placeholders::error, conn_socket));
 }

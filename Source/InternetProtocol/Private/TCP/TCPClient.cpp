@@ -52,15 +52,13 @@ void UTCPClient::Close()
 	IsClosing = true;
 	TCP.context.stop();
 	if (TCP.socket.is_open()) {
+		FScopeLock Guard(&MutexError);
 		TCP.socket.shutdown(asio::ip::udp::socket::shutdown_both, ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
-
 		TCP.socket.close(ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 	}
@@ -131,7 +129,6 @@ void UTCPClient::consume_response_buffer()
 	const size_t size = ResponseBuffer.size();
 	if (size > 0)
 		ResponseBuffer.consume(ResponseBuffer.size());
-	
 }
 
 void UTCPClient::run_context_thread()
@@ -208,7 +205,6 @@ void UTCPClient::write(const asio::error_code& error, const size_t bytes_sent)
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
 			OnMessageSent.Broadcast(error);
-			OnError.Broadcast(error);
 		});
 		return;
 	}
@@ -287,14 +283,13 @@ void UTCPClientSsl::Close()
 {
 	IsClosing = true;
 	if (TCP.ssl_socket.next_layer().is_open()) {
+		FScopeLock Guard(&MutexError);
 		TCP.ssl_socket.shutdown(ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 		TCP.ssl_socket.next_layer().close(ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 	}
