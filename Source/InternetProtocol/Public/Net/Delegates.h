@@ -47,8 +47,10 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateHttpClientResponse, const F
 
 /*WEBSOCKET*/
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateWsSocketHandshake, const FServerRequest, Request, FServerResponse, Response, const FTCPSocket, Socket);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateWsSslSocketHandshake, const FServerRequest, Request, FServerResponse, Response, const FTCPSslSocket, SslSocket);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsMessage, const FWsMessage, Message);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsSocketMessage, const FWsMessage, Message, const FTCPSocket, Socket);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsSslSocketMessage, const FWsMessage, Message, const FTCPSslSocket, Socket);
 
 /*ERROR*/
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateError, const FErrorCode, ErrorCode);

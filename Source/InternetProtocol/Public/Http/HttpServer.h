@@ -87,7 +87,7 @@ public:
 	bool SendResponse(const FServerResponse &Response, const FTCPSocket &Socket);
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
-	bool SendErrorResponse(const int StatusCode, const FTCPSocket &Socket);
+	bool SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSocket &Socket);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
@@ -135,7 +135,7 @@ private:
 
 	void disconnect_socket_after_error(const asio::error_code& error, const socket_ptr& socket);
 	void process_response(FServerResponse &response, const socket_ptr &socket);
-	void process_error_response(const int status_code, const socket_ptr &socket);
+	void process_error_response(const int status_code, const FServerResponse& response, const socket_ptr &socket);
 	void consume_request_buffer(const socket_ptr &socket);
 	void run_context_thread();
 	void accept(const std::error_code& error, socket_ptr& socket);
@@ -334,7 +334,7 @@ public:
 	bool SendResponse(const FServerResponse &Response, const FTCPSslSocket &SslSocket);
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
-	bool SendErrorResponse(const int StatusCode, const FTCPSslSocket &SslSocket);
+	bool SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSslSocket &SslSocket);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
@@ -382,7 +382,7 @@ private:
 
 	void disconnect_socket_after_error(const asio::error_code& error, const ssl_socket_ptr& ssl_socket);
 	void process_response(FServerResponse &response, const ssl_socket_ptr &ssl_socket);
-	void process_error_response(const int status_code, const ssl_socket_ptr &ssl_socket);
+	void process_error_response(const int status_code, const FServerResponse& response, const ssl_socket_ptr &ssl_socket);
 	void consume_request_buffer(const ssl_socket_ptr &ssl_socket);
 	void run_context_thread();
 	void accept(const std::error_code& error, ssl_socket_ptr& ssl_socket);

@@ -137,9 +137,9 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
-	bool SendHandshakeTo(const FServerRequest &Request, FServerResponse Response, const FTCPSocket& Socket);
+	bool SendHandshakeTo(const FServerRequest& Request, FServerResponse Response, const FTCPSocket& Socket);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
-	bool SendHandshakeErrorTo(const int StatusCode, const FTCPSocket &Socket);
+	bool SendHandshakeErrorTo(const int StatusCode, const FString& Body, const FTCPSocket& Socket);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
 	bool SendStrTo(const FString& Message, const FTCPSocket& Socket);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
@@ -215,7 +215,7 @@ private:
 	FString generate_accept_key(const FString& sec_websocket_key);
 	void package_handshake(const FServerRequest& req, FServerResponse& res, const socket_ptr& socket,
 	                       const uint32_t status_code = 101);
-	void package_handshake_error(const uint32_t status_code, const socket_ptr& socket);
+	void package_handshake_error(const int status_code, const FString& body, const socket_ptr& socket);
 	void consume_listening_buffer(const socket_ptr& socket);
 	void run_context_thread();
 	void accept(const asio::error_code& error, socket_ptr& socket);
@@ -271,7 +271,7 @@ public:
 	{
 		return TCP.acceptor;
 	}
-	
+
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Socket")
 	const TArray<FTCPSslSocket> GetSslSockets()
 	{
@@ -349,14 +349,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Security Layer")
 	bool LoadPrivateKeyData(const FString& KeyData) noexcept
 	{
-		if (KeyData.IsEmpty()) return false;
+		if (KeyData.IsEmpty())
+		{
+			return false;
+		}
 		std::string key = TCHAR_TO_UTF8(*KeyData);
 		const asio::const_buffer buffer(key.data(), key.size());
 		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -366,13 +369,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Security Layer")
 	bool LoadPrivateKeyFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -382,14 +388,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Security Layer")
 	bool LoadCertificateData(const FString& CertData)
 	{
-		if (CertData.IsEmpty()) return false;
+		if (CertData.IsEmpty())
+		{
+			return false;
+		}
 		std::string cert = TCHAR_TO_UTF8(*CertData);
 		const asio::const_buffer buffer(cert.data(), cert.size());
 		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -399,14 +408,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Security Layer")
 	bool LoadCertificateFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -416,15 +428,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Security Layer")
 	bool LoadCertificateChainData(const FString& CertChainData)
 	{
-		if (CertChainData.IsEmpty()) return false;
+		if (CertChainData.IsEmpty())
+		{
+			return false;
+		}
 		std::string cert_chain = TCHAR_TO_UTF8(*CertChainData);
 		const asio::const_buffer buffer(cert_chain.data(),
-										cert_chain.size());
+		                                cert_chain.size());
 		TCP.ssl_context.use_certificate_chain(buffer, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -434,13 +449,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Security Layer")
 	bool LoadCertificateChainFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_certificate_chain_file(file, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -450,13 +468,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Security Layer")
 	bool LoadVerifyFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.load_verify_file(file, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -465,9 +486,9 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
-	bool SendHandshakeTo(const FServerRequest &Request, FServerResponse Response, const FTCPSslSocket& SslSocket);
+	bool SendHandshakeTo(const FServerRequest& Request, FServerResponse Response, const FTCPSslSocket& SslSocket);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
-	bool SendHandshakeErrorTo(const int StatusCode, const FTCPSslSocket& SslSocket);
+	bool SendHandshakeErrorTo(const int StatusCode, const FString& Why, const FTCPSslSocket& SslSocket);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
 	bool SendStrTo(const FString& Message, const FTCPSslSocket& SslSocket);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
@@ -491,13 +512,13 @@ public:
 
 	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateWsSocketHandshake OnSocketAccepted;
+	FDelegateWsSslSocketHandshake OnSocketAccepted;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateBytesTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateSocketMessageSent OnMessageSent;
+	FDelegateSslSocketMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateWsSocketMessage OnMessageReceived;
+	FDelegateWsSslSocketMessage OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateConnection OnPongReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
@@ -543,11 +564,11 @@ private:
 	FString generate_accept_key(const FString& sec_websocket_key);
 	void package_handshake(const FServerRequest& req, FServerResponse& res, const ssl_socket_ptr& ssl_socket,
 	                       const uint32_t status_code = 101);
-	void package_handshake_error(const uint32_t status_code, const ssl_socket_ptr& ssl_socket);
+	void package_handshake_error(const uint32_t status_code, const FString& why, const ssl_socket_ptr& ssl_socket);
 	void consume_listening_buffer(const ssl_socket_ptr& ssl_socket);
 	void run_context_thread();
-	void accept(const asio::error_code& error, socket_ptr& socket);
-	void ssl_handshake(const asio::error_code &error, ssl_socket_ptr &ssl_socket);
+	void accept(const asio::error_code& error, ssl_socket_ptr& ssl_socket);
+	void ssl_handshake(const asio::error_code& error, ssl_socket_ptr& ssl_socket);
 	void read_handshake(const std::error_code& error, const size_t bytes_recvd, const ssl_socket_ptr& ssl_socket);
 	void read_headers(const std::error_code& error, FServerRequest request, const ssl_socket_ptr& ssl_socket);
 	void write_handshake(const std::error_code& error, const size_t bytes_sent, const ssl_socket_ptr& ssl_socket,

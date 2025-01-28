@@ -25,13 +25,13 @@ bool UHttpServer::SendResponse(const FServerResponse& Response, const FTCPSocket
 	return true;
 }
 
-bool UHttpServer::SendErrorResponse(const int StatusCode, const FTCPSocket& Socket)
+bool UHttpServer::SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSocket& Socket)
 {
 	if (!Socket.RawPtr->is_open())
 	{
 		return false;
 	}
-	asio::post(GetThreadPool(), std::bind(&UHttpServer::process_error_response, this, StatusCode, Socket.SmartPtr));
+	asio::post(GetThreadPool(), std::bind(&UHttpServer::process_error_response, this, StatusCode, Response, Socket.SmartPtr));
 	return true;
 }
 
@@ -217,10 +217,23 @@ void UHttpServer::process_response(FServerResponse& response, const socket_ptr& 
 		          asio::placeholders::bytes_transferred, socket, should_close));
 }
 
-void UHttpServer::process_error_response(const int status_code, const socket_ptr& socket)
+void UHttpServer::process_error_response(const int status_code, const FServerResponse& response, const socket_ptr& socket)
 {
-	FString payload = "HTTP/1.1 " + FString::FromInt(status_code) + " " + ResponseStatusCode[status_code] +
+	FString payload = "HTTP/" + response.Version + " " + FString::FromInt(status_code) + " " + ResponseStatusCode[status_code] +
 		"\r\n";
+	if (response.Headers.Num() > 0)
+	{
+		for (const TPair<FString, FString> header : response.Headers)
+		{
+			payload += header.Key + ": " + header.Value + "\r\n";
+		}
+		payload += "Content-Length: " + FString::FromInt(response.Body.Len()) + "\r\n";
+	}
+	payload += "\r\n";
+	if (!response.Body.IsEmpty())
+	{
+		payload += response.Body + "\r\n";
+	}
 	std::string utf8payload = TCHAR_TO_UTF8(*payload);
 	asio::async_write(
 		*socket, asio::buffer(utf8payload.data(), utf8payload.size()),
@@ -377,50 +390,31 @@ void UHttpServer::read_status_line(const asio::error_code& error, const size_t b
 	std::set<std::string> versions = {"HTTP/1.0", "HTTP/1.1", "HTTP/2.0"};
 	if (!ServerRequestMethod.Contains(UTF8_TO_TCHAR(method.c_str())))
 	{
+		FServerResponse response;
 		if (versions.find(version) == versions.end())
 		{
-			version = "HTTP/1.1";
+			version = "1.1";
 		}
-		error_payload = version + " 405 Method Not Allowed\r\n";
-		if (Headers.Num() > 0)
+		else
 		{
-			for (const TPair<FString, FString> header : Headers)
-			{
-				std::string key, val;
-				key = TCHAR_TO_UTF8(*header.Key); val = TCHAR_TO_UTF8(*header.Value);
-				error_payload += key + ": " + val + "\r\n";
-			}
+			version.erase(0, 5);
 		}
-		error_payload += "Allow: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE\r\n";
-		error_payload += "Content-Length: 0\r\n";
-
-		asio::async_write(
-			*socket, asio::buffer(error_payload.data(), error_payload.size()),
-			std::bind(&UHttpServer::write_response, this, asio::placeholders::error,
-			          asio::placeholders::bytes_transferred, socket, true));
+		response.Version = UTF8_TO_TCHAR(version.c_str());
+		response.Headers.Add("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+		response.Headers.Add("Content-Type", "text/plain");
+		response.Headers.Add("Connection", "close");
+		response.Body = "Method \"" + FString(UTF8_TO_TCHAR(method.c_str())) + "\" not allowed.";
+		process_error_response(405, response, socket);
 		return;
 	}
 	if (versions.find(version) == versions.end())
 	{
-		error_payload = "HTTP/1.1 505 HTTP Version Not Supported\r\n";
-		if (Headers.Num() > 0)
-		{
-			for (const TPair<FString, FString> header : Headers)
-			{
-				std::string key, val;
-				key = TCHAR_TO_UTF8(*header.Key); val = TCHAR_TO_UTF8(*header.Value);
-				error_payload += key + ": " + val + "\r\n";
-			}
-		}
-		error_payload += "Content-Length: 0\r\n";
-
-		asio::streambuf res_buffer;
-		std::ostream request_stream(&res_buffer);
-		request_stream << error_payload;
-		asio::async_write(
-			*socket, res_buffer,
-			std::bind(&UHttpServer::write_response, this, asio::placeholders::error,
-			          asio::placeholders::bytes_transferred, socket, true));
+		FServerResponse response;
+		response.Version = "1.1";
+		response.Headers.Add("Content-Type", "text/plain");
+		response.Headers.Add("Connection", "close");
+		response.Body = "The server does not support the HTTP version used in the request.";
+		process_error_response(505, response, socket);
 		return;
 	}
 
@@ -508,13 +502,13 @@ bool UHttpServerSsl::SendResponse(const FServerResponse& Response, const FTCPSsl
 	return true;
 }
 
-bool UHttpServerSsl::SendErrorResponse(const int StatusCode, const FTCPSslSocket& SslSocket)
+bool UHttpServerSsl::SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSslSocket& SslSocket)
 {
 	if (!SslSocket.RawPtr->lowest_layer().is_open())
 	{
 		return false;
 	}
-	asio::post(GetThreadPool(), std::bind(&UHttpServerSsl::process_error_response, this, StatusCode, SslSocket.SmartPtr));
+	asio::post(GetThreadPool(), std::bind(&UHttpServerSsl::process_error_response, this, StatusCode, Response, SslSocket.SmartPtr));
 	return true;
 }
 
@@ -683,10 +677,23 @@ void UHttpServerSsl::process_response(FServerResponse& response, const ssl_socke
 				  asio::placeholders::bytes_transferred, ssl_socket, should_close));
 }
 
-void UHttpServerSsl::process_error_response(const int status_code, const ssl_socket_ptr& ssl_socket)
+void UHttpServerSsl::process_error_response(const int status_code, const FServerResponse& response, const ssl_socket_ptr& ssl_socket)
 {
 	FString payload = "HTTP/1.1 " + FString::FromInt(status_code) + " " + ResponseStatusCode[status_code] +
 		"\r\n";
+	if (response.Headers.Num() > 0)
+	{
+		for (const TPair<FString, FString> header : response.Headers)
+		{
+			payload += header.Key + ": " + header.Value + "\r\n";
+		}
+		payload += "Content-Length: " + FString::FromInt(response.Body.Len()) + "\r\n";
+	}
+	payload += "\r\n";
+	if (!response.Body.IsEmpty())
+	{
+		payload += response.Body + "\r\n";
+	}
 	std::string utf8payload = TCHAR_TO_UTF8(*payload);
 	asio::async_write(
 		*ssl_socket, asio::buffer(utf8payload.data(), utf8payload.size()),
@@ -872,50 +879,31 @@ void UHttpServerSsl::read_status_line(const asio::error_code& error, const size_
 	std::set<std::string> versions = {"HTTP/1.0", "HTTP/1.1", "HTTP/2.0"};
 	if (!ServerRequestMethod.Contains(UTF8_TO_TCHAR(method.c_str())))
 	{
+		FServerResponse response;
 		if (versions.find(version) == versions.end())
 		{
-			version = "HTTP/1.1";
+			version = "1.1";
 		}
-		error_payload = version + " 405 Method Not Allowed\r\n";
-		if (Headers.Num() > 0)
+		else
 		{
-			for (const TPair<FString, FString> header : Headers)
-			{
-				std::string key, val;
-				key = TCHAR_TO_UTF8(*header.Key); val = TCHAR_TO_UTF8(*header.Value);
-				error_payload += key + ": " + val + "\r\n";
-			}
+			version.erase(0, 5);
 		}
-		error_payload += "Allow: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE\r\n";
-		error_payload += "Content-Length: 0\r\n";
-
-		asio::async_write(
-			*ssl_socket, asio::buffer(error_payload.data(), error_payload.size()),
-			std::bind(&UHttpServerSsl::write_response, this, asio::placeholders::error,
-			          asio::placeholders::bytes_transferred, ssl_socket, true));
+		response.Version = UTF8_TO_TCHAR(version.c_str());
+		response.Headers.Add("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+		response.Headers.Add("Content-Type", "text/plain");
+		response.Headers.Add("Connection", "close");
+		response.Body = "Method \"" + FString(UTF8_TO_TCHAR(method.c_str())) + "\" not allowed.";
+		process_error_response(405, response, ssl_socket);
 		return;
 	}
 	if (versions.find(version) == versions.end())
 	{
-		error_payload = "HTTP/1.1 505 HTTP Version Not Supported\r\n";
-		if (Headers.Num() > 0)
-		{
-			for (const TPair<FString, FString> header : Headers)
-			{
-				std::string key, val;
-				key = TCHAR_TO_UTF8(*header.Key); val = TCHAR_TO_UTF8(*header.Value);
-				error_payload += key + ": " + val + "\r\n";
-			}
-		}
-		error_payload += "Content-Length: 0\r\n";
-
-		asio::streambuf res_buffer;
-		std::ostream request_stream(&res_buffer);
-		request_stream << error_payload;
-		asio::async_write(
-			*ssl_socket, res_buffer,
-			std::bind(&UHttpServerSsl::write_response, this, asio::placeholders::error,
-			          asio::placeholders::bytes_transferred, ssl_socket, true));
+		FServerResponse response;
+		response.Version = "1.1";
+		response.Headers.Add("Content-Type", "text/plain");
+		response.Headers.Add("Connection", "close");
+		response.Body = "The server does not support the HTTP version used in the request.";
+		process_error_response(505, response, ssl_socket);
 		return;
 	}
 
