@@ -141,7 +141,7 @@ void UUDPClient::run_context_thread()
 										 asio::placeholders::results)
 	);
 	UDP.context.run();
-	if (UDP.socket.is_open() && !IsClosing)
+	if (!IsClosing)
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			Close();

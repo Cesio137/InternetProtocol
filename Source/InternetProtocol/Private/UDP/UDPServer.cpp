@@ -154,7 +154,7 @@ void UUDPServer::run_context_thread()
 								  std::bind(&UUDPServer::receive_from, this, asio::placeholders::error,
 											asio::placeholders::bytes_transferred));
 	UDP.context.run();
-	if (UDP.socket.is_open() && !IsClosing)
+	if (!IsClosing)
 		Close();
 }
 

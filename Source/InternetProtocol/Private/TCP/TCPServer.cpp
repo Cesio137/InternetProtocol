@@ -16,7 +16,7 @@
 
 bool UTCPServer::SendStrTo(const FString& Message, const FTCPSocket& Socket)
 {
-	if (!Socket.RawPtr->is_open() || Message.IsEmpty())
+	if (!Socket.SmartPtr->is_open() || Message.IsEmpty())
 	{
 		return false;
 	}
@@ -27,7 +27,7 @@ bool UTCPServer::SendStrTo(const FString& Message, const FTCPSocket& Socket)
 
 bool UTCPServer::SendBufferTo(const TArray<uint8>& Buffer, const FTCPSocket& Socket)
 {
-	if (!Socket.RawPtr->is_open() || Buffer.Num() == 0)
+	if (!Socket.SmartPtr->is_open() || Buffer.Num() == 0)
 	{
 		return false;
 	}
@@ -136,20 +136,20 @@ void UTCPServer::Close()
 void UTCPServer::DisconnectSocket(const FTCPSocket& Socket)
 {
 	bool has_error = false;
-	if (Socket.RawPtr->is_open())
+	if (Socket.SmartPtr->is_open())
 	{
 		FScopeLock Guard(&MutexError);
-		Socket.RawPtr->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
+		Socket.SmartPtr->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
 		if (ErrorCode)
 		{
 			has_error = true;
-			OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
+			OnSocketDisconnected.Broadcast(ErrorCode, Socket.SmartPtr);
 		}
-		Socket.RawPtr->close(ErrorCode);
+		Socket.SmartPtr->close(ErrorCode);
 		if (ErrorCode)
 		{
 			has_error = true;
-			OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
+			OnSocketDisconnected.Broadcast(ErrorCode, Socket.SmartPtr);
 		}
 	}
 	if (ListenerBuffer.Contains(Socket.SmartPtr))
@@ -162,8 +162,35 @@ void UTCPServer::DisconnectSocket(const FTCPSocket& Socket)
 	}
 	if (!has_error)
 	{
-		OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
+		OnSocketDisconnected.Broadcast(FErrorCode(), Socket.SmartPtr);
 	}
+}
+
+void UTCPServer::disconnect_socket_after_error(const asio::error_code& error, const socket_ptr& socket)
+{
+	if (socket->is_open())
+	{
+		FScopeLock Guard(&MutexError);
+		socket->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
+		if (ErrorCode)
+		{
+			OnSocketDisconnected.Broadcast(ErrorCode, socket);
+		}
+		socket->close(ErrorCode);
+		if (ErrorCode)
+		{
+			OnSocketDisconnected.Broadcast(ErrorCode, socket);
+		}
+	}
+	if (ListenerBuffer.Contains(socket))
+	{
+		ListenerBuffer.Remove(socket);
+	}
+	if (TCP.sockets.Contains(socket))
+	{
+		TCP.sockets.Remove(socket);
+	}
+	OnSocketDisconnected.Broadcast(error, socket);
 }
 
 void UTCPServer::package_string(const FString& str, const socket_ptr& socket)
@@ -242,11 +269,11 @@ void UTCPServer::run_context_thread()
 {
 	FScopeLock Guard(&MutexIO);
 	ErrorCode.clear();
-	TSharedPtr<asio::ip::tcp::socket> conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
+	socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
 	TCP.acceptor.async_accept(
 		*conn_socket, std::bind(&UTCPServer::accept, this, asio::placeholders::error, conn_socket));
 	TCP.context.run();
-	if (TCP.acceptor.is_open() && !IsClosing)
+	if (!IsClosing)
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
@@ -289,7 +316,7 @@ void UTCPServer::accept(const asio::error_code& error, const socket_ptr& socket)
 		OnSocketAccepted.Broadcast(socket);
 	});
 
-	TSharedPtr<asio::ip::tcp::socket> conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
+	socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
 	TCP.acceptor.async_accept(
 		*conn_socket, std::bind(&UTCPServer::accept, this, asio::placeholders::error, conn_socket));
 }
@@ -335,7 +362,7 @@ void UTCPServer::read(const asio::error_code& error, const size_t bytes_recvd, c
 			           error.message().c_str());
 			if (!IsClosing)
 			{
-				DisconnectSocket(socket);
+				disconnect_socket_after_error(error, socket);
 			}
 		});
 		return;
@@ -361,7 +388,7 @@ void UTCPServer::read(const asio::error_code& error, const size_t bytes_recvd, c
 
 bool UTCPServerSsl::SendStrTo(const FString& Message, const FTCPSslSocket& SslSocket)
 {
-	if (!SslSocket.RawPtr->lowest_layer().is_open() || Message.IsEmpty())
+	if (!SslSocket.SmartPtr->lowest_layer().is_open() || Message.IsEmpty())
 	{
 		return false;
 	}
@@ -372,7 +399,7 @@ bool UTCPServerSsl::SendStrTo(const FString& Message, const FTCPSslSocket& SslSo
 
 bool UTCPServerSsl::SendBufferTo(const TArray<uint8>& Buffer, const FTCPSslSocket& SslSocket)
 {
-	if (!SslSocket.RawPtr->lowest_layer().is_open() || Buffer.Num() == 0)
+	if (!SslSocket.SmartPtr->lowest_layer().is_open() || Buffer.Num() == 0)
 	{
 		return false;
 	}
@@ -486,16 +513,16 @@ void UTCPServerSsl::Close()
 void UTCPServerSsl::DisconnectSocket(const FTCPSslSocket& SslSocket)
 {
 	bool has_error = false;
-	if (SslSocket.RawPtr->next_layer().is_open())
+	if (SslSocket.SmartPtr->next_layer().is_open())
 	{
 		FScopeLock Guard(&MutexError);
-		SslSocket.RawPtr->shutdown(ErrorCode);
+		SslSocket.SmartPtr->shutdown(ErrorCode);
 		if (ErrorCode)
 		{
 			has_error = true;
 			OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
 		}
-		SslSocket.RawPtr->next_layer().close(ErrorCode);
+		SslSocket.SmartPtr->next_layer().close(ErrorCode);
 		if (ErrorCode)
 		{
 			has_error = true;
@@ -512,8 +539,38 @@ void UTCPServerSsl::DisconnectSocket(const FTCPSslSocket& SslSocket)
 	}
 	if (!has_error)
 	{
-		OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
+		OnSocketDisconnected.Broadcast(FErrorCode(), SslSocket.SmartPtr);
 	}
+}
+
+void UTCPServerSsl::disconnect_socket_after_error(const asio::error_code& error, const ssl_socket_ptr& ssl_socket)
+{
+	bool has_error = false;
+	if (ssl_socket->next_layer().is_open())
+	{
+		FScopeLock Guard(&MutexError);
+		ssl_socket->shutdown(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
+		}
+		ssl_socket->next_layer().close(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
+		}
+	}
+	if (ListenerBuffer.Contains(ssl_socket))
+	{
+		ListenerBuffer.Remove(ssl_socket);
+	}
+	if (TCP.ssl_sockets.Contains(ssl_socket))
+	{
+		TCP.ssl_sockets.Remove(ssl_socket);
+	}
+	OnSocketDisconnected.Broadcast(error, ssl_socket);
 }
 
 void UTCPServerSsl::package_string(const FString& str, const ssl_socket_ptr& ssl_socket)
@@ -597,7 +654,7 @@ void UTCPServerSsl::run_context_thread()
 	                          std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error,
 	                                    ssl_conn_socket));
 	TCP.context.run();
-	if (TCP.acceptor.is_open() && !IsClosing)
+	if (!IsClosing)
 	{
 		Close();
 	}
@@ -711,7 +768,7 @@ void UTCPServerSsl::read(const asio::error_code& error, const size_t bytes_recvd
 			OnSocketError.Broadcast(error, ssl_socket);
 			if (!IsClosing)
 			{
-				DisconnectSocket(ssl_socket);
+				disconnect_socket_after_error(error, ssl_socket);
 			}
 		});
 		return;

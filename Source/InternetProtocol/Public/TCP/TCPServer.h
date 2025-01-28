@@ -105,8 +105,6 @@ public:
 	FDelegateConnection OnClose;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateTcpSocketError OnSocketDisconnected;
-	/*UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
-	FDelegateTcpSocketError OnSocketError;*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP||UDP||Events")
 	FDelegateError OnError;
 
@@ -124,6 +122,7 @@ private:
 	int MaxSendBufferSize = 1400;
 	TMap<socket_ptr, TSharedPtr<asio::streambuf>> ListenerBuffer;
 
+	void disconnect_socket_after_error(const asio::error_code& error, const socket_ptr& socket);
 	void package_string(const FString& str, const socket_ptr &socket);
 	void package_buffer(const TArray<uint8>& buffer, const socket_ptr &socket);
 	void consume_response_buffer(const socket_ptr &socket);
@@ -359,6 +358,7 @@ private:
 	int MaxSendBufferSize = 1400;
 	TMap<ssl_socket_ptr, TSharedPtr<asio::streambuf>> ListenerBuffer;
 
+	void disconnect_socket_after_error(const asio::error_code& error, const ssl_socket_ptr &ssl_socket);
 	void package_string(const FString& str, const ssl_socket_ptr &ssl_socket);
 	void package_buffer(const TArray<uint8>& buffer, const ssl_socket_ptr &ssl_socket);
 	void consume_response_buffer(const ssl_socket_ptr &socket);

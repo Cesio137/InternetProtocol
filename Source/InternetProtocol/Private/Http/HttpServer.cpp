@@ -94,13 +94,13 @@ void UHttpServer::Close()
 				if (ErrorCode)
 				{
 					FScopeLock Guard(&MutexError);
-					OnSocketError.Broadcast(ErrorCode, socket);
+					OnSocketDisconnected.Broadcast(ErrorCode, socket);
 				}
 				socket->close(ErrorCode);
 				if (ErrorCode)
 				{
 					FScopeLock Guard(&MutexError);
-					OnSocketError.Broadcast(ErrorCode, socket);
+					OnSocketDisconnected.Broadcast(ErrorCode, socket);
 				}
 			}
 		}
@@ -116,8 +116,8 @@ void UHttpServer::Close()
 	}
 	if (TCP.acceptor.is_open())
 	{
-		TCP.acceptor.close(ErrorCode);
 		FScopeLock Guard(&MutexError);
+		TCP.acceptor.close(ErrorCode);
 		OnError.Broadcast(ErrorCode);
 	}
 	TCP.context.restart();
@@ -126,30 +126,68 @@ void UHttpServer::Close()
 	IsClosing = false;
 }
 
-void UHttpServer::DisconnectSocket(const FTCPSocket& socket)
+void UHttpServer::DisconnectSocket(const FTCPSocket& Socket)
 {
-	if (socket.RawPtr->is_open())
+	bool has_error = false;
+	if (Socket.RawPtr->is_open())
 	{
-		socket.RawPtr->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
+		FScopeLock Guard(&MutexError);
+		Socket.RawPtr->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
 		if (ErrorCode)
 		{
-			OnSocketError.Broadcast(ErrorCode, socket.RawPtr);
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
 		}
-		socket.RawPtr->close(ErrorCode);
+		Socket.RawPtr->close(ErrorCode);
 		if (ErrorCode)
 		{
-			OnSocketError.Broadcast(ErrorCode, socket.RawPtr);
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, Socket.RawPtr);
 		}
 	}
-	if (RequestBuffers.Contains(socket.SmartPtr))
+	if (RequestBuffers.Contains(Socket.SmartPtr))
 	{
-		RequestBuffers.Remove(socket.SmartPtr);
+		RequestBuffers.Remove(Socket.SmartPtr);
 	}
-	if (TCP.sockets.Contains(socket.SmartPtr))
+	if (TCP.sockets.Contains(Socket.SmartPtr))
 	{
-		TCP.sockets.Remove(socket.SmartPtr);
+		TCP.sockets.Remove(Socket.SmartPtr);
 	}
-	OnSocketDisconnected.Broadcast(ErrorCode, socket.SmartPtr);
+	if (!has_error)
+	{
+		OnSocketDisconnected.Broadcast(FErrorCode(), Socket.SmartPtr);
+	}
+}
+
+void UHttpServer::disconnect_socket_after_error(const asio::error_code& error, const socket_ptr& socket)
+{
+	if (socket->is_open())
+	{
+		FScopeLock Guard(&MutexError);
+		socket->shutdown(asio::ip::tcp::socket::shutdown_both, ErrorCode);
+		if (ErrorCode)
+		{
+			OnSocketDisconnected.Broadcast(ErrorCode, socket);
+		}
+		socket->close(ErrorCode);
+		if (ErrorCode)
+		{
+			OnSocketDisconnected.Broadcast(ErrorCode, socket);
+		}
+	}
+	if (RequestBuffers.Contains(socket))
+	{
+		RequestBuffers.Remove(socket);
+	}
+	if (TCP.sockets.Contains(socket))
+	{
+		TCP.sockets.Remove(socket);
+	}
+	if (TCP.sockets.Contains(socket))
+	{
+		TCP.sockets.Remove(socket);
+	}
+	OnSocketDisconnected.Broadcast(error, socket);
 }
 
 void UHttpServer::process_response(FServerResponse& response, const socket_ptr& socket)
@@ -208,11 +246,11 @@ void UHttpServer::run_context_thread()
 {
 	FScopeLock Guard(&MutexIO);
 	ErrorCode.clear();
-	TSharedPtr<asio::ip::tcp::socket> conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
+	socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
 	TCP.acceptor.async_accept(
 		*conn_socket, std::bind(&UHttpServer::accept, this, asio::placeholders::error, conn_socket));
 	TCP.context.run();
-	if (TCP.acceptor.is_open() && !IsClosing)
+	if (!IsClosing)
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
@@ -235,7 +273,7 @@ void UHttpServer::accept(const std::error_code& error, socket_ptr& socket)
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error, socket);
+			OnSocketDisconnected.Broadcast(error, socket);
 		});
 		socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
 		TCP.acceptor.async_accept(
@@ -275,8 +313,9 @@ void UHttpServer::write_response(const asio::error_code& error, const size_t byt
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnResponseSent.Broadcast(error);
-			OnSocketError.Broadcast(error, socket);
+			OnResponseSent.Broadcast(error, socket);
+			if (!IsClosing)
+				disconnect_socket_after_error(error, socket);
 		});
 		return;
 	}
@@ -299,7 +338,7 @@ void UHttpServer::write_response(const asio::error_code& error, const size_t byt
 	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent, error]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnResponseSent.Broadcast(error);
+		OnResponseSent.Broadcast(error, socket);
 	});
 }
 
@@ -317,7 +356,8 @@ void UHttpServer::read_status_line(const asio::error_code& error, const size_t b
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error, socket);
+			if (!IsClosing)
+				disconnect_socket_after_error(error, socket);
 		});
 		return;
 	}
@@ -412,7 +452,8 @@ void UHttpServer::read_headers(const asio::error_code& error, const size_t bytes
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error, socket);
+			if (!IsClosing)
+				disconnect_socket_after_error(error, socket);
 		});
 		return;
 	}
@@ -529,17 +570,30 @@ void UHttpServerSsl::Close()
 	if (TCP.ssl_sockets.Num() > 0)
 		for (const ssl_socket_ptr &ssl_socket: TCP.ssl_sockets) {
 			if (ssl_socket->next_layer().is_open()) {
-				asio::error_code ec;
-				ssl_socket->shutdown(ec);
-				ssl_socket->next_layer().close(ec);
+				FScopeLock Guard(&MutexError);
+				ssl_socket->shutdown(ErrorCode);
+				bool has_error = false;
+				if (ErrorCode)
+				{
+					has_error = true;
+					OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
+				}
+				ssl_socket->next_layer().close(ErrorCode);
+				if (ErrorCode)
+				{
+					has_error = true;
+					OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
+				}
 			}
 		}
 	TCP.context.stop();
 	if (TCP.ssl_sockets.Num() > 0) TCP.ssl_sockets.Empty();
 	if (RequestBuffers.Num() > 0) RequestBuffers.Empty();
 	if (TCP.acceptor.is_open()) {
-		TCP.acceptor.close(ErrorCode); {
-			FScopeLock Guard(&MutexError);
+		FScopeLock Guard(&MutexError);
+		TCP.acceptor.close(ErrorCode);
+		if (ErrorCode)
+		{
 			OnError.Broadcast(ErrorCode);
 		}
 	}
@@ -551,15 +605,55 @@ void UHttpServerSsl::Close()
 
 void UHttpServerSsl::DisconnectSocket(const FTCPSslSocket& SslSocket)
 {
+	bool has_error = false;
 	if (SslSocket.RawPtr->next_layer().is_open()) {
-		SslSocket.RawPtr->shutdown(ErrorCode);
-		SslSocket.RawPtr->next_layer().close(ErrorCode);
+		FScopeLock Guard(&MutexError);
+		SslSocket.SmartPtr->shutdown(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
+		}
+		SslSocket.SmartPtr->next_layer().close(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, SslSocket.SmartPtr);
+		}
 	}
 	if (RequestBuffers.Contains(SslSocket.SmartPtr))
 		RequestBuffers.Remove(SslSocket.SmartPtr);
 	if (TCP.ssl_sockets.Contains(SslSocket.SmartPtr))
 		TCP.ssl_sockets.Remove(SslSocket.SmartPtr);
-	OnSocketDisconnected.Broadcast(ErrorCode, SslSocket);
+	if (!has_error)
+	{
+		OnSocketDisconnected.Broadcast(FErrorCode(), SslSocket.SmartPtr);
+	}
+}
+
+void UHttpServerSsl::disconnect_socket_after_error(const asio::error_code& error, const ssl_socket_ptr& ssl_socket)
+{
+	bool has_error = false;
+	if (ssl_socket->next_layer().is_open()) {
+		FScopeLock Guard(&MutexError);
+		ssl_socket->shutdown(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
+		}
+		ssl_socket->next_layer().close(ErrorCode);
+		if (ErrorCode)
+		{
+			has_error = true;
+			OnSocketDisconnected.Broadcast(ErrorCode, ssl_socket);
+		}
+	}
+	if (RequestBuffers.Contains(ssl_socket))
+		RequestBuffers.Remove(ssl_socket);
+	if (TCP.ssl_sockets.Contains(ssl_socket))
+		TCP.ssl_sockets.Remove(ssl_socket);
+	OnSocketDisconnected.Broadcast(error, ssl_socket);
 }
 
 void UHttpServerSsl::process_response(FServerResponse& response, const ssl_socket_ptr& ssl_socket)
@@ -622,7 +716,7 @@ void UHttpServerSsl::run_context_thread()
 	TCP.acceptor.async_accept(
 		ssl_conn_socket->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
 	TCP.context.run();
-	if (TCP.acceptor.is_open() && !IsClosing)
+	if (!IsClosing)
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
@@ -645,7 +739,7 @@ void UHttpServerSsl::accept(const std::error_code& error, ssl_socket_ptr& ssl_so
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error, ssl_socket);
+			OnSocketDisconnected.Broadcast(error, ssl_socket);
 		});
 		ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(TCP.context, TCP.ssl_context);
 		TCP.acceptor.async_accept(ssl_conn_socket->lowest_layer(),
@@ -679,7 +773,7 @@ void UHttpServerSsl::ssl_handshake(const asio::error_code& error, ssl_socket_ptr
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error, ssl_socket);
+			OnSocketDisconnected.Broadcast(error, ssl_socket);
 		});
 		return;
 	}
@@ -713,8 +807,9 @@ void UHttpServerSsl::write_response(const asio::error_code& error, const size_t 
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnResponseSent.Broadcast(error);
-			OnSocketError.Broadcast(error, ssl_socket);
+			OnResponseSent.Broadcast(error, ssl_socket);
+			if (!IsClosing)
+				disconnect_socket_after_error(error, ssl_socket);
 		});
 		return;
 	}
@@ -737,7 +832,7 @@ void UHttpServerSsl::write_response(const asio::error_code& error, const size_t 
 	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent, error]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnResponseSent.Broadcast(error);
+		OnResponseSent.Broadcast(error, ssl_socket);
 	});
 }
 
@@ -756,7 +851,8 @@ void UHttpServerSsl::read_status_line(const asio::error_code& error, const size_
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
-			OnSocketError.Broadcast(error, ssl_socket);
+			if (!IsClosing)
+				disconnect_socket_after_error(error, ssl_socket);
 		});
 		return;
 	}
@@ -851,7 +947,8 @@ void UHttpServerSsl::read_headers(const asio::error_code& error, const size_t by
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketError.Broadcast(error, ssl_socket);
+			if (!IsClosing)
+				disconnect_socket_after_error(error, ssl_socket);
 		});
 		return;
 	}

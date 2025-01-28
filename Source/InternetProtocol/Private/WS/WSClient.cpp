@@ -65,17 +65,15 @@ void UWSClient::Close()
 	TCP.context.stop();
 	if (TCP.socket.is_open())
 	{
+		FScopeLock Guard(&MutexError);
 		TCP.socket.shutdown(asio::ip::udp::socket::shutdown_both, ErrorCode);
 		if (ErrorCode)
 		{
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
-
 		TCP.socket.close(ErrorCode);
 		if (ErrorCode)
 		{
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 	}
@@ -594,7 +592,7 @@ void UWSClient::run_context_thread()
 	                           std::bind(&UWSClient::resolve, this, asio::placeholders::error,
 	                                     asio::placeholders::endpoint));
 	TCP.context.run();
-	if (TCP.socket.is_open() && !IsClosing)
+	if (!IsClosing)
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
@@ -1527,7 +1525,7 @@ void UWSClientSsl::run_context_thread()
 		std::bind(&UWSClientSsl::resolve, this,
 		          asio::placeholders::error, asio::placeholders::endpoint));
 	TCP.context.run();
-	if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
+	if (!IsClosing)
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{

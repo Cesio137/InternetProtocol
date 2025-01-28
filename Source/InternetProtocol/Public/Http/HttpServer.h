@@ -97,7 +97,7 @@ public:
 	void Close();
 
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
-	void DisconnectSocket(const FTCPSocket& socket);
+	void DisconnectSocket(const FTCPSocket& Socket);
 
 	/*ERRORS*/
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Error")
@@ -113,13 +113,11 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpDataError OnRequestError;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
-	FDelegateMessageSent OnResponseSent;
+	FDelegateSocketMessageSent OnResponseSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateTcpSocketError OnSocketDisconnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
-	FDelegateTcpSocketError OnSocketError;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateError OnError;
 
@@ -135,6 +133,7 @@ private:
 	TMap<FString, FString> Headers;
 	TMap<socket_ptr, TSharedPtr<asio::streambuf>> RequestBuffers;
 
+	void disconnect_socket_after_error(const asio::error_code& error, const socket_ptr& socket);
 	void process_response(FServerResponse &response, const socket_ptr &socket);
 	void process_error_response(const int status_code, const socket_ptr &socket);
 	void consume_request_buffer(const socket_ptr &socket);
@@ -361,13 +360,11 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpDataError OnRequestError;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
-	FDelegateMessageSent OnResponseSent;
+	FDelegateSslSocketMessageSent OnResponseSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateTcpSslSocketError OnSocketDisconnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
-	FDelegateTcpSslSocketError OnSocketError;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateError OnError;
 
@@ -383,6 +380,7 @@ private:
 	TMap<FString, FString> Headers;
 	TMap<ssl_socket_ptr, TSharedPtr<asio::streambuf>> RequestBuffers;
 
+	void disconnect_socket_after_error(const asio::error_code& error, const ssl_socket_ptr& ssl_socket);
 	void process_response(FServerResponse &response, const ssl_socket_ptr &ssl_socket);
 	void process_error_response(const int status_code, const ssl_socket_ptr &ssl_socket);
 	void consume_request_buffer(const ssl_socket_ptr &ssl_socket);

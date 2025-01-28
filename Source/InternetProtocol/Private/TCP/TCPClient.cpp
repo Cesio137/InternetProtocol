@@ -139,7 +139,7 @@ void UTCPClient::run_context_thread()
 							   std::bind(&UTCPClient::resolve, this, asio::placeholders::error,
 										 asio::placeholders::results));
 	TCP.context.run();
-	if (TCP.socket.is_open() || !IsClosing)
+	if (!IsClosing)
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			Close();
@@ -374,7 +374,7 @@ void UTCPClientSsl::run_context_thread()
 										 asio::placeholders::results)
 	);
 	TCP.context.run();
-	if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
+	if (!IsClosing)
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			Close();

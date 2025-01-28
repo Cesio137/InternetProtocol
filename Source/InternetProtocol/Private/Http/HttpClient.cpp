@@ -419,14 +419,13 @@ void UHttpClientSsl::Close()
 {
 	IsClosing = true;
 	if (TCP.ssl_socket.next_layer().is_open()) {
+		FScopeLock Guard(&MutexError);
 		TCP.ssl_socket.shutdown(ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 		TCP.ssl_socket.next_layer().close(ErrorCode);
 		if (ErrorCode) {
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 	}
