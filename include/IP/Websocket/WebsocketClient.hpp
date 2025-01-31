@@ -97,9 +97,7 @@ namespace InternetProtocol {
         bool send_ping() {
             if (!is_connected()) return false;
 
-            std::vector<uint8_t> ping_buffer = {
-                uint8_t('p'), uint8_t('i'), uint8_t('n'), uint8_t('g'), uint8_t('\0')
-            };
+            std::vector<uint8_t> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
             asio::post(thread_pool, std::bind(&WebsocketClient::post_buffer, this,
                                               EOpcode::PING, ping_buffer));
             return true;
@@ -129,15 +127,14 @@ namespace InternetProtocol {
             is_closing = true;
             tcp.context.stop();
             if (get_socket().is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 tcp.socket.shutdown(asio::ip::udp::socket::shutdown_both, error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
 
                 tcp.socket.close(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
             }
@@ -656,6 +653,7 @@ namespace InternetProtocol {
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
+            Client::res_clear(res_handshake);
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
@@ -663,7 +661,6 @@ namespace InternetProtocol {
             response_stream >> status_code;
             std::string status_message;
             std::getline(response_stream, status_message);
-            Client::res_clear(res_handshake);
             if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
                 res_handshake.status_code = 505;
                 res_handshake.body = "Invalid handshake: HTTP Version Not Supported.";
@@ -982,14 +979,13 @@ namespace InternetProtocol {
         void close() {
             is_closing = true;
             if (get_ssl_socket().next_layer().is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 tcp.ssl_socket.shutdown(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
                 tcp.ssl_socket.next_layer().close(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
             }
@@ -1635,7 +1631,6 @@ namespace InternetProtocol {
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
-
             if (on_message_sent) on_message_sent(bytes_sent);
         }
 

@@ -369,7 +369,7 @@ namespace InternetProtocol {
 
         /*MESSAGE*/
         bool send_str(const std::string &message) {
-            if (!get_ssl_socket().lowest_layer().is_open() || message.empty())
+            if (!get_ssl_socket().next_layer().is_open() || message.empty())
                 return false;
 
             asio::post(thread_pool, std::bind(&TCPClientSsl::package_string, this, message));
@@ -377,7 +377,7 @@ namespace InternetProtocol {
         }
 
         bool send_buffer(const std::vector<uint8_t> &buffer) {
-            if (!get_ssl_socket().lowest_layer().is_open() || buffer.empty())
+            if (!get_ssl_socket().next_layer().is_open() || buffer.empty())
                 return false;;
 
             asio::post(thread_pool, std::bind(&TCPClientSsl::package_buffer, this, buffer));
@@ -396,14 +396,13 @@ namespace InternetProtocol {
         void close() {
             is_closing = true;
             if (get_ssl_socket().next_layer().is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 tcp.ssl_socket.shutdown(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
                 tcp.ssl_socket.next_layer().close(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
             }

@@ -155,15 +155,13 @@ namespace InternetProtocol {
             is_closing = true;
             tcp.context.stop();
             if (get_socket().is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 tcp.socket.shutdown(asio::ip::udp::socket::shutdown_both, error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
-
                 tcp.socket.close(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
             }
@@ -286,8 +284,8 @@ namespace InternetProtocol {
                 if (on_error) on_error(error);
                 return;
             }
-            Client::res_clear(response);
             if (on_request_progress) on_request_progress(0, bytes_recvd);
+            Client::res_clear(response);
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
@@ -601,14 +599,13 @@ namespace InternetProtocol {
         void close() {
             is_closing = true;
             if (get_ssl_socket().next_layer().is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 tcp.ssl_socket.shutdown(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
                 tcp.ssl_socket.next_layer().close(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
             }
@@ -685,8 +682,8 @@ namespace InternetProtocol {
         void resolve(const asio::error_code &error,
                      const asio::ip::tcp::resolver::results_type &endpoints) {
             if (error) {
-                error_code = error;
                 std::lock_guard<std::mutex> lock(mutex_error);
+                error_code = error;
                 if (on_error) on_error(error);
                 return;
             }
