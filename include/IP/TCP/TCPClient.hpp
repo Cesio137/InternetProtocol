@@ -10,7 +10,7 @@
  * See the GNU Affero General Public License for more details.
  *
  * For complete copyright and license terms please see the LICENSE at the root of this distribution.
-*/
+ */
 
 #pragma once
 
@@ -21,7 +21,8 @@ namespace InternetProtocol {
     public:
         ~TCPClient() {
             tcp.resolver.cancel();
-            if (get_socket().is_open()) close();
+            if (get_socket().is_open())
+                close();
             consume_response_buffer();
         }
 
@@ -41,14 +42,16 @@ namespace InternetProtocol {
 
         /*MESSAGE*/
         bool send_str(const std::string &message) {
-            if (!get_socket().is_open() || message.empty()) return false;
+            if (!get_socket().is_open() || message.empty())
+                return false;
 
             asio::post(thread_pool, std::bind(&TCPClient::package_string, this, message));
             return true;
         }
 
         bool send_buffer(const std::vector<uint8_t> &buffer) {
-            if (!get_socket().is_open() || buffer.empty()) return false;;
+            if (!get_socket().is_open() || buffer.empty())
+                return false;;
 
             asio::post(thread_pool, std::bind(&TCPClient::package_buffer, this, buffer));
             return true;
@@ -67,20 +70,19 @@ namespace InternetProtocol {
             is_closing = true;
             tcp.context.stop();
             if (get_socket().is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 tcp.socket.shutdown(asio::ip::udp::socket::shutdown_both, error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
-
                 tcp.socket.close(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
             }
             tcp.context.restart();
-            if (on_close) on_close();
+            if (on_close)
+                on_close();
             is_closing = false;
         }
 
@@ -90,10 +92,9 @@ namespace InternetProtocol {
         /*EVENTS*/
         std::function<void()> on_connected;
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
-        std::function<void()> on_message_sent;
+        std::function<void(const asio::error_code &)> on_message_sent;
         std::function<void(const FTcpMessage)> on_message_received;
         std::function<void()> on_close;
-        std::function<void(const asio::error_code &)> on_socket_error;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -172,7 +173,7 @@ namespace InternetProtocol {
                 std::bind(&TCPClient::resolve, this, asio::placeholders::error,
                           asio::placeholders::endpoint));
             tcp.context.run();
-            if (get_socket().is_open() && !is_closing)
+            if (!is_closing)
                 close();
         }
 
@@ -181,7 +182,8 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return;
             }
             tcp.endpoints = endpoints;
@@ -194,7 +196,8 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return;
             }
             consume_response_buffer();
@@ -203,36 +206,42 @@ namespace InternetProtocol {
                 std::bind(&TCPClient::read, this, asio::placeholders::error,
                           asio::placeholders::bytes_transferred));
 
-            if (on_connected) on_connected();
+            if (on_connected)
+                on_connected();
         }
 
         void write(const asio::error_code &error, const size_t bytes_sent) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error_code);
+                if (on_message_sent)
+                    on_message_sent(error);
                 return;
             }
-            if (on_message_sent) on_message_sent();
+            if (on_bytes_transfered)
+                on_bytes_transfered(bytes_sent, 0);
+            if (on_message_sent)
+                on_message_sent(error);
         }
 
         void read(const asio::error_code &error, const size_t bytes_recvd) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return;
             }
-
+            if (on_bytes_transfered)
+                on_bytes_transfered(0, bytes_recvd);
             FTcpMessage rbuffer;
             rbuffer.size = bytes_recvd;
             rbuffer.raw_data.resize(bytes_recvd);
             asio::buffer_copy(asio::buffer(rbuffer.raw_data, bytes_recvd),
                               response_buffer.data());
 
-            if (on_message_received) on_message_received(rbuffer);
+            if (on_message_received)
+                on_message_received(rbuffer);
 
             consume_response_buffer();
             asio::async_read(
@@ -246,7 +255,8 @@ namespace InternetProtocol {
     public:
         ~TCPClientSsl() {
             tcp.resolver.cancel();
-            if (get_ssl_socket().lowest_layer().is_open()) close();
+            if (get_ssl_socket().lowest_layer().is_open())
+                close();
             consume_response_buffer();
         }
 
@@ -271,73 +281,87 @@ namespace InternetProtocol {
 
         /*SECURITY LAYER*/
         bool load_private_key_data(const std::string &key_data) {
-            if (key_data.empty()) return false;
+            if (key_data.empty())
+                return false;
             const asio::const_buffer buffer(key_data.data(), key_data.size());
             tcp.ssl_context.use_private_key(buffer, asio::ssl::context::pem, error_code);
             if (error_code) {
-                if (on_error) on_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return false;
             }
             return true;
         }
 
         bool load_private_key_file(const std::string &filename) {
-            if (filename.empty()) return false;
+            if (filename.empty())
+                return false;
             tcp.ssl_context.use_private_key_file(filename, asio::ssl::context::pem, error_code);
             if (error_code) {
-                if (on_error) on_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return false;
             }
             return true;
         }
 
         bool load_certificate_data(const std::string &cert_data) {
-            if (cert_data.empty()) return false;
+            if (cert_data.empty())
+                return false;
             const asio::const_buffer buffer(cert_data.data(), cert_data.size());
             tcp.ssl_context.use_certificate(buffer, asio::ssl::context::pem, error_code);
             if (error_code) {
-                if (on_error) on_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return false;
             }
             return true;
         }
 
         bool load_certificate_file(const std::string &filename) {
-            if (filename.empty()) return false;
+            if (filename.empty())
+                return false;
             tcp.ssl_context.use_certificate_file(filename, asio::ssl::context::pem, error_code);
             if (error_code) {
-                if (on_error) on_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return false;
             }
             return true;
         }
 
         bool load_certificate_chain_data(const std::string &cert_chain_data) {
-            if (cert_chain_data.empty()) return false;
+            if (cert_chain_data.empty())
+                return false;
             const asio::const_buffer buffer(cert_chain_data.data(), cert_chain_data.size());
             tcp.ssl_context.use_certificate_chain(buffer, error_code);
             if (error_code) {
-                if (on_error) on_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return false;
             }
             return true;
         }
 
         bool load_certificate_chain_file(const std::string &filename) {
-            if (filename.empty()) return false;
+            if (filename.empty())
+                return false;
             tcp.ssl_context.use_certificate_chain_file(filename, error_code);
             if (error_code) {
-                if (on_error) on_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return false;
             }
             return true;
         }
 
         bool load_verify_file(const std::string &filename) {
-            if (filename.empty()) return false;
+            if (filename.empty())
+                return false;
             tcp.ssl_context.load_verify_file(filename, error_code);
             if (error_code) {
-                if (on_error) on_error(error_code);
+                if (on_error)
+                    on_error(error_code);
                 return false;
             }
             return true;
@@ -345,14 +369,16 @@ namespace InternetProtocol {
 
         /*MESSAGE*/
         bool send_str(const std::string &message) {
-            if (!get_ssl_socket().lowest_layer().is_open() || message.empty()) return false;
+            if (!get_ssl_socket().lowest_layer().is_open() || message.empty())
+                return false;
 
             asio::post(thread_pool, std::bind(&TCPClientSsl::package_string, this, message));
             return true;
         }
 
         bool send_buffer(const std::vector<uint8_t> &buffer) {
-            if (!get_ssl_socket().lowest_layer().is_open() || buffer.empty()) return false;;
+            if (!get_ssl_socket().lowest_layer().is_open() || buffer.empty())
+                return false;;
 
             asio::post(thread_pool, std::bind(&TCPClientSsl::package_buffer, this, buffer));
             return true;
@@ -384,7 +410,8 @@ namespace InternetProtocol {
             tcp.context.stop();
             tcp.context.restart();
             tcp.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(tcp.context, tcp.ssl_context);
-            if (on_close) on_close();
+            if (on_close)
+                on_close();
             is_closing = false;
         }
 
@@ -394,10 +421,9 @@ namespace InternetProtocol {
         /*EVENTS*/
         std::function<void()> on_connected;
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
-        std::function<void()> on_message_sent;
+        std::function<void(const asio::error_code &)> on_message_sent;
         std::function<void(const FTcpMessage)> on_message_received;
         std::function<void()> on_close;
-        std::function<void(const asio::error_code &)> on_socket_error;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -476,7 +502,7 @@ namespace InternetProtocol {
                 std::bind(&TCPClientSsl::resolve, this, asio::placeholders::error,
                           asio::placeholders::endpoint));
             tcp.context.run();
-            if (get_ssl_socket().next_layer().is_open() && !is_closing)
+            if (!is_closing)
                 close();
         }
 
@@ -485,7 +511,8 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error)
+                    on_error(error);
                 return;
             }
             tcp.endpoints = endpoints;
@@ -498,7 +525,8 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error)
+                    on_error(error);
                 return;
             }
 
@@ -511,7 +539,8 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error)
+                    on_error(error);
                 return;
             }
             consume_response_buffer();
@@ -519,36 +548,42 @@ namespace InternetProtocol {
                 tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
                 std::bind(&TCPClientSsl::read, this, asio::placeholders::error,
                           asio::placeholders::bytes_transferred));
-            if (on_connected) on_connected();
+            if (on_connected)
+                on_connected();
         }
 
         void write(const asio::error_code &error, const size_t bytes_sent) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_message_sent)
+                    on_message_sent(error);
                 return;
             }
-            if (on_message_sent) on_message_sent();
+            if (on_bytes_transfered)
+                on_bytes_transfered(bytes_sent, 0);
+            if (on_message_sent)
+                on_message_sent(error);
         }
 
         void read(const asio::error_code &error, const size_t bytes_recvd) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error)
+                    on_error(error);
                 return;
             }
-
+            if (on_bytes_transfered)
+                on_bytes_transfered(0, bytes_recvd);
             FTcpMessage rbuffer;
             rbuffer.size = bytes_recvd;
             rbuffer.raw_data.resize(bytes_recvd);
             asio::buffer_copy(asio::buffer(rbuffer.raw_data, bytes_recvd),
                               response_buffer.data());
 
-            if (on_message_received) on_message_received(rbuffer);
+            if (on_message_received)
+                on_message_received(rbuffer);
 
             consume_response_buffer();
             asio::async_read(

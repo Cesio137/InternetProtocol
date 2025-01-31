@@ -158,8 +158,7 @@ namespace InternetProtocol {
         std::function<void()> on_pong_received;
         std::function<void()> on_close_notify;
         std::function<void()> on_close;
-        std::function<void(const int, const std::string &)> on_handshake_fail;
-        std::function<void(const asio::error_code &)> on_socket_error;
+        std::function<void(const Client::FResponse)> on_handshake_fail;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -595,7 +594,7 @@ namespace InternetProtocol {
                 std::bind(&WebsocketClient::resolve, this, asio::placeholders::error,
                           asio::placeholders::endpoint));
             tcp.context.run();
-            if (get_socket().is_open() && !is_closing)
+            if (!is_closing)
                 close();
         }
 
@@ -604,7 +603,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             tcp.endpoints = endpoints;
@@ -617,7 +616,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             std::string request;
@@ -640,7 +639,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
@@ -653,7 +652,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
@@ -664,24 +663,19 @@ namespace InternetProtocol {
             response_stream >> status_code;
             std::string status_message;
             std::getline(response_stream, status_message);
+            Client::res_clear(res_handshake);
             if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
-                if (on_handshake_fail) on_handshake_fail(505, ResponseStatusCode.at(505));
-                if (get_socket().is_open() && !is_closing)
-                    close();
+                res_handshake.status_code = 505;
+                res_handshake.body = "Invalid handshake: HTTP Version Not Supported.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
                 return;
             }
-            if (status_code != 101) {
-                if (on_handshake_fail) on_handshake_fail(status_code,
-                                                         ResponseStatusCode.contains(status_code)
-                                                             ? ResponseStatusCode.at(status_code)
-                                                             : "");
-                if (get_socket().is_open() && !is_closing)
-                    close();
-                return;
-            }
-
+            res_handshake.status_code = status_code;
             if (response_buffer.size() == 0) {
-                if (on_handshake_fail) on_handshake_fail(505, ResponseStatusCode.at(505));
+                res_handshake.body = "Invalid handshake: " + ResponseStatusCode.at(status_code) + ".";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
                 return;
             }
             asio::async_read_until(tcp.socket, response_buffer, "\r\n\r\n",
@@ -693,41 +687,62 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
-            Client::res_clear(res_handshake);
+
             std::istream response_stream(&response_buffer);
             std::string header;
             while (std::getline(response_stream, header) && header != "\r")
                 Client::res_append_header(res_handshake, header);
-            consume_response_buffer();
+
 
             if (res_handshake.headers.empty()) {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_socket().is_open() && !is_closing)
-                    close();
+                res_handshake.status_code = res_handshake.status_code != 101 ? res_handshake.status_code : 400;
+                res_handshake.body = res_handshake.status_code != 101
+                                         ? "Invalid handshake: " + ResponseStatusCode.at(res_handshake.status_code)
+                                         : "Invalid handshake: Header is empty.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
                 return;
             }
-            if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] !=
-                "websocket") {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_socket().is_open() && !is_closing)
-                    close();
+            if (!res_handshake.headers.contains("Connection") ||
+                !res_handshake.headers.contains("Upgrade") ||
+                !res_handshake.headers.contains("Sec-WebSocket-Accept")) {
+                if (response_buffer.size() > 0) {
+                    std::ostringstream body_buffer;
+                    body_buffer << &response_buffer;
+                    Client::res_set_body(res_handshake, body_buffer.str());
+                }
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
+                return;
+            }
+            consume_response_buffer();
+            if (res_handshake.headers.at("Connection")[0] != "Upgrade") {
+                res_handshake.body = "Invalid handshake: \"Connection\" must be \"Upgrade\".";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
+            }
+            if (res_handshake.headers.at("Upgrade")[0] != "websocket") {
+                res_handshake.body = "Invalid handshake: \"Upgrade\" must be \"websocket\".";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
             }
             std::string protocol = req_handshake.headers.at("Sec-WebSocket-Protocol");
             std::string res_protocol = res_handshake.headers.at("Sec-WebSocket-Protocol")[0];
             if (protocol.find(res_protocol) == protocol.npos) {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_socket().is_open() && !is_closing)
-                    close();
+                res_handshake.body = "Invalid handshake: \"Sec-WebSocket-Protocol\" must be \"" + protocol +
+                                     "\" or contain one of them.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
             }
             std::string accept_key = res_handshake.headers.at("Sec-WebSocket-Accept")[0];
             std::string encoded_key = generate_accept_key(req_handshake.headers.at("Sec-WebSocket-Key"));
             if (accept_key != encoded_key) {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_socket().is_open() && !is_closing)
-                    close();
+                res_handshake.body = "Invalid handshake: \"Sec-WebSocket-Accept\" is invalid.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
             }
 
             if (on_connected) on_connected(res_handshake);
@@ -741,7 +756,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
@@ -752,7 +767,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
@@ -996,8 +1011,7 @@ namespace InternetProtocol {
         std::function<void()> on_pong_received;
         std::function<void()> on_close_notify;
         std::function<void()> on_close;
-        std::function<void(const int, const std::string &)> on_handshake_fail;
-        std::function<void(const asio::error_code &)> on_socket_error;
+        std::function<void(const Client::FResponse)> on_handshake_fail;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -1445,7 +1459,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
 
@@ -1461,7 +1475,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
 
@@ -1475,7 +1489,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             std::string request;
@@ -1498,7 +1512,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
@@ -1514,45 +1528,32 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
-            // Check that response is OK.
             std::istream response_stream(&response_buffer);
             std::string http_version;
             response_stream >> http_version;
-            unsigned int status_code;
+            int status_code;
             response_stream >> status_code;
             std::string status_message;
             std::getline(response_stream, status_message);
+            Client::res_clear(res_handshake);
             if (!response_stream || http_version.substr(0, 5) != "HTTP/") {
-                std::lock_guard<std::mutex> lock(mutex_error);
-                if (on_handshake_fail) on_handshake_fail(505, ResponseStatusCode.at(505));
-                if (get_ssl_socket().next_layer().is_open() && !is_closing)
-                    close();
+                res_handshake.status_code = 505;
+                res_handshake.body = "Invalid handshake: HTTP Version Not Supported.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
                 return;
             }
-            if (status_code != 101) {
-                std::lock_guard<std::mutex> lock(mutex_error);
-                if (on_handshake_fail) on_handshake_fail(status_code,
-                                                         ResponseStatusCode.contains(status_code)
-                                                             ? ResponseStatusCode.at(status_code)
-                                                             : "");
-                if (get_ssl_socket().next_layer().is_open() && !is_closing)
-                    close();
-                return;
-            }
-
+            res_handshake.status_code = status_code;
             if (response_buffer.size() == 0) {
-                if (on_connected) on_connected(Client::FResponse());
-                asio::async_read(
-                    tcp.ssl_socket, response_buffer, asio::transfer_at_least(1),
-                    std::bind(&WebsocketClientSsl::read, this, asio::placeholders::error,
-                              asio::placeholders::bytes_transferred));
+                res_handshake.body = "Invalid handshake: " + ResponseStatusCode.at(status_code) + ".";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
                 return;
             }
-
             asio::async_read_until(tcp.ssl_socket, response_buffer, "\r\n\r\n",
                                    std::bind(&WebsocketClientSsl::read_headers,
                                              this, asio::placeholders::error));
@@ -1562,41 +1563,61 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
-            Client::res_clear(res_handshake);
             std::istream response_stream(&response_buffer);
             std::string header;
             while (std::getline(response_stream, header) && header != "\r")
                 Client::res_append_header(res_handshake, header);
-            consume_response_buffer();
+
 
             if (res_handshake.headers.empty()) {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_ssl_socket().next_layer().is_open() && !is_closing)
-                    close();
+                res_handshake.status_code = res_handshake.status_code != 101 ? res_handshake.status_code : 400;
+                res_handshake.body = res_handshake.status_code != 101
+                                         ? "Invalid handshake: " + ResponseStatusCode.at(res_handshake.status_code)
+                                         : "Invalid handshake: Header is empty.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
                 return;
             }
-            if (res_handshake.headers.at("Connection")[0] != "Upgrade" || res_handshake.headers.at("Upgrade")[0] !=
-                "websocket") {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_ssl_socket().next_layer().is_open() && !is_closing)
-                    close();
+            if (!res_handshake.headers.contains("Connection") ||
+                !res_handshake.headers.contains("Upgrade") ||
+                !res_handshake.headers.contains("Sec-WebSocket-Accept")) {
+                if (response_buffer.size() > 0) {
+                    std::ostringstream body_buffer;
+                    body_buffer << &response_buffer;
+                    Client::res_set_body(res_handshake, body_buffer.str());
+                }
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                consume_response_buffer();
+                return;
+            }
+            consume_response_buffer();
+            if (res_handshake.headers.at("Connection")[0] != "Upgrade") {
+                res_handshake.body = "Invalid handshake: \"Connection\" must be \"Upgrade\".";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
+            }
+            if (res_handshake.headers.at("Upgrade")[0] != "websocket") {
+                res_handshake.body = "Invalid handshake: \"Upgrade\" must be \"websocket\".";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
             }
             std::string protocol = req_handshake.headers.at("Sec-WebSocket-Protocol");
             std::string res_protocol = res_handshake.headers.at("Sec-WebSocket-Protocol")[0];
             if (protocol.find(res_protocol) == protocol.npos) {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_ssl_socket().next_layer().is_open() && !is_closing)
-                    close();
+                res_handshake.body = "Invalid handshake: \"Sec-WebSocket-Protocol\" must be \"" + protocol +
+                                     "\" or contain one of them.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
             }
             std::string accept_key = res_handshake.headers.at("Sec-WebSocket-Accept")[0];
             std::string encoded_key = generate_accept_key(req_handshake.headers.at("Sec-WebSocket-Key"));
             if (accept_key != encoded_key) {
-                if (on_handshake_fail) on_handshake_fail(400, ResponseStatusCode.at(400));
-                if (get_ssl_socket().next_layer().is_open() && !is_closing)
-                    close();
+                res_handshake.body = "Invalid handshake: \"Sec-WebSocket-Accept\" is invalid.";
+                if (on_handshake_fail) on_handshake_fail(res_handshake);
+                return;
             }
 
             if (on_connected) on_connected(res_handshake);
@@ -1610,7 +1631,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
@@ -1622,7 +1643,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> lock(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);

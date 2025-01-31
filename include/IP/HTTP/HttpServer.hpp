@@ -29,12 +29,11 @@ namespace InternetProtocol {
             if (get_acceptor().is_open()) close();
         }
 
-        /*SOCKET*/
-        void set_socket(const EProtocolType protocol, const uint16_t port,
-                        const int max_listen_conn = 2147483647) {
+        /* SOCKET */
+        void set_socket(const EProtocolType protocol, const uint16_t port, const int max_listen_conn = 2147483647) {
             tcp_protocol = protocol;
             tcp_port = port;
-            max_listen_connection = max_listen_conn;
+            backlog = max_listen_conn;
         }
 
         asio::ip::tcp::acceptor &get_acceptor() { return tcp.acceptor; }
@@ -43,7 +42,7 @@ namespace InternetProtocol {
             return tcp.sockets;
         }
 
-        /*HEADERS*/
+        /* HEADERS */
         void append_headers(const std::string &key, const std::string &value) {
             headers[key] = value;
         }
@@ -55,51 +54,50 @@ namespace InternetProtocol {
             return headers.contains(key);
         }
 
-        /*RESPONSE*/
-        bool send_response(Server::FResponse &res, const socket_ptr &socket) {
+        /* RESPONSE */
+        bool send_response(Server::FResponse &response, const socket_ptr &socket) {
             if (!socket->is_open()) return false;
-            asio::post(thread_pool, std::bind(&HttpServer::process_response, this, res, socket));
+            asio::post(thread_pool, std::bind(&HttpServer::process_response, this, response, socket));
             return true;
         }
 
-        bool send_error_response(const uint32_t status_code, const socket_ptr &socket) {
+        bool send_error_response(const uint32_t status_code, const Server::FResponse &response,
+                                 const socket_ptr &socket) {
             if (!socket->is_open()) return false;
-            asio::post(thread_pool, std::bind(&HttpServer::process_error_response, this, status_code, socket));
+            asio::post(thread_pool,
+                       std::bind(&HttpServer::process_error_response, this, status_code, response, socket));
             return true;
         }
 
-        /*CONNECTION*/
+        /* CONNECTION */
         bool open() {
-            if (get_acceptor().is_open())
-                return false;
+            if (get_acceptor().is_open()) return false;
 
-            asio::ip::tcp::endpoint endpoint(tcp_protocol == EProtocolType::V4
-                                                 ? asio::ip::tcp::v4()
-                                                 : asio::ip::tcp::v6(), tcp_port);
-            error_code = asio::error_code();
-            tcp.acceptor.open(tcp_protocol == EProtocolType::V4
-                                  ? asio::ip::tcp::v4()
-                                  : asio::ip::tcp::v6(), error_code);
-            if (error_code && on_error) {
+            asio::ip::tcp::endpoint endpoint(
+                tcp_protocol == EProtocolType::V4 ? asio::ip::tcp::v4() : asio::ip::tcp::v6(), tcp_port);
+            tcp.acceptor.open(tcp_protocol == EProtocolType::V4 ? asio::ip::tcp::v4() : asio::ip::tcp::v6(),
+                              error_code);
+            if (error_code) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 on_error(error_code);
                 return false;
             }
             tcp.acceptor.set_option(asio::socket_base::reuse_address(true), error_code);
-            if (error_code && on_error) {
+            if (error_code) {
                 std::lock_guard<std::mutex> guard(mutex_error);
-                if (on_error) on_error(error_code);
+                on_error(error_code);
                 return false;
             }
             tcp.acceptor.bind(endpoint, error_code);
-            if (error_code && on_error) {
+            if (error_code) {
                 std::lock_guard<std::mutex> guard(mutex_error);
-                if (on_error) on_error(error_code);
+                on_error(error_code);
                 return false;
             }
-            tcp.acceptor.listen(max_listen_connection, error_code);
-            if (error_code && on_error) {
+            tcp.acceptor.listen(backlog, error_code);
+            if (error_code) {
                 std::lock_guard<std::mutex> guard(mutex_error);
-                if (on_error) on_error(error_code);
+                on_error(error_code);
                 return false;
             }
 
@@ -109,54 +107,72 @@ namespace InternetProtocol {
 
         void close() {
             is_closing = true;
-            if (!tcp.sockets.empty())
+            if (!tcp.sockets.empty()) {
                 for (const socket_ptr &socket: tcp.sockets) {
                     if (socket->is_open()) {
-                        asio::error_code ec;
-                        socket->shutdown(asio::ip::tcp::socket::shutdown_send, ec);
-                        socket->close(ec);
+                        std::lock_guard<std::mutex> guard(mutex_error);
+                        bool has_error = false;
+                        socket->shutdown(asio::ip::tcp::socket::shutdown_send, error_code);
+                        if (on_socket_disconnected && error_code) {
+                            has_error = true;
+                            on_socket_disconnected(error_code, socket);
+                        }
+                        socket->close(error_code);
+                        if (on_socket_disconnected && error_code) {
+                            has_error = true;
+                            on_socket_disconnected(error_code, socket);
+                        }
+                        if (on_socket_disconnected && !has_error) {
+                            on_socket_disconnected(asio::error_code(), socket);
+                        }
                     }
                 }
+            }
             tcp.context.stop();
             if (!request_buffers.empty()) request_buffers.clear();
             if (!tcp.sockets.empty()) tcp.sockets.clear();
             if (tcp.acceptor.is_open()) {
-                tcp.acceptor.close(error_code); {
-                    std::lock_guard<std::mutex> guard(mutex_error);
-                    if (on_error) on_error(error_code);
-                }
+                std::lock_guard<std::mutex> guard(mutex_error);
+                tcp.acceptor.close(error_code);
+                if (on_error) on_error(error_code);
             }
             tcp.context.restart();
-            if (on_close)
-                on_close();
+            tcp.acceptor = asio::ip::tcp::acceptor(tcp.context);
+            if (on_close) on_close();
             is_closing = false;
         }
 
         void disconnect_socket(const socket_ptr &socket) {
-            asio::error_code ec;
+            bool has_error = false;
             if (socket->is_open()) {
-                socket->shutdown(asio::ip::tcp::socket::shutdown_send, ec);
-                socket->close(ec);
+                std::lock_guard<std::mutex> guard(mutex_error);
+                socket->shutdown(asio::ip::tcp::socket::shutdown_send, error_code);
+                if (on_socket_disconnected && error_code) {
+                    has_error = true;
+                    on_socket_disconnected(error_code, socket);
+                }
+                socket->close(error_code);
+                if (on_socket_disconnected && error_code) {
+                    has_error = true;
+                    on_socket_disconnected(error_code, socket);
+                }
             }
-            if (request_buffers.contains(socket))
-                request_buffers.erase(socket);
-            if (tcp.sockets.contains(socket))
-                tcp.sockets.erase(socket);
-            if (on_disconnected) on_disconnected(socket);
+            if (request_buffers.contains(socket)) request_buffers.erase(socket);
+            if (tcp.sockets.contains(socket)) tcp.sockets.erase(socket);
+            if (on_socket_disconnected && !has_error) on_socket_disconnected(asio::error_code(), socket);
         }
 
-        /*ERRORS*/
+        /* ERRORS */
         asio::error_code get_error_code() const { return error_code; }
 
-        /*EVENTS*/
+        /* EVENTS */
         std::function<void(const socket_ptr &)> on_socket_accept;
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
-        std::function<void(const Server::FRequest, Server::FResponse, const socket_ptr &)> on_request_received;
+        std::function<void(const Server::FRequest, Server::FResponse &, const socket_ptr &)> on_request_received;
         std::function<void(const asio::error_code &, const socket_ptr &)> on_request_error;
-        std::function<void(const socket_ptr &)> on_response_sent;
-        std::function<void(const socket_ptr &)> on_disconnected;
+        std::function<void(const asio::error_code &, const socket_ptr &)> on_response_sent;
+        std::function<void(const asio::error_code &, const socket_ptr &)> on_socket_disconnected;
         std::function<void()> on_close;
-        std::function<void(const asio::error_code &, const socket_ptr &)> on_socket_error;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -167,23 +183,40 @@ namespace InternetProtocol {
         asio::error_code error_code;
         EProtocolType tcp_protocol = EProtocolType::V4;
         uint16_t tcp_port = 3000;
+        int backlog = 2147483647;
         std::map<std::string, std::string> headers;
-        int max_listen_connection = 2147483647;
         std::map<socket_ptr, std::shared_ptr<asio::streambuf> > request_buffers;
 
-        void process_response(Server::FResponse &res, const socket_ptr &socket) {
-            std::string payload = "HTTP/" + res.version + " 200 OK\r\n";
-            if (!res.headers.empty()) {
-                for (const std::pair<std::string, std::string> header: res.headers) {
+        void disconnect_socket_after_error(const asio::error_code &error, const socket_ptr &socket) {
+            if (socket->is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
+                socket->shutdown(asio::ip::tcp::socket::shutdown_send, error_code);
+                if (on_socket_disconnected && error_code) {
+                    on_socket_disconnected(error_code, socket);
+                }
+                socket->close(error_code);
+                if (on_socket_disconnected && error_code) {
+                    on_socket_disconnected(error_code, socket);
+                }
+            }
+            if (request_buffers.contains(socket)) request_buffers.erase(socket);
+            if (tcp.sockets.contains(socket)) tcp.sockets.erase(socket);
+            if (on_socket_disconnected) on_socket_disconnected(error, socket);
+        }
+
+        void process_response(const Server::FResponse &response, const socket_ptr &socket) {
+            std::string payload = "HTTP/" + response.version + " 200 OK\r\n";
+            if (!response.headers.empty()) {
+                for (const std::pair<std::string, std::string> header: response.headers) {
                     payload += header.first + ": " + header.second + "\r\n";
                 }
-                payload += "Content-Length: " + std::to_string(res.body.length()) + "\r\n";
+                payload += "Content-Length: " + std::to_string(response.body.length()) + "\r\n";
             }
             payload += "\r\n";
-            if (!res.body.empty()) payload += res.body + "\r\n";
+            if (!response.body.empty()) payload += response.body + "\r\n";
 
-            const bool should_close = res.headers.contains("Connection")
-                                          ? (res.headers["Connection"] == "close")
+            const bool should_close = response.headers.contains("Connection")
+                                          ? (response.headers.at("Connection") == "close")
                                           : true;
 
             asio::async_write(
@@ -192,14 +225,33 @@ namespace InternetProtocol {
                           asio::placeholders::bytes_transferred, socket, should_close));
         }
 
-        void process_error_response(const uint32_t status_code, const socket_ptr &socket) {
+        void process_error_response(const uint32_t status_code, const Server::FResponse &response,
+                                    const socket_ptr &socket) {
             std::string payload = "HTTP/1.1 " + std::to_string(status_code) + " " + ResponseStatusCode.at(status_code) +
                                   "\r\n";
-
+            if (response.headers.size() > 0) {
+                for (const std::pair<std::string, std::string> header: response.headers) {
+                    payload += header.first + ": " + header.second + "\r\n";
+                }
+                if (!response.headers.contains("Content-Length")) {
+                    payload += "Content-Length: " + std::to_string(response.body.size()) + "\r\n";
+                }
+            }
+            payload += "\r\n";
+            if (response.body.size() > 0) {
+                payload += response.body + "\r\n";
+            }
             asio::async_write(
                 *socket, asio::buffer(payload.data(), payload.size()),
                 std::bind(&HttpServer::write_response, this, asio::placeholders::error,
                           asio::placeholders::bytes_transferred, socket, true));
+        }
+
+        void consume_request_buffer(const socket_ptr &socket) {
+            if (!request_buffers.contains(socket)) return;
+            const std::shared_ptr<asio::streambuf> streambuf = request_buffers[socket];
+            const size_t size = streambuf->size();
+            if (size > 0) streambuf->consume(size);
         }
 
         void run_context_thread() {
@@ -209,52 +261,55 @@ namespace InternetProtocol {
             tcp.acceptor.async_accept(
                 *conn_socket, std::bind(&HttpServer::accept, this, asio::placeholders::error, conn_socket));
             tcp.context.run();
-            if (get_acceptor().is_open() && !is_closing)
-                close();
-        }
-
-        void consume_request_buffer(const socket_ptr &socket) {
-            if (!request_buffers.contains(socket))
-                return;
-            const std::shared_ptr<asio::streambuf> streambuf = request_buffers[socket];
-            const size_t size = streambuf->size();
-            if (size > 0)
-                streambuf->consume(size);
+            if (!is_closing) close();
         }
 
         void accept(const asio::error_code &error, socket_ptr &socket) {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, socket);
+                if (on_socket_disconnected) on_socket_disconnected(error, socket);
+                if (tcp.acceptor.is_open()) {
+                    socket_ptr conn_socket = std::make_shared<asio::ip::tcp::socket>(tcp.context);
+                    tcp.acceptor.async_accept(
+                        *conn_socket, std::bind(&HttpServer::accept, this, asio::placeholders::error, conn_socket));
+                }
                 return;
             }
-            tcp.sockets.insert(socket);
-            std::shared_ptr<asio::streambuf> request_buffer = std::make_shared<asio::streambuf>();
-            request_buffers.insert_or_assign(socket, request_buffer);
-            asio::async_read_until(*socket, *request_buffer, "\r\n",
-                                   std::bind(&HttpServer::read_status_line, this,
-                                             asio::placeholders::error, asio::placeholders::bytes_transferred, socket));
 
-            if (on_socket_accept) on_socket_accept(socket);
+            if (tcp.sockets.size() < backlog) {
+                tcp.sockets.insert(socket);
+                std::shared_ptr<asio::streambuf> request_buffer = std::make_shared<asio::streambuf>();
+                request_buffers.insert_or_assign(socket, request_buffer);
+                asio::async_read_until(*socket, *request_buffer, "\r\n",
+                                       std::bind(&HttpServer::read_status_line, this,
+                                                 asio::placeholders::error, asio::placeholders::bytes_transferred,
+                                                 socket));
 
-            socket_ptr conn_socket = std::make_shared<asio::ip::tcp::socket>(tcp.context);
-            tcp.acceptor.async_accept(
-                *conn_socket, std::bind(&HttpServer::accept, this, asio::placeholders::error, conn_socket));
+                if (on_socket_accept) on_socket_accept(socket);
+            } else {
+                std::lock_guard<std::mutex> guard(mutex_error);
+                disconnect_socket_after_error(error, socket);
+            }
+            if (tcp.acceptor.is_open()) {
+                socket_ptr conn_socket = std::make_shared<asio::ip::tcp::socket>(tcp.context);
+                tcp.acceptor.async_accept(
+                    *conn_socket, std::bind(&HttpServer::accept, this, asio::placeholders::error, conn_socket));
+            }
         }
 
         void write_response(const asio::error_code &error, const size_t bytes_sent, const socket_ptr &socket,
                             const bool close_connection) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, socket);
+                if (on_response_sent) on_response_sent(error, socket);
+                if (!is_closing) disconnect_socket_after_error(error, socket);
                 return;
             }
 
-            if (close_connection)
-                disconnect_socket(socket);
+            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
+            if (close_connection) disconnect_socket(socket);
             else {
                 asio::async_read_until(*socket, *request_buffers.at(socket), "\r\n",
                                        std::bind(&HttpServer::read_status_line, this,
@@ -262,21 +317,19 @@ namespace InternetProtocol {
                                                  socket));
             }
 
-            if (on_response_sent) on_response_sent(socket);
+            if (on_response_sent) on_response_sent(error, socket);
         }
 
         void read_status_line(const asio::error_code &error, const size_t bytes_recvd, const socket_ptr &socket) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, socket);
-                if (socket->is_open() || !is_closing)
-                    disconnect_socket(socket);
+                if (!is_closing) disconnect_socket_after_error(error, socket);
                 return;
             }
 
-            std::istream response_stream(&*request_buffers.at(socket));
+            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
+            std::istream response_stream(request_buffers.at(socket).get());
             std::string method;
             response_stream >> method;
             std::string path;
@@ -287,40 +340,27 @@ namespace InternetProtocol {
             std::string error_payload;
             std::set<std::string> versions = {"HTTP/1.0", "HTTP/1.1", "HTTP/2.0"};
             if (!Server::RequestMethod.contains(method)) {
+                Server::FResponse response;
                 if (!versions.contains(version)) {
-                    version = "HTTP/1.1";
+                    version = "1.1";
+                } else {
+                    version.erase(0, 5);
                 }
-                error_payload = version + " 405 Method Not Allowed\r\n";
-                if (!headers.empty()) {
-                    for (const std::pair<std::string, std::string> header: headers) {
-                        error_payload += header.first + ": " + header.second + "\r\n";
-                    }
-                }
-                error_payload += "Allow: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE\r\n";
-                error_payload += "Content-Length: 0\r\n";
-
-                asio::async_write(
-                    *socket, asio::buffer(error_payload.data(), error_payload.size()),
-                    std::bind(&HttpServer::write_response, this, asio::placeholders::error,
-                              asio::placeholders::bytes_transferred, socket, true));
+                response.version = version;
+                response.headers.insert_or_assign("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Connection", "close");
+                response.body = "Method \"" + method + "\" not allowed";
+                process_error_response(405, response, socket);
                 return;
             }
             if (!versions.contains(version)) {
-                error_payload = "HTTP/1.1 505 HTTP Version Not Supported\r\n";
-                if (!headers.empty()) {
-                    for (const std::pair<std::string, std::string> header: headers) {
-                        error_payload += header.first + ": " + header.second + "\r\n";
-                    }
-                }
-                error_payload += "Content-Length: 0\r\n";
-
-                asio::streambuf res_buffer;
-                std::ostream request_stream(&res_buffer);
-                request_stream << error_payload;
-                asio::async_write(
-                    *socket, res_buffer,
-                    std::bind(&HttpServer::write_response, this, asio::placeholders::error,
-                              asio::placeholders::bytes_transferred, socket, true));
+                Server::FResponse response;
+                response.version = "1.1";
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Connection", "close");
+                response.body = "The server does not support the HTTP version used in the request.";
+                process_error_response(505, response, socket);
                 return;
             }
 
@@ -342,12 +382,10 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, socket);
-                if (socket->is_open() || !is_closing)
-                    disconnect_socket(socket);
+                if (!is_closing) disconnect_socket_after_error(error, socket);
                 return;
             }
-            std::istream response_stream(&*request_buffers.at(socket));
+            std::istream response_stream(request_buffers.at(socket).get());
             std::string header;
 
             while (std::getline(response_stream, header) && header != "\r")
@@ -402,7 +440,7 @@ namespace InternetProtocol {
                         const int max_listen_conn = 2147483647) {
             tcp_protocol = protocol;
             tcp_port = port;
-            max_listen_connection = max_listen_conn;
+            backlog = max_listen_conn;
         }
 
         asio::ssl::context &get_ssl_context() { return tcp.ssl_context; }
@@ -499,15 +537,17 @@ namespace InternetProtocol {
         }
 
         /*RESPONSE*/
-        bool send_response(Server::FResponse &res, const ssl_socket_ptr &ssl_socket) {
-            if (!ssl_socket->lowest_layer().is_open() && !get_acceptor().is_open()) return false;
-            asio::post(thread_pool, std::bind(&HttpServerSsl::process_response, this, res, ssl_socket));
+        bool send_response(Server::FResponse &response, const ssl_socket_ptr &ssl_socket) {
+            if (!ssl_socket->next_layer().is_open()) return false;
+            asio::post(thread_pool, std::bind(&HttpServerSsl::process_response, this, response, ssl_socket));
             return true;
         }
 
-        bool send_error_response(const uint32_t status_code, const ssl_socket_ptr &ssl_socket) {
-            if (!ssl_socket->lowest_layer().is_open()) return false;
-            asio::post(thread_pool, std::bind(&HttpServerSsl::process_error_response, this, status_code, ssl_socket));
+        bool send_error_response(const uint32_t status_code, const Server::FResponse &response,
+                                 const ssl_socket_ptr &ssl_socket) {
+            if (!ssl_socket->next_layer().is_open()) return false;
+            asio::post(thread_pool,
+                       std::bind(&HttpServerSsl::process_error_response, this, status_code, response, ssl_socket));
             return true;
         }
 
@@ -539,7 +579,7 @@ namespace InternetProtocol {
                 if (on_error) on_error(error_code);
                 return false;
             }
-            tcp.acceptor.listen(max_listen_connection, error_code);
+            tcp.acceptor.listen(backlog, error_code);
             if (error_code && on_error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 if (on_error) on_error(error_code);
@@ -555,36 +595,56 @@ namespace InternetProtocol {
             if (!tcp.ssl_sockets.empty())
                 for (const ssl_socket_ptr &ssl_socket: tcp.ssl_sockets) {
                     if (ssl_socket->next_layer().is_open()) {
-                        asio::error_code ec;
-                        ssl_socket->shutdown(ec);
-                        ssl_socket->next_layer().close(ec);
+                        std::lock_guard<std::mutex> guard(mutex_error);
+                        ssl_socket->shutdown(error_code);
+                        bool has_error = false;
+                        if (on_socket_disconnected && error_code) {
+                            has_error = true;
+                            on_socket_disconnected(error_code, ssl_socket);
+                        }
+                        ssl_socket->next_layer().close(error_code);
+                        if (on_socket_disconnected && error_code) {
+                            has_error = true;
+                            on_socket_disconnected(error_code, ssl_socket);
+                        }
+                        if (on_socket_disconnected && !has_error)
+                            on_socket_disconnected(asio::error_code(), ssl_socket);
                     }
                 }
             tcp.context.stop();
             if (!tcp.ssl_sockets.empty()) tcp.ssl_sockets.clear();
             if (!request_buffers.empty()) request_buffers.clear();
             if (tcp.acceptor.is_open()) {
-                tcp.acceptor.close(error_code); {
-                    std::lock_guard<std::mutex> guard(mutex_error);
-                    if (on_error) on_error(error_code);
-                }
+                std::lock_guard<std::mutex> guard(mutex_error);
+                tcp.acceptor.close(error_code);
+                if (on_error) on_error(error_code);
             }
             tcp.context.restart();
+            tcp.acceptor = asio::ip::tcp::acceptor(tcp.context);
             if (on_close) on_close();
             is_closing = false;
         }
 
         void disconnect_socket(const ssl_socket_ptr &ssl_socket) {
-            asio::error_code ec;
+            bool has_error = false;
             if (ssl_socket->next_layer().is_open()) {
-                ssl_socket->shutdown(ec);
-                ssl_socket->next_layer().close(ec);
+                std::lock_guard<std::mutex> guard(mutex_error);
+                ssl_socket->shutdown(error_code);
+                if (on_socket_disconnected && error_code) {
+                    has_error = true;
+                    on_socket_disconnected(error_code, ssl_socket);
+                }
+                ssl_socket->next_layer().close(error_code);
+                if (on_socket_disconnected && error_code) {
+                    has_error = true;
+                    on_socket_disconnected(error_code, ssl_socket);
+                }
             }
             if (request_buffers.contains(ssl_socket))
                 request_buffers.erase(ssl_socket);
             if (tcp.ssl_sockets.contains(ssl_socket))
                 tcp.ssl_sockets.erase(ssl_socket);
-            if (on_socket_disconnected) on_socket_disconnected(ssl_socket);
+            if (on_socket_disconnected, !has_error) on_socket_disconnected(asio::error_code(), ssl_socket);
         }
 
         /*ERRORS*/
@@ -595,10 +655,9 @@ namespace InternetProtocol {
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
         std::function<void(const Server::FRequest, Server::FResponse, const ssl_socket_ptr &)> on_request_received;
         std::function<void(const asio::error_code &, const ssl_socket_ptr &)> on_request_error;
-        std::function<void(const size_t)> on_response_sent;
-        std::function<void(const ssl_socket_ptr &)> on_socket_disconnected;
+        std::function<void(const asio::error_code &, const ssl_socket_ptr &)> on_response_sent;
+        std::function<void(const asio::error_code &, const ssl_socket_ptr &)> on_socket_disconnected;
         std::function<void()> on_close;
-        std::function<void(const asio::error_code &, const ssl_socket_ptr &)> on_socket_error;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -610,7 +669,7 @@ namespace InternetProtocol {
         EProtocolType tcp_protocol = EProtocolType::V4;
         uint16_t tcp_port = 3000;
         std::map<std::string, std::string> headers;
-        int max_listen_connection = 2147483647;
+        int backlog = 2147483647;
         std::map<std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket> >, std::shared_ptr<asio::streambuf> >
         request_buffers;
         const std::map<std::string, EMethod> verb = {
@@ -619,6 +678,26 @@ namespace InternetProtocol {
             {"PATCH", EMethod::PATCH}, {"POST", EMethod::POST},
             {"PUT", EMethod::PUT}, {"TRACE", EMethod::TRACE},
         };
+
+        void disconnect_socket_after_error(const asio::error_code &error, const ssl_socket_ptr &ssl_socket) {
+            bool has_error = false;
+            if (ssl_socket->next_layer().is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
+                ssl_socket->shutdown(error_code);
+                if (on_socket_disconnected && error_code) {
+                    on_socket_disconnected(error_code, ssl_socket);
+                }
+                ssl_socket->next_layer().close(error_code);
+                if (on_socket_disconnected && error_code) {
+                    on_socket_disconnected(error_code, ssl_socket);
+                }
+            }
+            if (request_buffers.contains(ssl_socket))
+                request_buffers.erase(ssl_socket);
+            if (tcp.ssl_sockets.contains(ssl_socket))
+                tcp.ssl_sockets.erase(ssl_socket);
+            if (on_socket_disconnected) on_socket_disconnected(error, ssl_socket);
+        }
 
         void process_response(Server::FResponse &res, const ssl_socket_ptr &ssl_socket) {
             std::string payload = "HTTP/" + res.version + " 200 OK\r\n";
@@ -641,27 +720,26 @@ namespace InternetProtocol {
                           asio::placeholders::bytes_transferred, ssl_socket, should_close));
         }
 
-        void process_error_response(const uint32_t status_code, const ssl_socket_ptr &ssl_socket) {
+        void process_error_response(const uint32_t status_code, const Server::FResponse &response,
+                                    const ssl_socket_ptr &ssl_socket) {
             std::string payload = "HTTP/1.1 " + std::to_string(status_code) + " " + ResponseStatusCode.at(status_code) +
                                   "\r\n";
-
+            if (response.headers.size() > 0) {
+                for (const std::pair<std::string, std::string> header: response.headers) {
+                    payload += header.first + ": " + header.second + "\r\n";
+                }
+                if (!response.headers.contains("Content-Length")) {
+                    payload += "Content-Length: " + std::to_string(response.body.size()) + "\r\n";
+                }
+            }
+            payload += "\r\n";
+            if (response.body.size() > 0) {
+                payload += response.body + "\r\n";
+            }
             asio::async_write(
                 *ssl_socket, asio::buffer(payload.data(), payload.size()),
                 std::bind(&HttpServerSsl::write_response, this, asio::placeholders::error,
                           asio::placeholders::bytes_transferred, ssl_socket, true));
-        }
-
-        void run_context_thread() {
-            std::lock_guard<std::mutex> guard(mutex_io);
-            error_code.clear();
-            ssl_socket_ptr conn_ssl_socket = std::make_shared<asio::ssl::stream<asio::ip::tcp::socket> >(
-                tcp.context, tcp.ssl_context);
-            tcp.acceptor.async_accept(
-                conn_ssl_socket->lowest_layer(),
-                std::bind(&HttpServerSsl::accept, this, asio::placeholders::error, conn_ssl_socket));
-            tcp.context.run();
-            if (get_acceptor().is_open() && !is_closing)
-                close();
         }
 
         void consume_request_buffer(const ssl_socket_ptr &ssl_socket) {
@@ -673,23 +751,52 @@ namespace InternetProtocol {
                 streambuf->consume(size);
         }
 
-        void accept(const asio::error_code &error, ssl_socket_ptr &ssl_socket) {
-            if (error) {
-                std::lock_guard<std::mutex> guard(mutex_error);
-                error_code = error;
-                if (on_socket_error) on_socket_error(error, ssl_socket);
-                return;
-            }
-
-            ssl_socket->async_handshake(asio::ssl::stream_base::server,
-                                        std::bind(&HttpServerSsl::ssl_handshake, this,
-                                                  asio::placeholders::error, ssl_socket));
-
+        void run_context_thread() {
+            std::lock_guard<std::mutex> guard(mutex_io);
+            error_code.clear();
             ssl_socket_ptr conn_ssl_socket = std::make_shared<asio::ssl::stream<asio::ip::tcp::socket> >(
                 tcp.context, tcp.ssl_context);
             tcp.acceptor.async_accept(
                 conn_ssl_socket->lowest_layer(),
                 std::bind(&HttpServerSsl::accept, this, asio::placeholders::error, conn_ssl_socket));
+            tcp.context.run();
+            if (!is_closing)
+                close();
+        }
+
+        void accept(const asio::error_code &error, ssl_socket_ptr &ssl_socket) {
+            if (error) {
+                std::lock_guard<std::mutex> guard(mutex_error);
+                error_code = error;
+                if (is_closing)
+                    disconnect_socket_after_error(error, ssl_socket);
+                if (tcp.acceptor.is_open()) {
+                    ssl_socket_ptr conn_ssl_socket = std::make_shared<asio::ssl::stream<asio::ip::tcp::socket> >(
+                        tcp.context, tcp.ssl_context);
+                    tcp.acceptor.async_accept(
+                        conn_ssl_socket->lowest_layer(),
+                        std::bind(&HttpServerSsl::accept, this, asio::placeholders::error, conn_ssl_socket));
+                }
+                return;
+            }
+
+            if (tcp.ssl_sockets.size() < backlog) {
+                ssl_socket->async_handshake(asio::ssl::stream_base::server,
+                                            std::bind(&HttpServerSsl::ssl_handshake, this,
+                                                      asio::placeholders::error, ssl_socket));
+            } else {
+                std::lock_guard<std::mutex> guard(mutex_error);
+                if (is_closing)
+                    disconnect_socket_after_error(error, ssl_socket);
+            }
+
+            if (tcp.acceptor.is_open()) {
+                ssl_socket_ptr conn_ssl_socket = std::make_shared<asio::ssl::stream<asio::ip::tcp::socket> >(
+                    tcp.context, tcp.ssl_context);
+                tcp.acceptor.async_accept(
+                    conn_ssl_socket->lowest_layer(),
+                    std::bind(&HttpServerSsl::accept, this, asio::placeholders::error, conn_ssl_socket));
+            }
         }
 
         void ssl_handshake(const asio::error_code &error,
@@ -697,7 +804,8 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, ssl_socket);
+                if (is_closing)
+                    disconnect_socket_after_error(error, ssl_socket);
                 return;
             }
 
@@ -718,10 +826,12 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, ssl_socket);
+                if (on_response_sent) on_response_sent(error, ssl_socket);
+                if (!is_closing)
+                    disconnect_socket_after_error(error, ssl_socket);
                 return;
             }
-
+            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (close_connection)
                 disconnect_socket(ssl_socket);
             else {
@@ -731,22 +841,20 @@ namespace InternetProtocol {
                                                  ssl_socket));
             }
 
-            if (on_response_sent) on_response_sent(bytes_sent);
+            if (on_response_sent) on_response_sent(error, ssl_socket);
         }
 
         void read_status_line(const asio::error_code &error, const size_t bytes_recvd,
                               const ssl_socket_ptr &ssl_socket) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, ssl_socket);
-                if (ssl_socket->lowest_layer().is_open() || !is_closing)
-                    disconnect_socket(ssl_socket);
+                if (!is_closing)
+                    disconnect_socket_after_error(error, ssl_socket);
                 return;
             }
-
-            std::istream response_stream(&*request_buffers.at(ssl_socket));
+            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
+            std::istream response_stream(request_buffers.at(ssl_socket).get());
             std::string method;
             response_stream >> method;
             std::string path;
@@ -756,44 +864,28 @@ namespace InternetProtocol {
 
             std::string error_payload;
             std::set<std::string> versions = {"HTTP/1.0", "HTTP/1.1", "HTTP/2.0"};
-            if (!verb.contains(method)) {
+            if (!Server::RequestMethod.contains(method)) {
+                Server::FResponse response;
                 if (!versions.contains(version)) {
-                    version = "HTTP/1.1";
+                    version = "1.1";
+                } else {
+                    version.erase(0, 5);
                 }
-                error_payload = version + " 405 Method Not Allowed\r\n";
-                if (!headers.empty()) {
-                    for (const std::pair<std::string, std::string> header: headers) {
-                        error_payload += header.first + ": " + header.second + "\r\n";
-                    }
-                }
-                error_payload += "Allow: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE\r\n";
-                error_payload += "Content-Length: 0\r\n";
-
-                asio::streambuf res_buffer;
-                std::ostream request_stream(&res_buffer);
-                request_stream << error_payload;
-                asio::async_write(
-                    *ssl_socket, res_buffer,
-                    std::bind(&HttpServerSsl::write_response, this, asio::placeholders::error,
-                              asio::placeholders::bytes_transferred, ssl_socket, true));
+                response.version = version;
+                response.headers.insert_or_assign("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Connection", "close");
+                response.body = "Method \"" + method + "\" not allowed";
+                process_error_response(405, response, ssl_socket);
                 return;
             }
             if (!versions.contains(version)) {
-                error_payload = "HTTP/1.1 505 HTTP Version Not Supported\r\n";
-                if (!headers.empty()) {
-                    for (const std::pair<std::string, std::string> header: headers) {
-                        error_payload += header.first + ": " + header.second + "\r\n";
-                    }
-                }
-                error_payload += "Content-Length: 0\r\n";
-
-                asio::streambuf res_buffer;
-                std::ostream request_stream(&res_buffer);
-                request_stream << error_payload;
-                asio::async_write(
-                    *ssl_socket, res_buffer,
-                    std::bind(&HttpServerSsl::write_response, this, asio::placeholders::error,
-                              asio::placeholders::bytes_transferred, ssl_socket, true));
+                Server::FResponse response;
+                response.version = "1.1";
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Connection", "close");
+                response.body = "The server does not support the HTTP version used in the request.";
+                process_error_response(505, response, ssl_socket);
                 return;
             }
 
@@ -815,9 +907,8 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error, ssl_socket);
-                if (ssl_socket->lowest_layer().is_open() || !is_closing)
-                    disconnect_socket(ssl_socket);
+                if (!is_closing)
+                    disconnect_socket_after_error(error, ssl_socket);
                 return;
             }
             std::istream response_stream(&*request_buffers.at(ssl_socket));

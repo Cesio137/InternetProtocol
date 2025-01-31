@@ -49,8 +49,6 @@ namespace InternetProtocol {
     };
 
     namespace Server {
-
-
         struct FAsioUdp {
             FAsioUdp() : socket(context) {
             }
@@ -258,6 +256,7 @@ namespace InternetProtocol {
                 body.clear();
             }
 
+            unsigned int status_code = 0;
             std::map<std::string, std::vector<std::string> > headers;
             int content_lenght = 0;
             std::string body;

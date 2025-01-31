@@ -25,7 +25,8 @@ namespace InternetProtocol {
         }
 
         /*HOST | LOCAL*/
-        void set_host(const std::string &ip = "localhost", const std::string &port = "3000", const EProtocolType protocol = EProtocolType::V4) {
+        void set_host(const std::string &ip = "localhost", const std::string &port = "3000",
+                      const EProtocolType protocol = EProtocolType::V4) {
             host = ip;
             service = port;
             protocol_type = protocol;
@@ -71,14 +72,13 @@ namespace InternetProtocol {
             is_closing = true;
             udp.context.stop();
             if (udp.socket.is_open()) {
+                std::lock_guard<std::mutex> guard(mutex_error);
                 udp.socket.shutdown(asio::ip::udp::socket::shutdown_both, error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
                 udp.socket.close(error_code);
                 if (error_code && on_error) {
-                    std::lock_guard<std::mutex> guard(mutex_error);
                     on_error(error_code);
                 }
             }
@@ -94,10 +94,9 @@ namespace InternetProtocol {
         /*EVENTS*/
         std::function<void()> on_connected;
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
-        std::function<void()> on_message_sent;
+        std::function<void(const asio::error_code &)> on_message_sent;
         std::function<void(const FUdpMessage)> on_message_received;
         std::function<void()> on_close;
-        std::function<void(const asio::error_code &)> on_socket_error;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -151,7 +150,7 @@ namespace InternetProtocol {
             while (buffer_offset < buffer.size()) {
                 size_t package_size = std::min(max_size, buffer.size() - buffer_offset);
                 std::vector<uint8_t> sbuffer(buffer.begin() + buffer_offset,
-                                               buffer.begin() + buffer_offset + package_size);
+                                             buffer.begin() + buffer_offset + package_size);
                 udp.socket.async_send_to(asio::buffer(sbuffer.data(), sbuffer.size()), udp.endpoints,
                                          std::bind(&UDPClient::send_to, this, asio::placeholders::error,
                                                    asio::placeholders::bytes_transferred));
@@ -173,7 +172,8 @@ namespace InternetProtocol {
         void run_context_thread() {
             std::lock_guard<std::mutex> guard(mutex_io);
             error_code.clear();
-            udp.resolver.async_resolve(protocol_type == EProtocolType::V4 ? asio::ip::udp::v4() : asio::ip::udp::v6(), host, service,
+            udp.resolver.async_resolve(protocol_type == EProtocolType::V4 ? asio::ip::udp::v4() : asio::ip::udp::v6(),
+                                       host, service,
                                        std::bind(&UDPClient::resolve, this, asio::placeholders::error,
                                                  asio::placeholders::results));
             udp.context.run();
@@ -185,7 +185,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             udp.endpoints = results.begin()->endpoint();
@@ -197,7 +197,7 @@ namespace InternetProtocol {
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
             if (rbuffer.raw_data.size() != max_receive_buffer_size)
@@ -211,27 +211,28 @@ namespace InternetProtocol {
         }
 
         void send_to(const asio::error_code &error, const size_t bytes_sent) {
-            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_message_sent)
+                    on_message_sent(error);
                 return;
             }
 
+            if (on_bytes_transfered) on_bytes_transfered(bytes_sent, 0);
             if (on_message_sent)
-                on_message_sent();
+                on_message_sent(error);
         }
 
         void receive_from(const asio::error_code &error, const size_t bytes_recvd) {
-            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             if (error) {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 error_code = error;
-                if (on_socket_error) on_socket_error(error);
+                if (on_error) on_error(error);
                 return;
             }
 
+            if (on_bytes_transfered) on_bytes_transfered(0, bytes_recvd);
             rbuffer.size = bytes_recvd;
             rbuffer.raw_data.resize(bytes_recvd);
             if (on_message_received)
