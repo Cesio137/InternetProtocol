@@ -248,7 +248,7 @@ void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 
 bool UTCPClientSsl::SendStr(const FString& message)
 {
-	if (!TCP.ssl_socket.lowest_layer().is_open() || message.IsEmpty())
+	if (!TCP.ssl_socket.next_layer().is_open() || message.IsEmpty())
 	{
 		return false;
 	}
@@ -259,7 +259,7 @@ bool UTCPClientSsl::SendStr(const FString& message)
 
 bool UTCPClientSsl::SendBuffer(const TArray<uint8>& buffer)
 {
-	if (!TCP.ssl_socket.lowest_layer().is_open() || buffer.Num() <= 0)
+	if (!TCP.ssl_socket.next_layer().is_open() || buffer.Num() <= 0)
 	{
 		return false;
 	}

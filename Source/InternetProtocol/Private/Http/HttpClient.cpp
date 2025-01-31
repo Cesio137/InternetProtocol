@@ -222,6 +222,7 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 	{
 		OnRequestProgress.Broadcast(0, bytes_recvd);
 	});
+	UHttpFunctionLibrary::ClientClearResponse(Response);
 	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -232,18 +233,20 @@ void UHttpClient::read_status_line(const std::error_code& error, const size_t by
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
 		FScopeLock Guard(&MutexError);
+		Response.StatusCode = 505;
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnResponseError.Broadcast(505, ResponseStatusCode[505]);
+			OnRequestFail.Broadcast(Response);
 		});
 		return;
 	}
-	if (status_code != 200)
+	Response.StatusCode = status_code;
+	if (status_code != 200 && ResponseBuffer.size() ==0)
 	{
 		FScopeLock Guard(&MutexError);
-		AsyncTask(ENamedThreads::GameThread, [&, status_code]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnResponseError.Broadcast(status_code, ResponseStatusCode.Contains(status_code) ? ResponseStatusCode[status_code] : "");
+			OnRequestFail.Broadcast(Response);
 		});
 		return;
 	}
@@ -292,11 +295,22 @@ void UHttpClient::read_headers(const std::error_code& error)
 			std::bind(&UHttpClient::read_body, this, asio::placeholders::error));
 		return;
 	}
+	
 	const FClientResponse res = Response;
-	AsyncTask(ENamedThreads::GameThread, [&, res]()
+	if (res.StatusCode == 200)
 	{
-		OnRequestCompleted.Broadcast(res);
-	});
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestCompleted.Broadcast(res);
+		});
+	}
+	else
+	{
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestFail.Broadcast(res);
+		});
+	}	
 	consume_stream_buffers();
 	if (Response.Headers["Connection"] == "close") {
 		if (!IsClosing) Close();
@@ -331,10 +345,20 @@ void UHttpClient::read_body(const std::error_code& error)
 		return;
 	}
 	const FClientResponse res = Response;
-	AsyncTask(ENamedThreads::GameThread, [&, res]()
+	if (res.StatusCode == 200)
 	{
-		OnRequestCompleted.Broadcast(res);
-	});
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestCompleted.Broadcast(res);
+		});
+	}
+	else
+	{
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestFail.Broadcast(res);
+		});
+	}	
 	consume_stream_buffers();
 	if (Response.Headers["Connection"] == "close") {
 		if (!IsClosing) Close();
@@ -567,6 +591,7 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 	{
 		OnRequestProgress.Broadcast(0, bytes_recvd);
 	});
+	UHttpFunctionLibrary::ClientClearResponse(Response);
 	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -576,17 +601,19 @@ void UHttpClientSsl::read_status_line(const std::error_code& error, const size_t
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
+		Response.StatusCode = 505;
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnResponseError.Broadcast(505, ResponseStatusCode[505]);
+			OnRequestFail.Broadcast(Response);
 		});
 		return;
 	}
-	if (status_code != 200)
+	Response.StatusCode = status_code;
+	if (status_code != 200 && ResponseBuffer.size() == 0)
 	{
-		AsyncTask(ENamedThreads::GameThread, [&, status_code]()
+		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnResponseError.Broadcast(status_code, ResponseStatusCode.Contains(status_code) ? ResponseStatusCode[status_code] : "");
+			OnRequestFail.Broadcast(Response);
 		});
 		return;
 	}
@@ -636,10 +663,20 @@ void UHttpClientSsl::read_headers(const std::error_code& error)
 		return;
 	}
 	const FClientResponse res = Response;
-	AsyncTask(ENamedThreads::GameThread, [&, res]()
+	if (res.StatusCode == 200)
 	{
-		OnRequestCompleted.Broadcast(res);
-	});
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestCompleted.Broadcast(res);
+		});
+	}
+	else
+	{
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestFail.Broadcast(res);
+		});
+	}
 	consume_stream_buffers();
 	if (Response.Headers["Connection"] == "close") {
 		if (!IsClosing) Close();
@@ -675,10 +712,20 @@ void UHttpClientSsl::read_body(const std::error_code& error)
 		return;
 	}
 	const FClientResponse res = Response;
-	AsyncTask(ENamedThreads::GameThread, [&, res]()
+	if (res.StatusCode == 200)
 	{
-		OnRequestCompleted.Broadcast(res);
-	});
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestCompleted.Broadcast(res);
+		});
+	}
+	else
+	{
+		AsyncTask(ENamedThreads::GameThread, [&, res]()
+		{
+			OnRequestFail.Broadcast(res);
+		});
+	}
 	consume_stream_buffers();
 	if (Response.Headers["Connection"] == "close") {
 		if (!IsClosing) Close();

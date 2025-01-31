@@ -52,7 +52,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSslSocketMessage, const
                                              const FTCPSslSocket&, Socket);
 
 /*HTTP*/
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateHttpDataError, const int, Code, const FString&, Message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateHttpDataError, const FClientResponse, Response);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateHttpServerRequest, const FServerRequest, Request,
                                                FServerResponse, Response, const FTCPSocket, Socket);

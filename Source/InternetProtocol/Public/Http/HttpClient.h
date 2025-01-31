@@ -162,7 +162,7 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpClientResponse OnRequestCompleted;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
-	FDelegateHttpDataError OnResponseError;
+	FDelegateHttpDataError OnRequestFail;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateConnection OnClose;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
@@ -456,7 +456,7 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpClientResponse OnRequestCompleted;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
-	FDelegateHttpDataError OnResponseError;
+	FDelegateHttpDataError OnRequestFail;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateConnection OnClose;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")

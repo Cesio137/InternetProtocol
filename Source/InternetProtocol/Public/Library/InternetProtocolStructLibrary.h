@@ -410,6 +410,8 @@ struct FClientResponse
 {
 	GENERATED_BODY()
 	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
+	int StatusCode = 0;
+	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	TMap<FString, FString> Headers;
 	UPROPERTY(BlueprintReadWrite, Category="IP|HTTP")
 	FString Body;

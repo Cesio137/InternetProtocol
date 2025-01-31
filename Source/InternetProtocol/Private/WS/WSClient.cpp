@@ -712,6 +712,7 @@ void UWSClient::read_handshake(const std::error_code& error, const size_t bytes_
 	{
 		OnBytesTransferred.Broadcast(0, bytes_recvd);
 	});
+	UHttpFunctionLibrary::ClientClearResponse(ResponseHandshake);
 	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -721,40 +722,23 @@ void UWSClient::read_handshake(const std::error_code& error, const size_t bytes_
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
+		ResponseHandshake.StatusCode = 505;
+		ResponseHandshake.Body = "Invalid handshake: HTTP Version Not Supported.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(505, ResponseStatusCode[505]);
-			if (TCP.socket.is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+			consume_response_buffer();
 		});
 		return;
 	}
-	if (status_code != 101)
-	{
-		AsyncTask(ENamedThreads::GameThread, [&, status_code]()
-		{
-			OnHandshakeFail.Broadcast(status_code, ResponseStatusCode.Contains(status_code)
-				                                       ? ResponseStatusCode[status_code]
-				                                       : "");
-			if (TCP.socket.is_open() && !IsClosing)
-			{
-				Close();
-			}
-		});
-		return;
-	}
-
+	ResponseHandshake.StatusCode = status_code;
 	if (ResponseBuffer.size() == 0)
 	{
+		ResponseHandshake.Body = "Invalid handshake: " + ResponseStatusCode[status_code] + ".";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(500, ResponseStatusCode[500]);
-			if (TCP.socket.is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+			consume_response_buffer();
 		});
 		return;
 	}
@@ -783,61 +767,71 @@ void UWSClient::read_headers(const std::error_code& error)
 	{
 		UHttpFunctionLibrary::ClientAppendHeader(ResponseHandshake, UTF8_TO_TCHAR(header.c_str()));
 	}
-	consume_response_buffer();
-	if (ResponseHandshake.Headers.Num() == 0)
-	{
+	if (ResponseHandshake.Headers.Num() == 0) {
+		ResponseHandshake.StatusCode = ResponseHandshake.StatusCode != 101 ? ResponseHandshake.StatusCode : 400;
+		ResponseHandshake.Body = ResponseHandshake.StatusCode != 101
+								 ? "Invalid handshake: " + ResponseStatusCode[ResponseHandshake.StatusCode]
+								 : "Invalid handshake: Header is empty.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.socket.is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+		});
+		consume_response_buffer();
+		return;
+	}
+	if (!ResponseHandshake.Headers.Contains("Connection") ||
+		!ResponseHandshake.Headers.Contains("Upgrade") ||
+		!ResponseHandshake.Headers.Contains("Sec-WebSocket-Accept")) {
+		if (ResponseBuffer.size() > 0) {
+			std::ostringstream body_buffer;
+			body_buffer << &ResponseBuffer;
+			UHttpFunctionLibrary::ClientSetBody(ResponseHandshake, UTF8_TO_TCHAR(body_buffer.str().c_str()));
+		}
+		AsyncTask(ENamedThreads::GameThread, [&]()
+		{
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+		});
+		consume_response_buffer();
+		return;
+	}
+	consume_response_buffer();
+	if (ResponseHandshake.Headers["Connection"] != "Upgrade") {
+		ResponseHandshake.Body = "Invalid handshake: \"Connection\" must be \"Upgrade\".";
+		AsyncTask(ENamedThreads::GameThread, [&]()
+		{
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
-
-	if (ResponseHandshake.Headers["Connection"] != "Upgrade" || ResponseHandshake.Headers["Upgrade"] != "websocket")
-	{
+	if (ResponseHandshake.Headers["Upgrade"] != "websocket") {
+		ResponseHandshake.Body = "Invalid handshake: \"Upgrade\" must be \"websocket\".";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.socket.is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
 	FString protocol = RequestHandshake.Headers["Sec-WebSocket-Protocol"];
-	FString res_protocol = RequestHandshake.Headers["Sec-WebSocket-Protocol"];
-	if (protocol.Find(res_protocol) == -1)
-	{
+	FString res_protocol = ResponseHandshake.Headers["Sec-WebSocket-Protocol"];
+	if (protocol.Find(res_protocol) == INDEX_NONE) {
+		ResponseHandshake.Body = "Invalid handshake: \"Sec-WebSocket-Protocol\" must be \"" + protocol +
+							 "\" or contain one of them.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.socket.is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
 	FString accept_key = ResponseHandshake.Headers["Sec-WebSocket-Accept"];
 	FString encoded_key = generate_accept_key(RequestHandshake.Headers["Sec-WebSocket-Key"]);
-	if (accept_key != encoded_key)
-	{
+	if (accept_key != encoded_key) {
+		ResponseHandshake.Body = "Invalid handshake: \"Sec-WebSocket-Accept\" is invalid.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.socket.is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
-
 	AsyncTask(ENamedThreads::GameThread, [&]()
 	{
 		OnConnected.Broadcast(ResponseHandshake);
@@ -944,7 +938,7 @@ void UWSClient::read(const std::error_code& error, const size_t bytes_recvd)
 
 bool UWSClientSsl::SendStr(const FString& message)
 {
-	if (!TCP.ssl_socket.lowest_layer().is_open() || message.IsEmpty())
+	if (!TCP.ssl_socket.next_layer().is_open() || message.IsEmpty())
 	{
 		return false;
 	}
@@ -955,7 +949,7 @@ bool UWSClientSsl::SendStr(const FString& message)
 
 bool UWSClientSsl::SendBuffer(const TArray<uint8> buffer)
 {
-	if (!TCP.ssl_socket.lowest_layer().is_open() || buffer.Num() <= 0)
+	if (!TCP.ssl_socket.next_layer().is_open() || buffer.Num() <= 0)
 	{
 		return false;
 	}
@@ -992,16 +986,15 @@ void UWSClientSsl::Close()
 	IsClosing = true;
 	if (TCP.ssl_socket.next_layer().is_open())
 	{
+		FScopeLock Guard(&MutexError);
 		TCP.ssl_socket.shutdown(ErrorCode);
 		if (ErrorCode)
 		{
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 		TCP.ssl_socket.next_layer().close(ErrorCode);
 		if (ErrorCode)
 		{
-			FScopeLock Guard(&MutexError);
 			OnError.Broadcast(ErrorCode);
 		}
 	}
@@ -1538,7 +1531,7 @@ void UWSClientSsl::resolve(const std::error_code& error, const asio::ip::tcp::re
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
@@ -1562,7 +1555,7 @@ void UWSClientSsl::conn(const std::error_code& error)
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
@@ -1585,7 +1578,7 @@ void UWSClientSsl::ssl_handshake(const std::error_code& error)
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
@@ -1623,7 +1616,7 @@ void UWSClientSsl::write_handshake(const std::error_code& error, const size_t by
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
@@ -1650,7 +1643,7 @@ void UWSClientSsl::read_handshake(const std::error_code& error, const size_t byt
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
@@ -1668,6 +1661,7 @@ void UWSClientSsl::read_handshake(const std::error_code& error, const size_t byt
 	{
 		OnBytesTransferred.Broadcast(0, bytes_recvd);
 	});
+	UHttpFunctionLibrary::ClientClearResponse(ResponseHandshake);
 	std::istream response_stream(&ResponseBuffer);
 	std::string http_version;
 	response_stream >> http_version;
@@ -1677,40 +1671,23 @@ void UWSClientSsl::read_handshake(const std::error_code& error, const size_t byt
 	std::getline(response_stream, status_message);
 	if (!response_stream || http_version.substr(0, 5) != "HTTP/")
 	{
+		ResponseHandshake.StatusCode = 505;
+		ResponseHandshake.Body = "Invalid handshake: HTTP Version Not Supported.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(505, ResponseStatusCode[505]);
-			if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+			consume_response_buffer();
 		});
 		return;
 	}
-	if (status_code != 101)
-	{
-		AsyncTask(ENamedThreads::GameThread, [&]()
-		{
-			OnHandshakeFail.Broadcast(status_code, ResponseStatusCode.Contains(status_code)
-				                                       ? ResponseStatusCode[status_code]
-				                                       : "");
-			if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
-			{
-				Close();
-			}
-		});
-		return;
-	}
-
+	ResponseHandshake.StatusCode = status_code;
 	if (ResponseBuffer.size() == 0)
 	{
+		ResponseHandshake.Body = "Invalid handshake: " + ResponseStatusCode[status_code] + ".";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(500, ResponseStatusCode[500]);
-			if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+			consume_response_buffer();
 		});
 		return;
 	}
@@ -1722,7 +1699,7 @@ void UWSClientSsl::read_headers(const std::error_code& error)
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
@@ -1743,57 +1720,68 @@ void UWSClientSsl::read_headers(const std::error_code& error)
 	{
 		UHttpFunctionLibrary::ClientAppendHeader(ResponseHandshake, UTF8_TO_TCHAR(header.c_str()));
 	}
-	consume_response_buffer();
-	if (ResponseHandshake.Headers.Num() == 0)
-	{
+	if (ResponseHandshake.Headers.Num() == 0) {
+		ResponseHandshake.StatusCode = ResponseHandshake.StatusCode != 101 ? ResponseHandshake.StatusCode : 400;
+		ResponseHandshake.Body = ResponseHandshake.StatusCode != 101
+								 ? "Invalid handshake: " + ResponseStatusCode[ResponseHandshake.StatusCode]
+								 : "Invalid handshake: Header is empty.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+		});
+		consume_response_buffer();
+		return;
+	}
+	if (!ResponseHandshake.Headers.Contains("Connection") ||
+		!ResponseHandshake.Headers.Contains("Upgrade") ||
+		!ResponseHandshake.Headers.Contains("Sec-WebSocket-Accept")) {
+		if (ResponseBuffer.size() > 0) {
+			std::ostringstream body_buffer;
+			body_buffer << &ResponseBuffer;
+			UHttpFunctionLibrary::ClientSetBody(ResponseHandshake, UTF8_TO_TCHAR(body_buffer.str().c_str()));
+		}
+		AsyncTask(ENamedThreads::GameThread, [&]()
+		{
+			OnHandshakeFail.Broadcast(ResponseHandshake);
+		});
+		consume_response_buffer();
+		return;
+	}
+	consume_response_buffer();
+	if (ResponseHandshake.Headers["Connection"] != "Upgrade") {
+		ResponseHandshake.Body = "Invalid handshake: \"Connection\" must be \"Upgrade\".";
+		AsyncTask(ENamedThreads::GameThread, [&]()
+		{
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
-
-	if (ResponseHandshake.Headers["Connection"] != "Upgrade" || ResponseHandshake.Headers["Upgrade"] != "websocket")
-	{
+	if (ResponseHandshake.Headers["Upgrade"] != "websocket") {
+		ResponseHandshake.Body = "Invalid handshake: \"Upgrade\" must be \"websocket\".";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
 	FString protocol = RequestHandshake.Headers["Sec-WebSocket-Protocol"];
-	FString res_protocol = RequestHandshake.Headers["Sec-WebSocket-Protocol"];
-	if (protocol.Find(res_protocol) == -1)
-	{
+	FString res_protocol = ResponseHandshake.Headers["Sec-WebSocket-Protocol"];
+	if (protocol.Find(res_protocol) == INDEX_NONE) {
+		ResponseHandshake.Body = "Invalid handshake: \"Sec-WebSocket-Protocol\" must be \"" + protocol +
+							 "\" or contain one of them.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
 	FString accept_key = ResponseHandshake.Headers["Sec-WebSocket-Accept"];
 	FString encoded_key = generate_accept_key(RequestHandshake.Headers["Sec-WebSocket-Key"]);
-	if (accept_key != encoded_key)
-	{
+	if (accept_key != encoded_key) {
+		ResponseHandshake.Body = "Invalid handshake: \"Sec-WebSocket-Accept\" is invalid.";
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnHandshakeFail.Broadcast(400, ResponseStatusCode[400]);
-			if (TCP.ssl_socket.next_layer().is_open() && !IsClosing)
-			{
-				Close();
-			}
+			OnHandshakeFail.Broadcast(ResponseHandshake);
 		});
 		return;
 	}
@@ -1811,7 +1799,7 @@ void UWSClientSsl::write(const std::error_code& error, const size_t bytes_sent)
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
@@ -1838,7 +1826,7 @@ void UWSClientSsl::read(const std::error_code& error, const size_t bytes_recvd)
 {
 	if (error)
 	{
-		FScopeLock Gurad(&MutexError);
+		FScopeLock Guard(&MutexError);
 		ErrorCode = error;
 		AsyncTask(ENamedThreads::GameThread, [&, error]()
 		{
