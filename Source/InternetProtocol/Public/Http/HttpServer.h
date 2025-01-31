@@ -26,6 +26,7 @@ UCLASS(NotBlueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpServer : public UObject
 {
 	GENERATED_BODY()
+
 public:
 	UHttpServer()
 	{
@@ -35,14 +36,17 @@ public:
 
 	virtual void BeginDestroy() override
 	{
-		if (TCP.acceptor.is_open()) Close();
+		if (TCP.acceptor.is_open())
+		{
+			Close();
+		}
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Remote")
 	void SetSocket(const EProtocolType Protocol = EProtocolType::V4, const int Port = 3000,
-						const int MaxListenningConnection = 2147483647)
+	               const int MaxListenningConnection = 2147483647)
 	{
 		TcpProtocol = Protocol;
 		TcpPort = Port;
@@ -64,14 +68,14 @@ public:
 			sockets.Add(socket_ref);
 		}
 		return sockets;
-	}	
+	}
 
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void AppendHeaders(const FString& Key, const FString& value) { Headers.Add(Key, value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearHeaders() {Headers.Empty(); }
+	void ClearHeaders() { Headers.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void RemoveHeader(const FString& Key) { Headers.Remove(Key); }
@@ -84,10 +88,10 @@ public:
 
 	/*RESPONSE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
-	bool SendResponse(const FServerResponse &Response, const FTCPSocket &Socket);
+	bool SendResponse(const FServerResponse& Response, const FTCPSocket& Socket);
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
-	bool SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSocket &Socket);
+	bool SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSocket& Socket);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
@@ -134,21 +138,24 @@ private:
 	TMap<socket_ptr, TSharedPtr<asio::streambuf>> RequestBuffers;
 
 	void disconnect_socket_after_error(const asio::error_code& error, const socket_ptr& socket);
-	void process_response(FServerResponse &response, const socket_ptr &socket);
-	void process_error_response(const int status_code, const FServerResponse& response, const socket_ptr &socket);
-	void consume_request_buffer(const socket_ptr &socket);
+	void process_response(const FServerResponse& response, const socket_ptr& socket);
+	void process_error_response(const int status_code, const FServerResponse& response, const socket_ptr& socket);
+	void consume_request_buffer(const socket_ptr& socket);
 	void run_context_thread();
 	void accept(const std::error_code& error, socket_ptr& socket);
-	void write_response(const asio::error_code &error, const size_t bytes_sent, const socket_ptr &socket, const bool close_connection);
-	void read_status_line(const asio::error_code &error, const size_t bytes_recvd, const socket_ptr &socket);
-	void read_headers(const asio::error_code &error, const size_t bytes_recvd, FServerRequest &request, const socket_ptr &socket);
-	void read_body(FServerRequest &request, const socket_ptr &socket);
+	void write_response(const asio::error_code& error, const size_t bytes_sent, const socket_ptr& socket,
+	                    const bool close_connection);
+	void read_status_line(const asio::error_code& error, const size_t bytes_recvd, const socket_ptr& socket);
+	void read_headers(const asio::error_code& error, const size_t bytes_recvd, FServerRequest& request,
+	                  const socket_ptr& socket);
+	void read_body(FServerRequest& request, const socket_ptr& socket);
 };
 
 UCLASS(NotBlueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpServerSsl : public UObject
 {
 	GENERATED_BODY()
+
 public:
 	UHttpServerSsl()
 	{
@@ -158,14 +165,17 @@ public:
 
 	virtual void BeginDestroy() override
 	{
-		if (TCP.acceptor.is_open()) Close();
+		if (TCP.acceptor.is_open())
+		{
+			Close();
+		}
 		Super::BeginDestroy();
 	}
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Remote")
 	void SetSocket(const EProtocolType Protocol = EProtocolType::V4, const int Port = 3000,
-						const int max_listen_conn = 2147483647)
+	               const int max_listen_conn = 2147483647)
 	{
 		TcpProtocol = Protocol;
 		TcpPort = Port;
@@ -183,7 +193,7 @@ public:
 	{
 		return TCP.acceptor;
 	}
-	
+
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Socket")
 	const TArray<FTCPSslSocket> GetSslSockets()
 	{
@@ -193,14 +203,14 @@ public:
 			sockets.Add(*socket_ref);
 		}
 		return sockets;
-	}	
+	}
 
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void AppendHeaders(const FString& Key, const FString& Value) { Headers.Add(Key, Value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearHeaders() {Headers.Empty(); }
+	void ClearHeaders() { Headers.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void RemoveHeader(const FString& Key) { Headers.Remove(Key); }
@@ -215,14 +225,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadPrivateKeyData(const FString& KeyData) noexcept
 	{
-		if (KeyData.IsEmpty()) return false;
+		if (KeyData.IsEmpty())
+		{
+			return false;
+		}
 		std::string key = TCHAR_TO_UTF8(*KeyData);
 		const asio::const_buffer buffer(key.data(), key.size());
 		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -232,13 +245,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadPrivateKeyFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -248,14 +264,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateData(const FString& CertData)
 	{
-		if (CertData.IsEmpty()) return false;
+		if (CertData.IsEmpty())
+		{
+			return false;
+		}
 		std::string cert = TCHAR_TO_UTF8(*CertData);
 		const asio::const_buffer buffer(cert.data(), cert.size());
 		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -265,14 +284,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		asio::error_code ec;
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -282,15 +304,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateChainData(const FString& CertChainData)
 	{
-		if (CertChainData.IsEmpty()) return false;
+		if (CertChainData.IsEmpty())
+		{
+			return false;
+		}
 		std::string cert_chain = TCHAR_TO_UTF8(*CertChainData);
 		const asio::const_buffer buffer(cert_chain.data(),
-										cert_chain.size());
+		                                cert_chain.size());
 		TCP.ssl_context.use_certificate_chain(buffer, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -300,13 +325,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadCertificateChainFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.use_certificate_chain_file(file, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -316,13 +344,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
 	bool LoadVerifyFile(const FString& FileName)
 	{
-		if (FileName.IsEmpty()) return false;
+		if (FileName.IsEmpty())
+		{
+			return false;
+		}
 		std::string file = TCHAR_TO_UTF8(*FileName);
 		TCP.ssl_context.load_verify_file(file, ErrorCode);
 		if (ErrorCode)
 		{
 			ensureMsgf(!ErrorCode, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), ErrorCode.value(),
-					   ErrorCode.message().c_str());
+			           ErrorCode.message().c_str());
 			OnError.Broadcast(ErrorCode);
 			return false;
 		}
@@ -331,10 +362,10 @@ public:
 
 	/*RESPONSE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
-	bool SendResponse(const FServerResponse &Response, const FTCPSslSocket &SslSocket);
+	bool SendResponse(const FServerResponse& Response, const FTCPSslSocket& SslSocket);
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
-	bool SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSslSocket &SslSocket);
+	bool SendErrorResponse(const int StatusCode, const FServerResponse& Response, const FTCPSslSocket& SslSocket);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Connection")
@@ -381,14 +412,17 @@ private:
 	TMap<ssl_socket_ptr, TSharedPtr<asio::streambuf>> RequestBuffers;
 
 	void disconnect_socket_after_error(const asio::error_code& error, const ssl_socket_ptr& ssl_socket);
-	void process_response(FServerResponse &response, const ssl_socket_ptr &ssl_socket);
-	void process_error_response(const int status_code, const FServerResponse& response, const ssl_socket_ptr &ssl_socket);
-	void consume_request_buffer(const ssl_socket_ptr &ssl_socket);
+	void process_response(FServerResponse& response, const ssl_socket_ptr& ssl_socket);
+	void process_error_response(const int status_code, const FServerResponse& response,
+	                            const ssl_socket_ptr& ssl_socket);
+	void consume_request_buffer(const ssl_socket_ptr& ssl_socket);
 	void run_context_thread();
 	void accept(const std::error_code& error, ssl_socket_ptr& ssl_socket);
-	void ssl_handshake(const asio::error_code &error, ssl_socket_ptr &ssl_socket);
-	void write_response(const asio::error_code &error, const size_t bytes_sent, const ssl_socket_ptr &ssl_socket, const bool close_connection);
-	void read_status_line(const asio::error_code &error, const size_t bytes_recvd, const ssl_socket_ptr &ssl_socket);
-	void read_headers(const asio::error_code &error, const size_t bytes_recvd, FServerRequest &request, const ssl_socket_ptr &ssl_socket);
-	void read_body(FServerRequest &request, const ssl_socket_ptr &ssl_socket);
+	void ssl_handshake(const asio::error_code& error, ssl_socket_ptr& ssl_socket);
+	void write_response(const asio::error_code& error, const size_t bytes_sent, const ssl_socket_ptr& ssl_socket,
+	                    const bool close_connection);
+	void read_status_line(const asio::error_code& error, const size_t bytes_recvd, const ssl_socket_ptr& ssl_socket);
+	void read_headers(const asio::error_code& error, const size_t bytes_recvd, FServerRequest& request,
+	                  const ssl_socket_ptr& ssl_socket);
+	void read_body(FServerRequest& request, const ssl_socket_ptr& ssl_socket);
 };

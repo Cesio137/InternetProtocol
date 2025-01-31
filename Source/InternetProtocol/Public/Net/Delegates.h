@@ -22,40 +22,69 @@
 
 /*CONNECTION*/
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateConnection);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpAcceptor, const FTCPSocket, Socket);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpSslAcceptor, const FTCPSslSocket, Socket);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateBytesTransferred, const int, BytesSent, const int, BytesRecvd);
 
 /*MESSAGE*/
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateMessageSent, const FErrorCode, HadError);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateSocketMessageSent, const FErrorCode, HadError, const FTCPSocket, Socket);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateSslSocketMessageSent, const FErrorCode, HadError, const FTCPSslSocket, SslSocket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateSocketMessageSent, const FErrorCode, HadError, const FTCPSocket,
+                                             Socket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateSslSocketMessageSent, const FErrorCode, HadError,
+                                             const FTCPSslSocket, SslSocket);
 
 /*UDP*/
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessage, const FUdpMessage, Message, const FUDPEndpoint, Endpoint);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessage, const FUdpMessage, Message, const FUDPEndpoint,
+                                             Endpoint);
 
 /*TCP*/
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpMessage, const FTcpMessage, Message);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSocketMessage, const FTcpMessage, Message, const FTCPSocket, Socket);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSslSocketMessage, const FTcpMessage, Message, const FTCPSslSocket, Socket);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpMessage, const FTcpMessage&, Message);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSocketMessage, const FTcpMessage&, Message, const FTCPSocket&,
+                                             Socket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSslSocketMessage, const FTcpMessage&, Message,
+                                             const FTCPSslSocket&, Socket);
 
 /*HTTP*/
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateHttpDataError, const int, Code, const FString&, Message);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateHttpServerRequest, FServerRequest, Request, FServerResponse, Response, const FTCPSocket, Socket);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateHttpSslServerRequest, FServerRequest, Request, FServerResponse, Response, const FTCPSslSocket, SslSocket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateHttpServerRequest, const FServerRequest, Request,
+                                               FServerResponse, Response, const FTCPSocket, Socket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateHttpSslServerRequest, FServerRequest, Request, FServerResponse,
+                                               Response, const FTCPSslSocket, SslSocket);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateHttpClientResponse, const FClientResponse, Response);
 
 /*WEBSOCKET*/
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateWsSocketHandshake, const FServerRequest, Request, FServerResponse, Response, const FTCPSocket, Socket);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateWsSslSocketHandshake, const FServerRequest, Request, FServerResponse, Response, const FTCPSslSocket, SslSocket);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateWsSocketHandshake, const FServerRequest, Request,
+                                               FServerResponse, Response, const FTCPSocket, Socket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDelegateWsSslSocketHandshake, const FServerRequest, Request,
+                                               FServerResponse, Response, const FTCPSslSocket, SslSocket);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsMessage, const FWsMessage, Message);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsSocketMessage, const FWsMessage, Message, const FTCPSocket, Socket);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsSslSocketMessage, const FWsMessage, Message, const FTCPSslSocket, Socket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsSocketMessage, const FWsMessage, Message, const FTCPSocket,
+                                             Socket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsSslSocketMessage, const FWsMessage, Message,
+                                             const FTCPSslSocket, Socket);
 
 /*ERROR*/
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateError, const FErrorCode, ErrorCode);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSocketError, const FErrorCode, HadError, const FTCPSocket, Socket);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSslSocketError, const FErrorCode, HadError, const FTCPSslSocket, SslSocket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSocketError, const FErrorCode, HadError, const FTCPSocket,
+                                             Socket);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpSslSocketError, const FErrorCode, HadError,
+                                             const FTCPSslSocket, SslSocket);
 
 // FIX FOR "Unrecognized type" ERROR
 UCLASS()
@@ -64,5 +93,4 @@ class UDelegates : public UObject
 	GENERATED_BODY()
 
 public:
-	
 };

@@ -16,7 +16,7 @@
 
 bool UWSServer::SendHandshakeTo(const FServerRequest& Request, FServerResponse Response, const FTCPSocket& Socket)
 {
-	if (!Socket.RawPtr->is_open())
+	if (!Socket.SmartPtr->is_open())
 	{
 		return false;
 	}
@@ -27,7 +27,7 @@ bool UWSServer::SendHandshakeTo(const FServerRequest& Request, FServerResponse R
 
 bool UWSServer::SendHandshakeErrorTo(const int StatusCode, const FString& Body, const FTCPSocket& Socket)
 {
-	if (!Socket.RawPtr->is_open())
+	if (!Socket.SmartPtr->is_open())
 	{
 		return false;
 	}
@@ -38,7 +38,7 @@ bool UWSServer::SendHandshakeErrorTo(const int StatusCode, const FString& Body, 
 
 bool UWSServer::SendStrTo(const FString& Message, const FTCPSocket& Socket)
 {
-	if (!Socket.RawPtr->is_open() || Message.IsEmpty())
+	if (!Socket.SmartPtr->is_open() || Message.IsEmpty())
 	{
 		return false;
 	}
@@ -49,7 +49,7 @@ bool UWSServer::SendStrTo(const FString& Message, const FTCPSocket& Socket)
 
 bool UWSServer::SendBufferTo(const TArray<uint8> Buffer, const FTCPSocket& Socket)
 {
-	if (!Socket.RawPtr->is_open() || Buffer.Num() == 0)
+	if (!Socket.SmartPtr->is_open() || Buffer.Num() == 0)
 	{
 		return false;
 	}
@@ -60,7 +60,7 @@ bool UWSServer::SendBufferTo(const TArray<uint8> Buffer, const FTCPSocket& Socke
 
 bool UWSServer::SendPingTo(const FTCPSocket& Socket)
 {
-	if (!Socket.RawPtr->is_open())
+	if (!Socket.SmartPtr->is_open())
 	{
 		return false;
 	}
@@ -743,7 +743,7 @@ void UWSServer::package_handshake(const FServerRequest& req, FServerResponse& re
 			res.Headers.Add("Sec-WebSocket-Protocol", "xml");
 		}
 	}
-	FString payload = "HTTP/" + res.Version + " 101 Switching Protocols \r\n";
+	FString payload = "HTTP/" + res.Version + " 101 Switching Protocols\r\n";
 	if (!res.Headers.Num() == 0)
 	{
 		for (const TPair<FString, FString> header : res.Headers)
@@ -771,7 +771,7 @@ void UWSServer::package_handshake_error(const int status_code, const FString& bo
 	{
 		payload = "HTTP/1.1 400 HTTP Bad Request\r\n";
 	}
-	std::string body_content = body_content.length() > 0 ? TCHAR_TO_UTF8(*body) : "";
+	std::string body_content = body.IsEmpty() ? TCHAR_TO_UTF8(*body) : "";
 	std::string len = std::to_string(body_content.length());
 	switch (status_code)
 	{
@@ -781,18 +781,19 @@ void UWSServer::package_handshake_error(const int status_code, const FString& bo
 		"Connection: close\r\n"
 		"\r\n";
 		payload += body_content;
+		payload += "\r\n";
 		break;
 	case 405:
 		payload += "Allow: GET\r\n"
 		"Content-Length: 0\r\n"
-		"Connection: close\r\n";
+		"Connection: close\r\n\r\n";
 		break;
 	case 505:
 		payload += "Content-Type: text/plain\r\n"
 		"Content-Length: 27\r\n"
 		"Connection: close\r\n"
 		"\r\n"
-		"HTTP version not supported.";
+		"HTTP version not supported.\r\n";
 		break;
 	default: payload += "\r\n";
 	}
@@ -843,27 +844,42 @@ void UWSServer::accept(const asio::error_code& error, socket_ptr& socket)
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 			           error.message().c_str());
 			if (!IsClosing)
-			{
 				disconnect_socket_after_error(error, socket);
-			}
 		});
-		socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
-		TCP.acceptor.async_accept(
-			*conn_socket, std::bind(&UWSServer::accept, this, asio::placeholders::error, conn_socket));
+		if (TCP.acceptor.is_open())
+		{
+			socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
+			TCP.acceptor.async_accept(
+				*conn_socket, std::bind(&UWSServer::accept, this, asio::placeholders::error, conn_socket));
+		}
 		return;
 	}
 
-	TCP.sockets.Add(socket);
-	TSharedPtr<asio::streambuf> listening_buffer = MakeShared<asio::streambuf>();
-	ListenerBuffers.Add(socket, listening_buffer);
-	asio::async_read_until(*socket, *listening_buffer, "\r\n",
-	                       std::bind(&UWSServer::read_handshake, this,
-	                                 asio::placeholders::error,
-	                                 asio::placeholders::bytes_transferred, socket));
-
-	socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
-	TCP.acceptor.async_accept(
-		*conn_socket, std::bind(&UWSServer::accept, this, asio::placeholders::error, conn_socket));
+	if (TCP.sockets.Num() < Backlog)
+	{
+		TCP.sockets.Add(socket);
+		TSharedPtr<asio::streambuf> listening_buffer = MakeShared<asio::streambuf>();
+		ListenerBuffers.Add(socket, listening_buffer);
+		asio::async_read_until(*socket, *listening_buffer, "\r\n",
+							   std::bind(&UWSServer::read_handshake, this,
+										 asio::placeholders::error,
+										 asio::placeholders::bytes_transferred, socket));
+	}
+	else
+	{
+		AsyncTask(ENamedThreads::GameThread, [&, error, socket]()
+		{
+			if (!IsClosing)
+				disconnect_socket_after_error(error, socket);
+		});
+	}
+	
+	if (TCP.acceptor.is_open())
+	{
+		socket_ptr conn_socket = MakeShared<asio::ip::tcp::socket>(TCP.context);
+		TCP.acceptor.async_accept(
+			*conn_socket, std::bind(&UWSServer::accept, this, asio::placeholders::error, conn_socket));
+	}
 }
 
 void UWSServer::read_handshake(const std::error_code& error, const size_t bytes_recvd, const socket_ptr& socket)
@@ -1880,7 +1896,7 @@ void UWSServerSsl::package_handshake(const FServerRequest& req, FServerResponse&
 			res.Headers.Add("Sec-WebSocket-Protocol", "xml");
 		}
 	}
-	FString payload = "HTTP/" + res.Version + " 101 Switching Protocols \r\n";
+	FString payload = "HTTP/" + res.Version + " 101 Switching Protocols\r\n";
 	if (!res.Headers.Num() == 0)
 	{
 		for (const TPair<FString, FString> header : res.Headers)
@@ -1896,7 +1912,7 @@ void UWSServerSsl::package_handshake(const FServerRequest& req, FServerResponse&
 		          asio::placeholders::bytes_transferred, ssl_socket, status_code));
 }
 
-void UWSServerSsl::package_handshake_error(const uint32_t status_code, const FString& why, const ssl_socket_ptr& ssl_socket)
+void UWSServerSsl::package_handshake_error(const uint32_t status_code, const FString& body, const ssl_socket_ptr& ssl_socket)
 {
 	std::string payload;
 	if (ResponseStatusCode.Contains(status_code))
@@ -1908,8 +1924,8 @@ void UWSServerSsl::package_handshake_error(const uint32_t status_code, const FSt
 	{
 		payload = "HTTP/1.1 400 HTTP Bad Request\r\n";
 	}
-	std::string body = body.length() > 0 ? TCHAR_TO_UTF8(*why) : "";
-	std::string len = std::to_string(body.length());
+	std::string body_content = body.IsEmpty() ? TCHAR_TO_UTF8(*body) : "";
+	std::string len = std::to_string(body_content.length());
 	switch (status_code)
 	{
 	case 400:
@@ -1917,19 +1933,20 @@ void UWSServerSsl::package_handshake_error(const uint32_t status_code, const FSt
 		"Content-Length: " + len + "\r\n"
 		"Connection: close\r\n"
 		"\r\n";
-		payload += body;
+		payload += body_content;
+		payload += "\r\n";
 		break;
 	case 405:
 		payload += "Allow: GET\r\n"
 		"Content-Length: 0\r\n"
-		"Connection: close\r\n";
+		"Connection: close\r\n\r\n";
 		break;
 	case 505:
 		payload += "Content-Type: text/plain\r\n"
 		"Content-Length: 27\r\n"
 		"Connection: close\r\n"
 		"\r\n"
-		"HTTP version not supported.";
+		"HTTP version not supported.\r\n";
 		break;
 	default: payload += "\r\n";
 	}
@@ -1977,21 +1994,48 @@ void UWSServerSsl::accept(const asio::error_code& error, ssl_socket_ptr& ssl_soc
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketDisconnected.Broadcast(error, ssl_socket);
+			if (!IsClosing)
+			{
+				disconnect_socket_after_error(error, ssl_socket);
+			}
 		});
-		ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(TCP.context, TCP.ssl_context);
-		TCP.acceptor.async_accept(
-			ssl_conn_socket->lowest_layer(), std::bind(&UWSServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
+		if (TCP.acceptor.is_open())
+		{
+			ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(
+				TCP.context, TCP.ssl_context);
+			TCP.acceptor.async_accept(
+				ssl_conn_socket->lowest_layer(),
+				std::bind(&UWSServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
+		}
 		return;
 	}
 
-	ssl_socket->async_handshake(asio::ssl::stream_base::server,
+	if (TCP.ssl_sockets.Num() < Backlog)
+	{
+		ssl_socket->async_handshake(asio::ssl::stream_base::server,
 								std::bind(&UWSServerSsl::ssl_handshake, this,
 										  asio::placeholders::error, ssl_socket));
+	}
+	else
+	{
+		FScopeLock Guard(&MutexError);
+		AsyncTask(ENamedThreads::GameThread, [&, error, ssl_socket]()
+		{
+			if (!IsClosing)
+			{
+				disconnect_socket_after_error(error, ssl_socket);
+			}
+		});
+	}
 
-	ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(TCP.context, TCP.ssl_context);
-	TCP.acceptor.async_accept(
-		ssl_conn_socket->lowest_layer(), std::bind(&UWSServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
+	if (TCP.acceptor.is_open())
+	{
+		ssl_socket_ptr ssl_conn_socket = MakeShared<asio::ssl::stream<asio::ip::tcp::socket>>(
+			TCP.context, TCP.ssl_context);
+		TCP.acceptor.async_accept(
+			ssl_conn_socket->lowest_layer(),
+			std::bind(&UWSServerSsl::accept, this, asio::placeholders::error, ssl_conn_socket));
+	}
 }
 
 void UWSServerSsl::ssl_handshake(const asio::error_code& error, ssl_socket_ptr& ssl_socket)
@@ -2008,7 +2052,10 @@ void UWSServerSsl::ssl_handshake(const asio::error_code& error, ssl_socket_ptr& 
 			}
 			ensureMsgf(!error, TEXT("<ASIO ERROR>\nError code: %d\n%hs\n<ASIO ERROR/>"), error.value(),
 					   error.message().c_str());
-			OnSocketDisconnected.Broadcast(error, ssl_socket);
+			if (!IsClosing)
+			{
+				disconnect_socket_after_error(error, ssl_socket);
+			}
 		});
 		return;
 	}

@@ -564,7 +564,7 @@ private:
 	FString generate_accept_key(const FString& sec_websocket_key);
 	void package_handshake(const FServerRequest& req, FServerResponse& res, const ssl_socket_ptr& ssl_socket,
 	                       const uint32_t status_code = 101);
-	void package_handshake_error(const uint32_t status_code, const FString& why, const ssl_socket_ptr& ssl_socket);
+	void package_handshake_error(const uint32_t status_code, const FString& body, const ssl_socket_ptr& ssl_socket);
 	void consume_listening_buffer(const ssl_socket_ptr& ssl_socket);
 	void run_context_thread();
 	void accept(const asio::error_code& error, ssl_socket_ptr& ssl_socket);
