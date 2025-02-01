@@ -14,25 +14,25 @@
 
 #include "WS/WSClient.h"
 
-bool UWSClient::SendStr(const FString& message)
+bool UWSClient::SendStr(const FString& Message)
 {
-	if (!TCP.socket.is_open() || message.IsEmpty())
+	if (!TCP.socket.is_open() || Message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(GetThreadPool(), std::bind(&UWSClient::post_string, this, message));
+	asio::post(GetThreadPool(), std::bind(&UWSClient::post_string, this, Message));
 	return true;
 }
 
-bool UWSClient::SendBuffer(const TArray<uint8> buffer)
+bool UWSClient::SendBuffer(const TArray<uint8> Buffer)
 {
-	if (!TCP.socket.is_open() || buffer.Num() <= 0)
+	if (!TCP.socket.is_open() || Buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	asio::post(GetThreadPool(), std::bind(&UWSClient::post_buffer, this, EOpcode::BINARY_FRAME, buffer));
+	asio::post(GetThreadPool(), std::bind(&UWSClient::post_buffer, this, EOpcode::BINARY_FRAME, Buffer));
 	return true;
 }
 

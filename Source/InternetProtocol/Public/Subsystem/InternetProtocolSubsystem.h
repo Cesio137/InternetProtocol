@@ -72,6 +72,9 @@ public:
 	UWSClient* CreateWebsocketClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UWSServerSsl* CreateWebsocketServerSsl();
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UWSClientSsl* CreateWebsocketClientSsl();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")

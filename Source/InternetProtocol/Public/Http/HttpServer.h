@@ -22,7 +22,7 @@
  * 
  */
 
-UCLASS(NotBlueprintable, BlueprintType, Category = "IP|HTTP")
+UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpServer : public UObject
 {
 	GENERATED_BODY()
@@ -151,7 +151,7 @@ private:
 	void read_body(FServerRequest& request, const socket_ptr& socket);
 };
 
-UCLASS(NotBlueprintable, BlueprintType, Category = "IP|HTTP")
+UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpServerSsl : public UObject
 {
 	GENERATED_BODY()
@@ -175,11 +175,11 @@ public:
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Remote")
 	void SetSocket(const EProtocolType Protocol = EProtocolType::V4, const int Port = 3000,
-	               const int max_listen_conn = 2147483647)
+	               const int MaxListenningConnection = 2147483647)
 	{
 		TcpProtocol = Protocol;
 		TcpPort = Port;
-		Backlog = max_listen_conn;
+		Backlog = MaxListenningConnection;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Context")

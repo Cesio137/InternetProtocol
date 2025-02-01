@@ -45,10 +45,10 @@ public:
 	/*HOST*/
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Remote")
-	void SetHost(const FString& url = "localhost", const FString& port = "3000")
+	void SetHost(const FString& Url = "localhost", const FString& Port = "3000")
 	{
-		Host = url;
-		Service = port;
+		Host = Url;
+		Service = Port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Socket")
@@ -56,61 +56,61 @@ public:
 
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetRequest(const FClientRequest& value) { Request = value; }
+	void SetRequest(const FClientRequest& Value) { Request = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FClientRequest GetRequest() const { return Request; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetRequestMethod(EMethod requestMethod = EMethod::GET) { Request.Method = requestMethod; }
+	void SetRequestMethod(EMethod RequestMethod = EMethod::GET) { Request.Method = RequestMethod; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	EMethod GetRequestMethod() const { return Request.Method; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetVersion(const FString& version = "1.1") { Request.Version = version; }
+	void SetVersion(const FString& Version = "1.1") { Request.Version = Version; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetVersion() const { return Request.Version; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetPath(const FString& path = "/") { Request.Path = path.IsEmpty() ? "/" : path; }
+	void SetPath(const FString& Path = "/") { Request.Path = Path.IsEmpty() ? "/" : Path; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetPath() const { return Request.Path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendParams(const FString& key, const FString& value) { Request.Params.Add(key, value); }
+	void AppendParams(const FString& Key, const FString& value) { Request.Params.Add(Key, value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearParams() { Request.Params.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveParam(const FString& key) { Request.Params.Remove(key); }
+	void RemoveParam(const FString& Key) { Request.Params.Remove(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasParam(const FString& key) const { return Request.Params.Contains(key); }
+	bool HasParam(const FString& Key) const { return Request.Params.Contains(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetParams() const { return Request.Params; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendHeaders(const FString& key, const FString& value) { Request.Headers.Add(key, value); }
+	void AppendHeaders(const FString& Key, const FString& Value) { Request.Headers.Add(Key, Value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearHeaders() { Request.Headers.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveHeader(const FString& key) { Request.Headers.Remove(key); }
+	void RemoveHeader(const FString& Key) { Request.Headers.Remove(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasHeader(const FString& key) const { return Request.Headers.Contains(key); }
+	bool HasHeader(const FString& Key) const { return Request.Headers.Contains(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetHeaders() const { return Request.Headers; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetBody(const FString& value) { Request.Body = value; }
+	void SetBody(const FString& Value) { Request.Body = Value; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearBody() { Request.Body.Empty(); }
@@ -215,78 +215,78 @@ public:
 	/*HOST*/
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Remote")
-	void SetHost(const FString& url = "localhost", const FString& port = "3000")
+	void SetHost(const FString& Url = "localhost", const FString& Port = "3000")
 	{
-		Host = url;
-		Service = port;
+		Host = Url;
+		Service = Port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Context")
-	FSslContext GetContext() { return TCP.ssl_context; }
+	FSslContext GetSslContext() { return TCP.ssl_context; }
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Socket")
-	FTCPSslSocket GetSocket() { return TCP.ssl_socket; }
+	FTCPSslSocket GetSslSocket() { return TCP.ssl_socket; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Socket")
 	void UpdateSslSocket() { TCP.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(TCP.context, TCP.ssl_context); }
 
 	/*REQUEST DATA*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetRequest(const FClientRequest& value) { Request = value; }
+	void SetRequest(const FClientRequest& Value) { Request = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FClientRequest GetRequest() const { return Request; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetRequestMethod(EMethod requestMethod = EMethod::GET) { Request.Method = requestMethod; }
+	void SetRequestMethod(EMethod RequestMethod = EMethod::GET) { Request.Method = RequestMethod; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	EMethod GetRequestMethod() const { return Request.Method; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetVersion(const FString& version = "1.1") { Request.Version = version; }
+	void SetVersion(const FString& Version = "1.1") { Request.Version = Version; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetVersion() const { return Request.Version; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetPath(const FString& path = "/") { Request.Path = path.IsEmpty() ? "/" : path; }
+	void SetPath(const FString& Path = "/") { Request.Path = Path.IsEmpty() ? "/" : Path; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	FString GetPath() const { return Request.Path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendParams(const FString& key, const FString& value) { Request.Params.Add(key, value); }
+	void AppendParams(const FString& Key, const FString& value) { Request.Params.Add(Key, value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearParams() { Request.Params.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveParam(const FString& key) { Request.Params.Remove(key); }
+	void RemoveParam(const FString& Key) { Request.Params.Remove(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasParam(const FString& key) const { return Request.Params.Contains(key); }
+	bool HasParam(const FString& Key) const { return Request.Params.Contains(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetParams() const { return Request.Params; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendHeaders(const FString& key, const FString& value) { Request.Headers.Add(key, value); }
+	void AppendHeaders(const FString& Key, const FString& Value) { Request.Headers.Add(Key, Value); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearHeaders() { Request.Headers.Empty(); }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveHeader(const FString& key) { Request.Headers.Remove(key); }
+	void RemoveHeader(const FString& Key) { Request.Headers.Remove(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasHeader(const FString& key) const { return Request.Headers.Contains(key); }
+	bool HasHeader(const FString& Key) const { return Request.Headers.Contains(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
 	TMap<FString, FString> GetHeaders() const { return Request.Headers; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void SetBody(const FString& value) { Request.Body = value; }
+	void SetBody(const FString& Value) { Request.Body = Value; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void ClearBody() { Request.Body.Empty(); }
@@ -299,10 +299,10 @@ public:
 
 	/*SECURITY LAYER*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
-	bool LoadPrivateKeyData(const FString& key_data) noexcept
+	bool LoadPrivateKeyData(const FString& KeyData) noexcept
 	{
-		if (key_data.IsEmpty()) return false;
-		std::string key = TCHAR_TO_UTF8(*key_data);
+		if (KeyData.IsEmpty()) return false;
+		std::string key = TCHAR_TO_UTF8(*KeyData);
 		const asio::const_buffer buffer(key.data(), key.size());
 		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
@@ -316,10 +316,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
-	bool LoadPrivateKeyFile(const FString& filename)
+	bool LoadPrivateKeyFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (Filename.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
@@ -332,10 +332,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
-	bool LoadCertificateData(const FString& cert_data)
+	bool LoadCertificateData(const FString& CertData)
 	{
-		if (cert_data.IsEmpty()) return false;
-		std::string cert = TCHAR_TO_UTF8(*cert_data);
+		if (CertData.IsEmpty()) return false;
+		std::string cert = TCHAR_TO_UTF8(*CertData);
 		const asio::const_buffer buffer(cert.data(), cert.size());
 		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
@@ -349,11 +349,11 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
-	bool LoadCertificateFile(const FString& filename)
+	bool LoadCertificateFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
+		if (Filename.IsEmpty()) return false;
 		asio::error_code ec;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
@@ -366,10 +366,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
-	bool LoadCertificateChainData(const FString& cert_chain_data)
+	bool LoadCertificateChainData(const FString& CertChainData)
 	{
-		if (cert_chain_data.IsEmpty()) return false;
-		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
+		if (CertChainData.IsEmpty()) return false;
+		std::string cert_chain = TCHAR_TO_UTF8(*CertChainData);
 		const asio::const_buffer buffer(cert_chain.data(),
 										cert_chain.size());
 		TCP.ssl_context.use_certificate_chain(buffer, ErrorCode);
@@ -384,10 +384,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
-	bool LoadCertificateChainFile(const FString& filename)
+	bool LoadCertificateChainFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (Filename.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.use_certificate_chain_file(file, ErrorCode);
 		if (ErrorCode)
 		{
@@ -400,10 +400,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")
-	bool LoadVerifyFile(const FString& filename)
+	bool LoadVerifyFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (Filename.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.load_verify_file(file, ErrorCode);
 		if (ErrorCode)
 		{

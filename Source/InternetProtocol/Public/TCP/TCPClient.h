@@ -38,10 +38,10 @@ public:
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Remote")
-	void SetHost(const FString& ip = "localhost", const FString& port = "3000")
+	void SetHost(const FString& IP = "localhost", const FString& Port = "3000")
 	{
-		Host = ip;
-		Service = port;
+		Host = IP;
+		Service = Port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Socket")
@@ -49,22 +49,22 @@ public:
 
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int Value = 1400) { MaxSendBufferSize = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
 	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetSplitPackage(bool value = true) { bSplitBuffer = value; }
+	void SetSplitPackage(bool Value = true) { bSplitBuffer = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
 	bool GetSplitPackage() const { return bSplitBuffer; }
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendStr(const FString& message);
+	bool SendStr(const FString& Message);
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendBuffer(const TArray<uint8>& buffer);
+	bool SendBuffer(const TArray<uint8>& Buffer);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")
@@ -130,10 +130,10 @@ public:
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Remote")
-	void SetHost(const FString& ip = "localhost", const FString& port = "3000")
+	void SetHost(const FString& IP = "localhost", const FString& Port = "3000")
 	{
-		Host = ip;
-		Service = port;
+		Host = IP;
+		Service = Port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Context")
@@ -147,23 +147,23 @@ public:
 	
 	/*SETTINGS*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int Value = 1400) { MaxSendBufferSize = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
 	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Settings")
-	void SetSplitPackage(bool value = true) { SplitBuffer = value; }
+	void SetSplitPackage(bool Value = true) { SplitBuffer = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|TCP|Settings")
 	bool GetSplitPackage() const { return SplitBuffer; }
 
 	/*SECURITY LAYER*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadPrivateKeyData(const FString& key_data) noexcept
+	bool LoadPrivateKeyData(const FString& KeyData) noexcept
 	{
-		if (key_data.IsEmpty()) return false;
-		std::string key = TCHAR_TO_UTF8(*key_data);
+		if (KeyData.IsEmpty()) return false;
+		std::string key = TCHAR_TO_UTF8(*KeyData);
 		const asio::const_buffer buffer(key.data(), key.size());
 		TCP.ssl_context.use_private_key(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
@@ -177,10 +177,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadPrivateKeyFile(const FString& filename)
+	bool LoadPrivateKeyFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (Filename.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.use_private_key_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
@@ -193,10 +193,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateData(const FString& cert_data)
+	bool LoadCertificateData(const FString& CertData)
 	{
-		if (cert_data.IsEmpty()) return false;
-		std::string cert = TCHAR_TO_UTF8(*cert_data);
+		if (CertData.IsEmpty()) return false;
+		std::string cert = TCHAR_TO_UTF8(*CertData);
 		const asio::const_buffer buffer(cert.data(), cert.size());
 		TCP.ssl_context.use_certificate(buffer, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
@@ -210,11 +210,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateFile(const FString& filename)
+	bool LoadCertificateFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
-		asio::error_code ec;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (Filename.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.use_certificate_file(file, asio::ssl::context::pem, ErrorCode);
 		if (ErrorCode)
 		{
@@ -227,10 +226,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateChainData(const FString& cert_chain_data)
+	bool LoadCertificateChainData(const FString& CertChainData)
 	{
-		if (cert_chain_data.IsEmpty()) return false;
-		std::string cert_chain = TCHAR_TO_UTF8(*cert_chain_data);
+		if (CertChainData.IsEmpty()) return false;
+		std::string cert_chain = TCHAR_TO_UTF8(*CertChainData);
 		const asio::const_buffer buffer(cert_chain.data(),
 										cert_chain.size());
 		TCP.ssl_context.use_certificate_chain(buffer, ErrorCode);
@@ -245,10 +244,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadCertificateChainFile(const FString& filename)
+	bool LoadCertificateChainFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (Filename.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.use_certificate_chain_file(file, ErrorCode);
 		if (ErrorCode)
 		{
@@ -261,10 +260,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Security Layer")
-	bool LoadVerifyFile(const FString& filename)
+	bool LoadVerifyFile(const FString& Filename)
 	{
-		if (filename.IsEmpty()) return false;
-		std::string file = TCHAR_TO_UTF8(*filename);
+		if (Filename.IsEmpty()) return false;
+		std::string file = TCHAR_TO_UTF8(*Filename);
 		TCP.ssl_context.load_verify_file(file, ErrorCode);
 		if (ErrorCode)
 		{
@@ -278,9 +277,9 @@ public:
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendStr(const FString& message);
+	bool SendStr(const FString& Message);
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Message")
-	bool SendBuffer(const TArray<uint8>& buffer);
+	bool SendBuffer(const TArray<uint8>& Buffer);
 
 	/*CONNECTION*/
 	UFUNCTION(BlueprintCallable, Category = "IP|TCP|Connection")

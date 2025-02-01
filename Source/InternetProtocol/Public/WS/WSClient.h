@@ -52,10 +52,10 @@ public:
 
 	/*HOST*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Remote")
-	void SetHost(const FString& url = "localhost", const FString& port = "3000")
+	void SetHost(const FString& Url = "localhost", const FString& Port = "3000")
 	{
-		Host = url;
-		Service = port;
+		Host = Url;
+		Service = Port;
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Socket")
@@ -64,13 +64,13 @@ public:
 	/*SETTINGS*/
 
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Settings")
-	void SetMaxSendBufferSize(int value = 1400) { MaxSendBufferSize = value; }
+	void SetMaxSendBufferSize(int Value = 1400) { MaxSendBufferSize = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Settings")
 	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Settings")
-	void SetSplitPackage(bool value = true) { SplitBuffer = value; }
+	void SetSplitPackage(bool Value = true) { SplitBuffer = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Settings")
 	bool GetSplitPackage() const { return SplitBuffer; }
@@ -101,34 +101,34 @@ public:
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")
-	void SetRSV1(bool value = false) { SDataFrame.rsv1 = value; }
+	void SetRSV1(bool Value = false) { SDataFrame.rsv1 = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Dataframe")
 	bool UseRSV1() const { return SDataFrame.rsv1; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")
-	void SetRSV2(bool value = false) { SDataFrame.rsv2 = value; }
+	void SetRSV2(bool Value = false) { SDataFrame.rsv2 = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Dataframe")
 	bool UseRSV2() const { return SDataFrame.rsv2; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")
-	void SetRSV3(bool value = false) { SDataFrame.rsv3 = value; }
+	void SetRSV3(bool Value = false) { SDataFrame.rsv3 = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Dataframe")
 	bool UseRSV3() const { return SDataFrame.rsv3; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")
-	void SetMask(bool value = true) { SDataFrame.mask = value; }
+	void SetMask(bool Value = true) { SDataFrame.mask = Value; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Dataframe")
 	bool UseMask() const { return SDataFrame.mask; }
 
 	/*MESSAGE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
-	bool SendStr(const FString& message);
+	bool SendStr(const FString& Message);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
-	bool SendBuffer(const TArray<uint8> buffer);
+	bool SendBuffer(const TArray<uint8> Buffer);
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Message")
 	bool SendPing();
 

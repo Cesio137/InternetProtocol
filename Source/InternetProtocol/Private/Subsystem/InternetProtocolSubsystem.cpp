@@ -86,6 +86,12 @@ UWSClient* UInternetProtocolSubsystem::CreateWebsocketClient()
 	return client;
 }
 
+UWSServerSsl* UInternetProtocolSubsystem::CreateWebsocketServerSsl()
+{
+	UWSServerSsl* server = NewObject<UWSServerSsl>();
+	return server;
+}
+
 UWSClientSsl* UInternetProtocolSubsystem::CreateWebsocketClientSsl()
 {
 	UWSClientSsl* client = NewObject<UWSClientSsl>();

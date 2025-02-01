@@ -14,25 +14,25 @@
 
 #include "TCP/TCPClient.h"
 
-bool UTCPClient::SendStr(const FString& message)
+bool UTCPClient::SendStr(const FString& Message)
 {
-	if (!TCP.socket.is_open() || message.IsEmpty())
+	if (!TCP.socket.is_open() || Message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(GetThreadPool(), std::bind(&UTCPClient::package_string, this, message));
+	asio::post(GetThreadPool(), std::bind(&UTCPClient::package_string, this, Message));
 	return true;
 }
 
-bool UTCPClient::SendBuffer(const TArray<uint8>& buffer)
+bool UTCPClient::SendBuffer(const TArray<uint8>& Buffer)
 {
-	if (!TCP.socket.is_open() || buffer.Num() <= 0)
+	if (!TCP.socket.is_open() || Buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	asio::post(GetThreadPool(), std::bind(&UTCPClient::package_buffer, this, buffer));
+	asio::post(GetThreadPool(), std::bind(&UTCPClient::package_buffer, this, Buffer));
 	return true;
 }
 
@@ -246,25 +246,25 @@ void UTCPClient::read(const asio::error_code& error, const size_t bytes_recvd)
 	);
 }
 
-bool UTCPClientSsl::SendStr(const FString& message)
+bool UTCPClientSsl::SendStr(const FString& Message)
 {
-	if (!TCP.ssl_socket.next_layer().is_open() || message.IsEmpty())
+	if (!TCP.ssl_socket.next_layer().is_open() || Message.IsEmpty())
 	{
 		return false;
 	}
 
-	asio::post(GetThreadPool(), std::bind(&UTCPClientSsl::package_string, this, message));
+	asio::post(GetThreadPool(), std::bind(&UTCPClientSsl::package_string, this, Message));
 	return true;
 }
 
-bool UTCPClientSsl::SendBuffer(const TArray<uint8>& buffer)
+bool UTCPClientSsl::SendBuffer(const TArray<uint8>& Buffer)
 {
-	if (!TCP.ssl_socket.next_layer().is_open() || buffer.Num() <= 0)
+	if (!TCP.ssl_socket.next_layer().is_open() || Buffer.Num() <= 0)
 	{
 		return false;
 	}
 
-	asio::post(GetThreadPool(), std::bind(&UTCPClientSsl::package_buffer, this, buffer));
+	asio::post(GetThreadPool(), std::bind(&UTCPClientSsl::package_buffer, this, Buffer));
 	return true;
 }
 

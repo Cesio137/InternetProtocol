@@ -108,7 +108,7 @@ public:
 	bool HasHeader(const FString& Key) { return ResponseHandshake.Headers.Contains(Key); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	FString GetHeader(const FString& Key) { return ResponseHandshake.Headers[Key]; }
+	TMap<FString, FString> GetHeaders() { return ResponseHandshake.Headers; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")
