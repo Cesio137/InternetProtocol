@@ -67,16 +67,15 @@ server.on("listening", function () {
 
 server.on("error", function (error: Error) {
     console.error(`Server error: ${error.message}`);
-    server.close();
 });
 
-export function resolve(port: number) {
+export function open(port: number) {
     server.bind(port);
 }
 
 // Client
 
-const client: dgram.Socket = dgram.createSocket("udp4");
+const client = dgram.createSocket("udp4");
 
 client.on("message", function (msg: Buffer, rinfo: dgram.RemoteInfo) {
     if (msg.length === 0) return;
@@ -90,7 +89,19 @@ client.on("connect", function () {
     console.log(
         "Type and press 'Enter' to send a message or 'quit' to close socket"
     );
+    client.send("login", function (error, bytes: number) {
+        if (error) {
+            console.error("Error trying to send message!\n", error);
+            return;
+        }
+    });
     rl.on("SIGINT", function () {
+        client.send("logout", function (error, bytes: number) {
+            if (error) {
+                console.error("Error trying to send message!\n", error);
+                return;
+            }
+        });
         server.close();
         console.log("bye!");
         process.exit();
@@ -98,6 +109,12 @@ client.on("connect", function () {
     rl.on("line", function (input: string) {
         if (input === "") return;
         if (input === "quit") {
+            client.send("logout", function (error, bytes: number) {
+                if (error) {
+                    console.error("Error trying to send message!\n", error);
+                    return;
+                }
+            });
             client.close();
             rl.close();
             console.log("\nbye!");

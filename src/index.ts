@@ -8,7 +8,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 switch (resolver_arg) {
     case "udp_server":
-        udp.resolve(port);
+        udp.open(port);
         break;
 
     case "udp_client":
@@ -16,8 +16,8 @@ switch (resolver_arg) {
         break;
 
     case "tcp_server":
-        if (use_openssl) tcp.ssl_resolve(port);
-        else tcp.resolve(port);
+        if (use_openssl) tcp.ssl_open(port);
+        else tcp.open(port);
         break;
 
     case "tcp_client":
@@ -46,6 +46,6 @@ switch (resolver_arg) {
         break;
 
     default:
-        udp.resolve(port);
+        udp.open(port);
         break;
 }

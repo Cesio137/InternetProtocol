@@ -6,10 +6,7 @@ import { rl } from "#io";
 // Server
 
 const server = net.createServer(socket);
-server.on("error", error);
 const ssl_server = tls.createServer(credentials, socket);
-ssl_server.on("error", error);
-
 const remotes: (net.Socket | tls.TLSSocket)[] = [];
 
 function socket(socket: net.Socket | tls.TLSSocket) {
@@ -83,14 +80,23 @@ function socket(socket: net.Socket | tls.TLSSocket) {
     });
 }
 
-export function resolve(port: number) {
+function server_error(error: Error) {
+    console.error("Error:", error);
+    server.close();
+    rl.close();
+    console.log("bye!");
+    process.exit();
+}
+
+export function open(port: number) {
+    server.on("error", server_error);
     server.listen(port, () => {
         console.log(`TCP server listening on locahost:${port}`);
     });
-    
 }
 
-export function ssl_resolve(port: number) {
+export function ssl_open(port: number) {
+    ssl_server.on("error", server_error);
     ssl_server.listen(port, () => {
         console.log(`TCP SSL server listening on localhost:${port}`);
     });
@@ -99,7 +105,6 @@ export function ssl_resolve(port: number) {
 // Client
 
 const client = new net.Socket();
-client.on("error", error);
 
 function listener(socket: net.Socket | tls.TLSSocket) {
     console.log(
@@ -110,7 +115,7 @@ function listener(socket: net.Socket | tls.TLSSocket) {
     );
 
     socket.on("data", function (data) {
-        const message = `${socket.remotePort} -> ${data.toString()}`;
+        const message = `${data.toString()}`;
         console.log(message);
     });
 
@@ -144,7 +149,16 @@ function listener(socket: net.Socket | tls.TLSSocket) {
     });
 }
 
+function client_error(error: Error) {
+    console.error("Error: ", error.message);
+    client.end();
+    rl.close();
+    console.log("bye!");
+    process.exit();
+}
+
 export function connect(port: number) {
+    client.on("error", client_error)
     client.connect({ host: "127.0.0.1", port }, function() {
         listener(client);
     });
@@ -161,16 +175,8 @@ export function ssl_connect(port: number) {
             ca: credentials.ca
         },
         function () {
-            ssl_client.on("error", error);
+            ssl_client.on("error", client_error);
             listener(ssl_client);
         }
     );
-}
-
-function error(error: Error) {
-    console.error("Error:", error);
-    server.close();
-    client.end();
-    console.log("bye!");
-    process.exit();
 }
