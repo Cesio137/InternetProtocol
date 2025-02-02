@@ -579,7 +579,7 @@ TArray<uint8> UWSServer::sha1(const FString& input)
 	uint64_t bit_length = input.Len() * 8;
 	std::string padded_input = TCHAR_TO_UTF8(*input);
 
-	padded_input += static_cast<char>(0x80);
+	padded_input += static_cast<unsigned char>(0x80);
 
 	while ((padded_input.size() % 64) != 56)
 	{
@@ -1732,7 +1732,7 @@ TArray<uint8> UWSServerSsl::sha1(const FString& input)
 	uint64_t bit_length = input.Len() * 8;
 	std::string padded_input = TCHAR_TO_UTF8(*input);
 
-	padded_input += static_cast<char>(0x80);
+	padded_input += static_cast<unsigned char>(0x80);
 
 	while ((padded_input.size() % 64) != 56)
 	{
