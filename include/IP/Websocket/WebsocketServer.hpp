@@ -549,7 +549,7 @@ namespace InternetProtocol {
             uint64_t bit_length = input.size() * 8;
             std::string padded_input = input;
 
-            padded_input += static_cast<char>(0x80);
+            padded_input += static_cast<unsigned char>(0x80);
 
             while ((padded_input.size() % 64) != 56) {
                 padded_input += static_cast<char>(0x00);
@@ -1566,7 +1566,7 @@ namespace InternetProtocol {
             uint64_t bit_length = input.size() * 8;
             std::string padded_input = input;
 
-            padded_input += static_cast<char>(0x80);
+            padded_input += static_cast<unsigned char>(0x80);
 
             while ((padded_input.size() % 64) != 56) {
                 padded_input += static_cast<char>(0x00);
