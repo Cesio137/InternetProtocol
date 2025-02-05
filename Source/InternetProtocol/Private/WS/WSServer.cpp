@@ -1133,14 +1133,14 @@ void UWSServer::read(const std::error_code& error, const size_t bytes_recvd, con
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnPongReceived.Broadcast();
+			OnPongReceived.Broadcast(socket);
 		});
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::CONNECTION_CLOSE)
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnCloseNotify.Broadcast();
+			OnCloseNotify.Broadcast(socket);
 		});
 	}
 	else
@@ -2320,14 +2320,14 @@ void UWSServerSsl::read(const std::error_code& error, const size_t bytes_recvd, 
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnPongReceived.Broadcast();
+			OnPongReceived.Broadcast(ssl_socket);
 		});
 	}
 	else if (rDataFrame.DataFrame.opcode == EOpcode::CONNECTION_CLOSE)
 	{
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
-			OnCloseNotify.Broadcast();
+			OnCloseNotify.Broadcast(ssl_socket);
 		});
 	}
 	else

@@ -125,7 +125,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
 	void PreparePayload();
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
-	bool AsyncPreparePayload();
+	void AsyncPreparePayload();
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Payload")
 	FString GetPayloadData() const { return Payload; }
 
@@ -419,7 +419,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
 	void PreparePayload();
 	UFUNCTION(BlueprintCallable, Category="IP|HTTP|Payload")
-	bool AsyncPreparePayload();
+	void AsyncPreparePayload();
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Payload")
 	FString GetPayloadData() const { return Payload; }
 

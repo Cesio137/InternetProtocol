@@ -171,13 +171,11 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateWsSocketMessage OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateConnection OnPongReceived;
+	FDelegateTcpAcceptor OnPongReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateConnection OnCloseNotify;
+	FDelegateTcpAcceptor OnCloseNotify;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateHttpDataError OnHandshakeFail;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateTcpSocketError OnSocketDisconnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
@@ -520,13 +518,11 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateWsSslSocketMessage OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateConnection OnPongReceived;
+	FDelegateTcpSslAcceptor OnPongReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateConnection OnCloseNotify;
+	FDelegateTcpSslAcceptor OnCloseNotify;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
-	FDelegateHttpDataError OnHandshakeFail;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
 	FDelegateTcpSslSocketError OnSocketDisconnected;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")

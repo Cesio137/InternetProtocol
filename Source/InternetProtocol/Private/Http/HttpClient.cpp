@@ -59,19 +59,17 @@ void UHttpClient::PreparePayload()
 	}
 }
 
-bool UHttpClient::AsyncPreparePayload()
+void UHttpClient::AsyncPreparePayload()
 {
 	asio::post(GetThreadPool(), [&]()
 	{
 		FScopeLock Guard(&MutexPayload);
-		MutexPayload.Lock();
 		PreparePayload();
 		AsyncTask(ENamedThreads::GameThread, [&]()
 		{
 			OnAsyncPayloadFinished.Broadcast();
 		});
 	});
-	return true;
 }
 
 bool UHttpClient::ProcessRequest()
@@ -414,7 +412,7 @@ void UHttpClientSsl::PreparePayload()
 	}
 }
 
-bool UHttpClientSsl::AsyncPreparePayload()
+void UHttpClientSsl::AsyncPreparePayload()
 {
 	asio::post(GetThreadPool(), [&]()
 	{
@@ -425,7 +423,6 @@ bool UHttpClientSsl::AsyncPreparePayload()
 			OnAsyncPayloadFinished.Broadcast();
 		});
 	});
-	return true;
 }
 
 bool UHttpClientSsl::ProcessRequest()
