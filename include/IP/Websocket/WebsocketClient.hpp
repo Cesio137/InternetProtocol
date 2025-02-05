@@ -30,7 +30,7 @@ namespace InternetProtocol {
 
         ~WebsocketClient() {
             tcp.resolver.cancel();
-            if (is_connected()) close();
+            if (tcp.socket.is_open()) close();
             consume_response_buffer();
         }
 
@@ -80,14 +80,14 @@ namespace InternetProtocol {
 
         /*MESSAGE*/
         bool send_str(const std::string &message) {
-            if (!is_connected() || message.empty()) return false;
+            if (!tcp.socket.is_open() || message.empty()) return false;
 
             asio::post(thread_pool, std::bind(&WebsocketClient::post_string, this, message));
             return true;
         }
 
         bool send_buffer(const std::vector<uint8_t> &buffer) {
-            if (is_connected() || buffer.empty()) return false;
+            if (tcp.socket.is_open() || buffer.empty()) return false;
 
             asio::post(thread_pool, std::bind(&WebsocketClient::post_buffer, this,
                                               EOpcode::BINARY_FRAME, buffer));
@@ -95,7 +95,7 @@ namespace InternetProtocol {
         }
 
         bool send_ping() {
-            if (!is_connected()) return false;
+            if (!tcp.socket.is_open()) return false;
 
             std::vector<uint8_t> ping_buffer = {'p', 'i', 'n', 'g', '\0'};
             asio::post(thread_pool, std::bind(&WebsocketClient::post_buffer, this,
@@ -103,25 +103,13 @@ namespace InternetProtocol {
             return true;
         }
 
-        bool async_read() {
-            if (!is_connected()) return false;
-
-            asio::async_read(
-                tcp.socket, response_buffer, asio::transfer_at_least(2),
-                std::bind(&WebsocketClient::read, this, asio::placeholders::error,
-                          asio::placeholders::bytes_transferred));
-            return true;
-        }
-
         /*CONNECTION*/
         bool connect() {
-            if (is_connected()) return false;
+            if (tcp.socket.is_open()) return false;
 
             asio::post(thread_pool, std::bind(&WebsocketClient::run_context_thread, this));
             return true;
         }
-
-        bool is_connected() const { return tcp.socket.is_open(); }
 
         void close() {
             is_closing = true;
@@ -812,7 +800,7 @@ namespace InternetProtocol {
         ~WebsocketClientSsl() {
             should_stop_context = true;
             tcp.resolver.cancel();
-            if (is_connected()) close();
+            if (tcp.ssl_socket.next_layer().is_open()) close();
             consume_response_buffer();
         }
 
@@ -941,7 +929,7 @@ namespace InternetProtocol {
 
         /*MESSAGE*/
         bool send_str(const std::string &message) {
-            if (!is_connected() || message.empty()) return false;
+            if (!tcp.ssl_socket.next_layer().is_open() || message.empty()) return false;
 
             asio::post(thread_pool,
                        std::bind(&WebsocketClientSsl::post_string, this, message));
@@ -949,7 +937,7 @@ namespace InternetProtocol {
         }
 
         bool send_buffer(const std::vector<uint8_t> &buffer) {
-            if (!is_connected() || buffer.empty()) return false;
+            if (!tcp.ssl_socket.next_layer().is_open() || buffer.empty()) return false;
 
             asio::post(thread_pool, std::bind(&WebsocketClientSsl::post_buffer, this,
                                               EOpcode::BINARY_FRAME, buffer));
@@ -957,7 +945,7 @@ namespace InternetProtocol {
         }
 
         bool send_ping() {
-            if (!is_connected()) return false;
+            if (!tcp.ssl_socket.next_layer().is_open()) return false;
 
             std::vector<uint8_t> ping_buffer;
             ping_buffer.push_back(uint8_t('\0'));
@@ -968,13 +956,11 @@ namespace InternetProtocol {
 
         /*CONNECTION*/
         bool connect() {
-            if (is_connected()) return false;
+            if (tcp.ssl_socket.next_layer().is_open()) return false;
 
             asio::post(thread_pool, std::bind(&WebsocketClientSsl::run_context_thread, this));
             return true;
         }
-
-        bool is_connected() const { return tcp.ssl_socket.lowest_layer().is_open(); }
 
         void close() {
             is_closing = true;

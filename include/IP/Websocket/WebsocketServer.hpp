@@ -58,12 +58,12 @@ namespace InternetProtocol {
 
         void clear_headers() { res_handshake.headers.clear(); }
 
-        void remove_param(const std::string &key) {
+        void remove_header(const std::string &key) {
             if (!res_handshake.headers.contains(key)) return;
             res_handshake.headers.erase(key);
         }
 
-        bool has_param(const std::string &key) const {
+        bool has_header(const std::string &key) const {
             return res_handshake.headers.contains(key);
         }
 
@@ -221,11 +221,10 @@ namespace InternetProtocol {
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
         std::function<void(const asio::error_code &, const socket_ptr &)> on_message_sent;
         std::function<void(const FWsMessage, const socket_ptr &)> on_message_received;
-        std::function<void()> on_pong_received;
-        std::function<void()> on_close_notify;
+        std::function<void(const socket_ptr &)> on_pong_received;
+        std::function<void(const socket_ptr &)> on_close_notify;
         std::function<void(const asio::error_code &, const socket_ptr &)> on_socket_disconnected;
         std::function<void()> on_close;
-        std::function<void(const int, const std::string &)> on_handshake_fail;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -942,9 +941,9 @@ namespace InternetProtocol {
                 std::vector<uint8_t> pong_buffer = { 'p', 'o', 'n', 'g', '\0' };
                 post_buffer(EOpcode::PONG, pong_buffer, socket);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
-                if (on_pong_received) on_pong_received();
+                if (on_pong_received) on_pong_received(socket);
             } else if (rDataFrame.data_frame.opcode == EOpcode::CONNECTION_CLOSE) {
-                if (on_close_notify) on_close_notify();
+                if (on_close_notify) on_close_notify(socket);
             } else {
                 rDataFrame.size = bytes_recvd;
                 if (on_message_received) on_message_received(rDataFrame, socket);
@@ -1242,11 +1241,10 @@ namespace InternetProtocol {
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
         std::function<void(const asio::error_code &, const ssl_socket_ptr &)> on_message_sent;
         std::function<void(const FWsMessage, const ssl_socket_ptr &)> on_message_received;
-        std::function<void()> on_pong_received;
-        std::function<void()> on_close_notify;
+        std::function<void(const ssl_socket_ptr &ssl_socket)> on_pong_received;
+        std::function<void(const ssl_socket_ptr &ssl_socket)> on_close_notify;
         std::function<void(const asio::error_code &, const ssl_socket_ptr &)> on_socket_disconnected;
         std::function<void()> on_close;
-        std::function<void(const int, const std::string &)> on_handshake_fail;
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -1984,9 +1982,9 @@ namespace InternetProtocol {
                 };
                 post_buffer(EOpcode::PONG, pong_buffer, ssl_socket);
             } else if (rDataFrame.data_frame.opcode == EOpcode::PONG) {
-                if (on_pong_received) on_pong_received();
+                if (on_pong_received) on_pong_received(ssl_socket);
             } else if (rDataFrame.data_frame.opcode == EOpcode::CONNECTION_CLOSE) {
-                if (on_close_notify) on_close_notify();
+                if (on_close_notify) on_close_notify(ssl_socket);
             } else {
                 rDataFrame.size = bytes_recvd;
                 if (on_message_received) on_message_received(rDataFrame, ssl_socket);

@@ -27,14 +27,6 @@ namespace InternetProtocol {
 
         std::vector<uint8_t> raw_data;
         size_t size = 0;
-
-        std::string toString() const {
-            std::string str;
-            str.resize(size);
-            std::transform(raw_data.begin(), raw_data.end(), str.begin(),
-                           [](uint8_t byte) { return static_cast<char>(byte); });
-            return str;
-        }
     };
 
     struct FTcpMessage {

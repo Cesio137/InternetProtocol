@@ -166,7 +166,7 @@ namespace InternetProtocol {
         asio::error_code get_error_code() const { return error_code; }
 
         /* EVENTS */
-        std::function<void(const socket_ptr &)> on_socket_accept;
+        std::function<void(const socket_ptr &)> on_socket_accepted;
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
         std::function<void(const Server::FRequest, Server::FResponse &, const socket_ptr &)> on_request_received;
         std::function<void(const asio::error_code &, const socket_ptr &)> on_request_error;
@@ -286,7 +286,7 @@ namespace InternetProtocol {
                                                  asio::placeholders::error, asio::placeholders::bytes_transferred,
                                                  socket));
 
-                if (on_socket_accept) on_socket_accept(socket);
+                if (on_socket_accepted) on_socket_accepted(socket);
             } else {
                 std::lock_guard<std::mutex> guard(mutex_error);
                 disconnect_socket_after_error(error, socket);
@@ -651,7 +651,7 @@ namespace InternetProtocol {
         asio::error_code get_error_code() const { return error_code; }
 
         /*EVENTS*/
-        std::function<void(const ssl_socket_ptr &)> on_socket_accept;
+        std::function<void(const ssl_socket_ptr &)> on_socket_accepted;
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
         std::function<void(const Server::FRequest, Server::FResponse, const ssl_socket_ptr &)> on_request_received;
         std::function<void(const asio::error_code &, const ssl_socket_ptr &)> on_request_error;
@@ -817,7 +817,7 @@ namespace InternetProtocol {
                                              asio::placeholders::error, asio::placeholders::bytes_transferred,
                                              ssl_socket));
 
-            if (on_socket_accept) on_socket_accept(ssl_socket);
+            if (on_socket_accepted) on_socket_accepted(ssl_socket);
         }
 
         void write_response(const asio::error_code &error, const size_t bytes_sent, const ssl_socket_ptr &ssl_socket,
