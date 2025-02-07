@@ -95,7 +95,7 @@ namespace InternetProtocol {
         std::function<void()> on_connected;
         std::function<void(const size_t, const size_t)> on_bytes_transfered;
         std::function<void(const asio::error_code &)> on_message_sent;
-        std::function<void(const FUdpMessage)> on_message_received;
+        std::function<void(const FUdpMessage, const asio::ip::udp::endpoint)> on_message_received;
         std::function<void()> on_close;
         std::function<void(const asio::error_code &)> on_error;
 
@@ -236,7 +236,7 @@ namespace InternetProtocol {
             rbuffer.size = bytes_recvd;
             rbuffer.raw_data.resize(bytes_recvd);
             if (on_message_received)
-                on_message_received(rbuffer);
+                on_message_received(rbuffer, udp.endpoints);
 
             consume_receive_buffer();
             udp.socket.async_receive_from(asio::buffer(rbuffer.raw_data, rbuffer.raw_data.size()), udp.endpoints,

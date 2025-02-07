@@ -52,23 +52,12 @@ namespace InternetProtocol {
         bool get_split_package() const { return split_buffer; }
 
         /*HANDSHAKE*/
-        void append_headers(const std::string &key, const std::string &value) {
-            res_handshake.headers.insert_or_assign(key, value);
+        void set_headers(const std::map<std::string, std::string> &header) {
+            res_handshake.headers = header;
         }
 
-        void clear_headers() { res_handshake.headers.clear(); }
-
-        void remove_header(const std::string &key) {
-            if (!res_handshake.headers.contains(key)) return;
-            res_handshake.headers.erase(key);
-        }
-
-        bool has_header(const std::string &key) const {
-            return res_handshake.headers.contains(key);
-        }
-
-        const std::string &get_header(const std::string &key) {
-            return res_handshake.headers[key];
+        std::map<std::string, std::string> &get_headers() {
+            return res_handshake.headers;
         }
 
         /*DATAFRAME*/
@@ -993,23 +982,12 @@ namespace InternetProtocol {
         bool get_split_package() const { return split_buffer; }
 
         /*HANDSHAKE*/
-        void append_headers(const std::string &key, const std::string &value) {
-            res_handshake.headers[key] = value;
+        void set_headers(const std::map<std::string, std::string> &header) {
+            res_handshake.headers = header;
         }
 
-        void clear_headers() { res_handshake.headers.clear(); }
-
-        void remove_param(const std::string &key) {
-            if (!res_handshake.headers.contains(key)) return;
-            res_handshake.headers.erase(key);
-        }
-
-        bool has_param(const std::string &key) const {
-            return res_handshake.headers.contains(key);
-        }
-
-        const std::string &get_header(const std::string &key) {
-            return res_handshake.headers[key];
+        std::map<std::string, std::string> &get_headers() {
+            return res_handshake.headers;
         }
 
         /*DATAFRAME*/

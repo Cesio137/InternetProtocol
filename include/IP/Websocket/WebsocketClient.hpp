@@ -49,23 +49,12 @@ namespace InternetProtocol {
         bool get_split_package() const { return split_buffer; }
 
         /*HANDSHAKE*/
-        void append_header(const std::string &key, const std::string &value) {
-            req_handshake.headers[key] = value;
+        void set_headers(const std::map<std::string, std::string> &header) {
+            req_handshake.headers = header;
         }
 
-        void clear_headers() { req_handshake.headers.clear(); }
-
-        void remove_header(const std::string &key) {
-            if (!req_handshake.headers.contains(key)) return;
-            req_handshake.headers.erase(key);
-        }
-
-        bool has_header(const std::string &key) const {
-            return req_handshake.headers.contains(key);
-        }
-
-        const std::string &get_header(const std::string &key) {
-            return req_handshake.headers[key];
+        std::map<std::string, std::string> &get_headers() {
+            return req_handshake.headers;
         }
 
         /*DATAFRAME*/
@@ -824,23 +813,12 @@ namespace InternetProtocol {
         bool get_split_package() const { return split_buffer; }
 
         /*HANDSHAKE*/
-        void append_header(const std::string &key, const std::string &value) {
-            req_handshake.headers[key] = value;
+        void set_headers(const std::map<std::string, std::string> &header) {
+            req_handshake.headers = header;
         }
 
-        void clear_headers() { req_handshake.headers.clear(); }
-
-        void remove_header(const std::string &key) {
-            if (!req_handshake.headers.contains(key)) return;
-            req_handshake.headers.erase(key);
-        }
-
-        bool has_header(const std::string &key) const {
-            return req_handshake.headers.contains(key);
-        }
-
-        const std::string &get_header(const std::string &key) {
-            return req_handshake.headers[key];
+        std::map<std::string, std::string> &get_headers() {
+            return req_handshake.headers;
         }
 
         /*DATAFRAME*/

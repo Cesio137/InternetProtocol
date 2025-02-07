@@ -61,39 +61,24 @@ namespace InternetProtocol {
 
         std::string get_path() const { return request.path; }
 
-        void append_params(const std::string &key, const std::string &value) {
-            request.params[key] = value;
+        void set_params(const std::map<std::string, std::string> &params) {
+            request.params = params;
         }
 
-        void clear_params() { request.params.clear(); }
-        void remove_param(const std::string &key) { request.params.erase(key); }
-
-        bool has_param(const std::string &key) const {
-            return request.params.contains(key);
-        }
-
-        std::map<std::string, std::string> get_params() const {
+        std::map<std::string, std::string> &get_params() {
             return request.params;
         }
 
-        void append_headers(const std::string &key, const std::string &value) {
-            request.headers[key] = value;
+        void set_headers(const std::map<std::string, std::string> &headers) {
+            request.headers = headers;
         }
 
-        void clear_headers() { request.headers.clear(); }
-        void remove_header(const std::string &key) { request.headers.erase(key); }
-
-        bool has_header(const std::string &key) const {
-            return request.headers.contains(key);
-        }
-
-        std::map<std::string, std::string> get_headers() const {
+        std::map<std::string, std::string> &get_headers() {
             return request.headers;
         }
 
         void set_body(const std::string &value) { request.body = value; }
-        void clear_body() { request.body.clear(); }
-        std::string get_body() const { return request.body; }
+        std::string &get_body() { return request.body; }
 
         Client::FRequest get_request_data() const { return request; }
 
@@ -432,39 +417,24 @@ namespace InternetProtocol {
 
         std::string get_path() const { return request.path; }
 
-        void append_params(const std::string &key, const std::string &value) {
-            request.params[key] = value;
+        void set_params(const std::map<std::string, std::string> &params) {
+            request.params = params;
         }
 
-        void clear_params() { request.params.clear(); }
-        void remove_param(const std::string &key) { request.params.erase(key); }
-
-        bool has_param(const std::string &key) const {
-            return request.params.find(key) != request.params.end();
-        }
-
-        std::map<std::string, std::string> get_params() const {
+        std::map<std::string, std::string> &get_params() {
             return request.params;
         }
 
-        void append_headers(const std::string &key, const std::string &value) {
-            request.headers[key] = value;
+        void set_headers(const std::map<std::string, std::string> &headers) {
+            request.headers = headers;
         }
 
-        void clear_headers() { request.headers.clear(); }
-        void remove_header(const std::string &key) { request.headers.erase(key); }
-
-        bool has_header(const std::string &key) const {
-            return request.headers.find(key) != request.headers.end();
-        }
-
-        std::map<std::string, std::string> get_headers() const {
+        std::map<std::string, std::string> &get_headers() {
             return request.headers;
         }
 
         void set_body(const std::string &value) { request.body = value; }
-        void clear_body() { request.body.clear(); }
-        std::string get_body() const { return request.body; }
+        std::string &get_body() { return request.body; }
 
         Client::FRequest get_request_data() const { return request; }
 

@@ -43,15 +43,12 @@ namespace InternetProtocol {
         }
 
         /* HEADERS */
-        void append_headers(const std::string &key, const std::string &value) {
-            headers[key] = value;
+        void set_headers(const std::map<std::string, std::string> &header) {
+            headers = header;
         }
 
-        void clear_headers() { headers.clear(); }
-        void remove_header(const std::string &key) { headers.erase(key); }
-
-        bool has_header(const std::string &key) const {
-            return headers.contains(key);
+        std::map<std::string, std::string> &get_headers() {
+            return headers;
         }
 
         /* RESPONSE */
@@ -451,15 +448,12 @@ namespace InternetProtocol {
         }
 
         /*HEADERS*/
-        void append_headers(const std::string &key, const std::string &value) {
-            headers[key] = value;
+        void set_headers(const std::map<std::string, std::string> &header) {
+            headers = header;
         }
 
-        void clear_headers() { headers.clear(); }
-        void remove_header(const std::string &key) { headers.erase(key); }
-
-        bool has_header(const std::string &key) const {
-            return headers.contains(key);
+        std::map<std::string, std::string> &get_headers() {
+            return headers;
         }
 
         /*SECURITY LAYER*/
