@@ -88,7 +88,7 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
 	FDelegateBytesTransferred OnBytesTransferred;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
-	FDelegateMessageSent OnMessageSent;
+	FDelegateUdpMessageSent OnMessageSent;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
 	FDelegateUdpMessage OnMessageReceived;
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")

@@ -70,21 +70,12 @@ public:
 		return sockets;
 	}
 
-	/*REQUEST DATA*/
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendHeaders(const FString& Key, const FString& value) { Headers.Add(Key, value); }
+	/*RESPONSE DATA*/
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
+	void SetHeaders(const TMap<FString, FString> &Header) { Headers = Header; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearHeaders() { Headers.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveHeader(const FString& Key) { Headers.Remove(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasHeader(const FString& Key) const { return Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	TMap<FString, FString> GetHeaders() const { return Headers; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Response")
+	TMap<FString, FString> &GetHeaders() { return Headers; }
 
 	/*RESPONSE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
@@ -205,21 +196,12 @@ public:
 		return sockets;
 	}
 
-	/*REQUEST DATA*/
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendHeaders(const FString& Key, const FString& Value) { Headers.Add(Key, Value); }
+	/*RESPONSE DATA*/
+	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Response")
+	void SetHeaders(const TMap<FString, FString> &Header) { Headers = Header; }
 
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearHeaders() { Headers.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveHeader(const FString& Key) { Headers.Remove(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasHeader(const FString& Key) const { return Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	TMap<FString, FString> GetHeaders() const { return Headers; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Response")
+	TMap<FString, FString> &GetHeaders() { return Headers; }
 
 	/*SECURITY LAYER*/
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Security Layer")

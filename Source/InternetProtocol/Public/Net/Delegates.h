@@ -39,6 +39,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateSslSocketMessageSent, cons
                                              const FTCPSslSocket, SslSocket);
 
 /*UDP*/
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessageSent, const FErrorCode, HadError, const FUDPEndpoint,
+											 Endpoint);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpMessage, const FUdpMessage, Message, const FUDPEndpoint,
                                              Endpoint);
 

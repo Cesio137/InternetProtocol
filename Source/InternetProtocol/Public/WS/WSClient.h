@@ -75,29 +75,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Settings")
 	bool GetSplitPackage() const { return SplitBuffer; }
 
-
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void AppendHeader(const FString& Key, const FString& Value) { RequestHandshake.Headers[Key] = Value; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void ClearHeaders() { UHttpFunctionLibrary::ClearRequest(RequestHandshake); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void RemoveHeader(const FString& Key)
-	{
-		if (!RequestHandshake.Headers.Contains(Key))
-		{
-			return;
-		}
-		RequestHandshake.Headers.Remove(Key);
-	}
+	void SetHeaders(const TMap<FString, FString> &Header) { RequestHandshake.Headers = Header; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	bool HasHeader(const FString& Key) { return RequestHandshake.Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	FString GetHeader(const FString& Key) { return RequestHandshake.Headers[Key]; }
+	TMap<FString, FString> &GetHeaders() { return RequestHandshake.Headers; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")
@@ -238,10 +221,10 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Context")
-	FSslContext GetContext() { return TCP.ssl_context; }
+	FSslContext GetSslContext() { return TCP.ssl_context; }
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Socket")
-	FTCPSslSocket GetSocket() { return TCP.ssl_socket; }
+	FTCPSslSocket GetSslSocket() { return TCP.ssl_socket; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Socket")
 	void UpdateSslSocket() { TCP.ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>(TCP.context, TCP.ssl_context); }
@@ -258,30 +241,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Settings")
 	bool GetSplitPackage() const { return SplitBuffer; }
-
-
+	
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void AppendHeader(const FString& Key, const FString& Value) { RequestHandshake.Headers[Key] = Value; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void ClearHeaders() { UHttpFunctionLibrary::ClearRequest(RequestHandshake); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void RemoveHeader(const FString& Key)
-	{
-		if (!RequestHandshake.Headers.Contains(Key))
-		{
-			return;
-		}
-		RequestHandshake.Headers.Remove(Key);
-	}
+	void SetHeaders(const TMap<FString, FString> &Header) { RequestHandshake.Headers = Header; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	bool HasHeader(const FString& Key) { return RequestHandshake.Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	FString GetHeader(const FString& Key) { return RequestHandshake.Headers[Key]; }
+	TMap<FString, FString> &GetHeaders() { return RequestHandshake.Headers; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")

@@ -173,10 +173,10 @@ void UUDPServer::send_to(const asio::error_code& error, const size_t bytes_sent,
 		});
 		return;
 	}
-	AsyncTask(ENamedThreads::GameThread, [&, bytes_sent]()
+	AsyncTask(ENamedThreads::GameThread, [&, error, bytes_sent, endpoint]()
 	{
 		OnBytesTransferred.Broadcast(bytes_sent, 0);
-		OnMessageSent.Broadcast(error);
+		OnMessageSent.Broadcast(error, endpoint);
 	});
 }
 

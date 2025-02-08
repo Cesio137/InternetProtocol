@@ -89,26 +89,10 @@ public:
 
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void AppendHeader(const FString& Key, const FString& Value) { ResponseHandshake.Headers[Key] = Value; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void ClearHeaders() { ResponseHandshake.Headers.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void RemoveHeader(const FString& Key)
-	{
-		if (!ResponseHandshake.Headers.Contains(Key))
-		{
-			return;
-		}
-		ResponseHandshake.Headers.Remove(Key);
-	}
+	void SetHeaders(const TMap<FString, FString> &Header) {ResponseHandshake.Headers = Header; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	bool HasHeader(const FString& Key) { return ResponseHandshake.Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	TMap<FString, FString> GetHeaders() { return ResponseHandshake.Headers; }
+	TMap<FString, FString> &GetHeaders() { return ResponseHandshake.Headers; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")
@@ -297,26 +281,10 @@ public:
 
 	/*HANDSHAKE*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void AppendHeader(const FString& Key, const FString& Value) { ResponseHandshake.Headers[Key] = Value; }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void ClearHeaders() { ResponseHandshake.Headers.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Handshake")
-	void RemoveHeader(const FString& Key)
-	{
-		if (!ResponseHandshake.Headers.Contains(Key))
-		{
-			return;
-		}
-		ResponseHandshake.Headers.Remove(Key);
-	}
+	void SetHeaders(const TMap<FString, FString> &Header) {ResponseHandshake.Headers = Header; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	bool HasHeader(const FString& Key) { return ResponseHandshake.Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|Websocket|Handshake")
-	FString GetHeader(const FString& Key) { return ResponseHandshake.Headers[Key]; }
+	TMap<FString, FString> &GetHeaders() { return ResponseHandshake.Headers; }
 
 	/*DATAFRAME*/
 	UFUNCTION(BlueprintCallable, Category = "IP|Websocket|Dataframe")

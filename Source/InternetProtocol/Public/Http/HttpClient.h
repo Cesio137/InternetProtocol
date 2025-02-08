@@ -80,34 +80,16 @@ public:
 	FString GetPath() const { return Request.Path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendParams(const FString& Key, const FString& value) { Request.Params.Add(Key, value); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearParams() { Request.Params.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveParam(const FString& Key) { Request.Params.Remove(Key); }
+	void SetParams(const TMap<FString, FString>& Params) { Request.Params = Params; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasParam(const FString& Key) const { return Request.Params.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	TMap<FString, FString> GetParams() const { return Request.Params; }
+	TMap<FString, FString> &GetParams() { return Request.Params; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendHeaders(const FString& Key, const FString& Value) { Request.Headers.Add(Key, Value); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearHeaders() { Request.Headers.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveHeader(const FString& Key) { Request.Headers.Remove(Key); }
+	void SetHeaders(const TMap<FString, FString> &Headers) { Request.Headers = Headers; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasHeader(const FString& Key) const { return Request.Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	TMap<FString, FString> GetHeaders() const { return Request.Headers; }
+	TMap<FString, FString> &GetHeaders() { return Request.Headers; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetBody(const FString& Value) { Request.Body = Value; }
@@ -256,34 +238,16 @@ public:
 	FString GetPath() const { return Request.Path; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendParams(const FString& Key, const FString& value) { Request.Params.Add(Key, value); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearParams() { Request.Params.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveParam(const FString& Key) { Request.Params.Remove(Key); }
+	void SetParams(const TMap<FString, FString>& Params) { Request.Params = Params; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasParam(const FString& Key) const { return Request.Params.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	TMap<FString, FString> GetParams() const { return Request.Params; }
+	TMap<FString, FString> &GetParams() { return Request.Params; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void AppendHeaders(const FString& Key, const FString& Value) { Request.Headers.Add(Key, Value); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void ClearHeaders() { Request.Headers.Empty(); }
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
-	void RemoveHeader(const FString& Key) { Request.Headers.Remove(Key); }
+	void SetHeaders(const TMap<FString, FString> &Headers) { Request.Headers = Headers; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	bool HasHeader(const FString& Key) const { return Request.Headers.Contains(Key); }
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP|Request")
-	TMap<FString, FString> GetHeaders() const { return Request.Headers; }
+	TMap<FString, FString> &GetHeaders() { return Request.Headers; }
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP|Request")
 	void SetBody(const FString& Value) { Request.Body = Value; }
