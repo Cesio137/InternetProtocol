@@ -1,4 +1,4 @@
-# InternetProtocol | 4.27 to 5.4 |
+# InternetProtocol | 4.27 to 5.5 |
 
 The InternetProtocol plugin is a versatile networking solution designed for Unreal Engine, enabling developers to seamlessly establish and manage HTTP, WebSocket, TCP, and UDP connections. This powerful plugin caters to the creation of both clients and servers, providing a robust framework for real-time data exchange and online interaction. Whether you’re developing multiplayer games, interactive applications, or complex networked systems, the InternetProtocol plugin offers the essential tools to bring your project’s connectivity to the next level.
 
@@ -28,19 +28,19 @@ This is a development branch to implement some experimental features before merg
 
 ---
 
-- [ ] TCP server
+- [X] TCP server
 
 - [X] TCP client
 
-- [ ] UDP server
+- [X] UDP server
 
 - [X] UDP client
 
-- [ ] Http server
+- [X] Http server
 
 - [X] Http client
 
-- [ ] Websocket server
+- [X] Websocket server
 
 - [X] Websocket client
 
@@ -69,8 +69,8 @@ A description of what actually happens.
 - Extract/Move `InternetProtocol` folder into your project's `Plugin` folder.
 
 # Thirdparty libraries
-- [Asio non-boost 1.30.2](https://think-async.com/Asio/)
-- [Openssl 3.3.2](https://www.openssl.org/)
+- [Asio non-boost](https://think-async.com/Asio/)
+- [Openssl](https://www.openssl.org/)
 
 # LICENCE
 

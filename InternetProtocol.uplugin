@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 2,
-	"VersionName": "2.0",
+	"VersionName": "2.0.1",
 	"FriendlyName": "Internet Protocol",
 	"Description": "UDP, TCP, HTTP, Websocket and SSL conections.",
 	"Category": "Online",
