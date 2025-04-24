@@ -54,19 +54,19 @@ in the unreal-dev branch.
 
 ---
 
-- [ ] TCP server
+- [X] TCP server
 
 - [X] TCP client
 
-- [ ] UDP server
+- [X] UDP server
 
 - [X] UDP client
 
-- [ ] Http server
+- [X] Http server
 
 - [X] Http client
 
-- [ ] Websocket server
+- [X] Websocket server
 
 - [X] Websocket client
 
@@ -129,8 +129,8 @@ A description of what actually happens.
 
 # Thirdparty libraries
 
-- [Asio Standalone 1.30.2](https://think-async.com/Asio/)
-- [Openssl 3.3.2](https://www.openssl.org/)
+- [Asio Standalone](https://think-async.com/Asio/)
+- [Openssl](https://www.openssl.org/)
 
 # LICENCE
 
