@@ -18,7 +18,12 @@ public class InternetProtocol : ModuleRules
 {
 	public InternetProtocol(ReadOnlyTargetRules Target) : base(Target)
 	{
-		CppStandard = CppStandardVersion.Cpp17;
+		if (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion >= 6) {
+			CppStandard = CppStandardVersion.Default;
+		}
+		else {
+			CppStandard = CppStandardVersion.Cpp17;
+		}
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDefinitions.Add("ASIO_NO_EXCEPTIONS");
 		
