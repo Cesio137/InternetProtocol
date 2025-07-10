@@ -1,40 +1,41 @@
 {
-  "name": "InternetProtocol",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "build": "tsc src/index.ts"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
+  "name": "internetprotocol",
+  "version": "2.1.0",
+  "module": "./build/index.js",
   "type": "module",
+  "private": true,
+  "scripts": {
+    "check": "tsc --noEmit && echo ✔ Ok",
+    "build": "tsup",
+    "dev": "tsx ./src/index.ts",
+    "watch": "tsx ./src/index.ts",
+    "start": "node ."
+  },
   "dependencies": {
-    "@types/ws": "^8.5.14",
-    "axios": "^1.7.9",
-    "express": "^5.0.1",
-    "minimalist": "^1.0.0",
-    "minimist": "^1.2.8",
-    "ws": "^8.18.0"
+    "axios": "latest",
+    "express": "latest"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.13.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "@types/bun": "latest",
+    "@types/express": "latest",
+    "tsup": "latest",
+    "tsx": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "latest"
   },
   "imports": {
-    "#resolver": [
-      "./src/resolver/index.js"
+    "#net": [
+      "./src/net/index.js"
+    ],
+    "#io": [
+      "./src/io/index.js"
     ],
     "#settings": [
       "./src/settings/index.js"
     ],
-    "#io": [
-      "./src/io/index.js"
+    "#ssl": [
+      "./ssl"
     ]
   }
 }
