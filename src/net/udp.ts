@@ -5,13 +5,16 @@ import type { AddressInfo } from "net";
 
 export class udpserver {
     constructor() {
-        this.socket.on("listening", this.onlistening);
-        this.socket.on("message", this.onmessage);
-        this.socket.on("close", this.onclose);
-        this.socket.on("error", this.error);
+        this.socket.on("listening", () => this.onlistening());
+        this.socket.on("message", (msg, rinfo) => this.onmessage(msg, rinfo));
+        this.socket.on("close", () => this.onclose());
+        this.socket.on("error", (err) => this.error(err));
     }
 
-    public write(message: string) {
+    socket: dgram.Socket = dgram.createSocket("udp4");
+    remotes: dgram.RemoteInfo[] = [];
+
+    write(message: string) {
         for (const client of this.remotes) {
             this.socket.send(message, client.port, client.address, function(error) {
                 if (error) {
@@ -21,19 +24,16 @@ export class udpserver {
         }
     }
 
-    public open(port: number) {
+    open(port: number) {
         this.socket.bind(port);
     }
 
-    public close() {
+    close() {
         this.socket.close();
         process.exit();
     }
 
-    private socket: dgram.Socket = dgram.createSocket("udp4");
-    private remotes: dgram.RemoteInfo[] = [];
-
-    private online(input: string) {
+    online(input: string) {
         if (input === "") return;
         if (input === "quit") {
             rl.close();
@@ -43,15 +43,15 @@ export class udpserver {
         this.write(input);
     }
 
-    private onlistening() {
-        const address: AddressInfo = this.socket.address();
-        console.log(`UDP listening at adress: ${address.address}:${address.port}`);
+    onlistening() {
+        const addr = this.socket.address();
+        console.log(`UDP listening at adress: ${addr.address}:${addr.port}`);
 
-        rl.on("SIGINT", this.close);
-        rl.on("line", this.online);
+        rl.on("SIGINT", () => this.close());
+        rl.on("line", (input) => this.online(input));
     }
 
-    private onmessage(buf: Buffer, rinfo: dgram.RemoteInfo) {
+    onmessage(buf: Buffer, rinfo: dgram.RemoteInfo) {
         if (buf.length === 0) return;
         const data = buf.toString();
         switch (data) {
@@ -73,24 +73,26 @@ export class udpserver {
         console.log(`${rinfo.port} -> ${data}`);
     }
 
-    private onclose() {
+    onclose() {
         console.log("bye!");
     }
 
-    private error(error: Error) {
+    error(error: Error) {
         console.error(`Error: ${error.message}`);
     }
 }
 
 export class udpclient {
     constructor() {
-        this.socket.on("connect", this.onconnect);
-        this.socket.on("message", this.onmessage);
-        this.socket.on("close", this.onclose);
-        this.socket.on("error", this.error);
+        this.socket.on("connect", () => this.onconnect());
+        this.socket.on("message", (msg, rinfo) => this.onmessage(msg, rinfo));
+        this.socket.on("close", () => this.onclose());
+        this.socket.on("error", (err) => this.error(err));
     }
 
-    public write(message: string) {
+    socket: dgram.Socket = dgram.createSocket("udp4");
+
+    write(message: string) {
         this.socket.send(message, function (error, bytes: number) {
             if (error) {
                 console.error("Error trying to send message!\n", error);
@@ -99,18 +101,16 @@ export class udpclient {
         });
     }
 
-    public connect(port: number) {
+    connect(port: number) {
         this.socket.connect(port, "localhost");
     }
 
-    public close() {
+    close() {
         this.socket.close();
         process.exit();
     }
 
-    private socket: dgram.Socket = dgram.createSocket("udp4");
-
-    private online(input: string) {
+    online(input: string) {
         if (input === "") return;
         if (input === "quit") {
             rl.close();
@@ -120,25 +120,25 @@ export class udpclient {
         this.write(input);
     }
 
-    private onconnect() {
-        const address: AddressInfo = this.socket.address();
-        console.log(`UDP listening at adress: ${address.address}:${address.port}`);
+    onconnect() {
+        const addr: AddressInfo = this.socket.address();
+        console.log(`UDP connected at adress: ${addr.address}:${addr.port}`);
 
-        rl.on("SIGINT", this.close);
-        rl.on("line", this.online);
+        rl.on("SIGINT", () => this.close());
+        rl.on("line", (input) => this.online(input));
     }
 
-    private onmessage(buf: Buffer, rinfo: dgram.RemoteInfo) {
+    onmessage(buf: Buffer, rinfo: dgram.RemoteInfo) {
         if (buf.length === 0) return;
         const data = buf.toString();
         console.log(`${rinfo.port} -> ${data}`);
     }
 
-    private onclose() {
+    onclose() {
         console.log("bye!");
     }
 
-    private error(error: Error) {
+    error(error: Error) {
         console.error(`Error: ${error.message}`);
     }
 }

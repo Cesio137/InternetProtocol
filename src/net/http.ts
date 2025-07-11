@@ -4,13 +4,14 @@ import https from "https";
 import { Server, IncomingMessage, ServerResponse } from "http";
 import { credentials } from "#settings";
 import { rl } from "#io";
+import type { AddressInfo } from "net";
 
 export class httpserver {
     constructor() {
         this.app.get("/", this.get);
     }
 
-    public listen(port: number) {
+    listen(port: number) {
         this.server = this.app.listen(port, (err) => {
             if (err) {
                 this.onerror(err);
@@ -23,7 +24,7 @@ export class httpserver {
         this.server.on("error", this.onerror);
     }
 
-    public close() {
+    close() {
         if (this.server) {
             this.server.closeAllConnections();
             this.server.close();
@@ -31,17 +32,17 @@ export class httpserver {
         process.exit();
     }
 
-    private app = express();
-    private server: Server<typeof IncomingMessage, typeof ServerResponse> | undefined;
+    app = express();
+    server: Server<typeof IncomingMessage, typeof ServerResponse> | undefined;
 
-    private get(req: Request, res: Response) {
+    get(req: Request, res: Response) {
         const connectionHeader = req.headers["connection"];
         console.log(`Connection header value: ${connectionHeader}`);
         const response = `Your remote port is: ${req.socket.remotePort}`;
         res.send(response);
     }
 
-    private online(input: string) {
+    online(input: string) {
         if (input === "quit") {
             rl.close();
             this.close();
@@ -49,85 +50,61 @@ export class httpserver {
         }
     }
 
-    private onlistening() {
-        console.log(`HTTP server listening on ${this.server?.address()?.toString()}`);
+    onlistening() {
+        const addr = this.server?.address();
+        if (addr && typeof addr === "object" && "address" in addr)
+            console.log(`HTTP listenings on localhost:${(addr as AddressInfo).port}`);
 
         rl.on("SIGINT", this.close);
         rl.on("line", this.online);
     }
 
-    private onclose() {
+    onclose() {
         console.log("bye!");
     }
 
-    private onerror(err: Error) {
+    onerror(err: Error) {
         console.error(err);
     }
 }
 
- export class httpserver_ssl {
+ export class httpserver_ssl extends httpserver {
+    sslServer: https.Server;
+
     constructor() {
-        this.app.get("/", this.get);
+        super();
+        this.sslServer = https.createServer(credentials, this.app);
     }
 
-    public listen(port: number) {
-        this.server = this.sslServer.listen(port, () => {
-            this.onlistening();
-        });
-
-        this.server.on("close", this.onclose);
-        this.server.on("error", this.onerror);
+    override listen(port: number) {
+        this.sslServer.listen(port, () => this.onlistening());
+        this.sslServer.on("close", () => this.onclose());
+        this.sslServer.on("error", (err) => this.onerror(err));
     }
 
-    public close() {
-        if (this.server) {
-            this.server.closeAllConnections();
-            this.server.close();
+    override close() {
+        if (this.sslServer) {
+            this.sslServer.close();
         }
         process.exit();
     }
 
-    private app = express();
-    private sslServer = https.createServer(credentials, this.app);
-    private server: https.Server<typeof IncomingMessage, typeof ServerResponse> | undefined;
+    override onlistening() {
+        const addr = this.sslServer.address();
+        if (addr && typeof addr === "object" && "address" in addr)
+            console.log(`HTTPS listenings on localhost:${(addr as AddressInfo).port}`);
 
-    private get(req: Request, res: Response) {
-        const connectionHeader = req.headers["connection"];
-        console.log(`Connection header value: ${connectionHeader}`);
-        const response = `Your remote port is: ${req.socket.remotePort}`;
-        res.send(response);
-    }
-
-    private online(input: string) {
-        if (input === "quit") {
-            rl.close();
-            this.close();
-            return;
-        }
-    }
-
-    private onlistening() {
-        console.log(`HTTP server listening on ${this.server?.address()?.toString()}`);
-
-        rl.on("SIGINT", this.close);
-        rl.on("line", this.online);
-    }
-
-    private onclose() {
-        console.log("bye!");
-    }
-
-    private onerror(err: Error) {
-        console.error(err);
+        rl.on("SIGINT", () => this.close());
+        rl.on("line", (input) => this.online(input));
     }
 }
 
 export class httpclient {
-    constructor() {
+    constructor() {}
 
-    }
+    axios: Axios | undefined;
 
-    public connect(port: number) {
+    connect(port: number) {
         this.axios = new Axios({
             method: "get",
             baseURL: `http://localhost:${port}/`,
@@ -141,7 +118,7 @@ export class httpclient {
 
         const response = this.axios
         .get("/", {
-            baseURL: `http://localhost:${port}`,
+            baseURL: `http://localhost:${port}/`,
         })
         .then((response) => {
             console.log("Server response:", response.data);
@@ -149,21 +126,17 @@ export class httpclient {
         .catch((error) => {
             console.error("Error:", error.message);
         });
-    }
-
-    private axios: Axios | undefined;
+    }    
 }
 
-export class httpclient_ssl {
-    constructor() {
+export class httpclient_ssl extends httpclient {
+    agent = new https.Agent({ ...credentials, rejectUnauthorized: false });
 
-    }
-
-    public connect(port: number) {
+    override connect(port: number) {
         this.axios = new Axios({
-            httpAgent: this.agent,
+            httpsAgent: this.agent,
             method: "get",
-            baseURL: `http://localhost:${port}/`,
+            baseURL: `https://localhost:${port}/`,
             headers: {
                 "User-Agent": "Axio",
                 Connection: "close",
@@ -172,18 +145,16 @@ export class httpclient_ssl {
 
         console.log(`HTTPS client connected at https://localhost:${port}/`);
 
-        const response = this.axios
-        .get("/", {
-            baseURL: `http://localhost:${port}`,
-        })
-        .then((response) => {
-            console.log("Server response:", response.data);
-        })
-        .catch((error) => {
-            console.error("Error:", error.message);
-        });
+        this.axios
+            .get("/", {
+                baseURL: `https://localhost:${port}/`,
+                httpsAgent: this.agent,
+            })
+            .then((response) => {
+                console.log("Server response:", response.data);
+            })
+            .catch((error) => {
+                console.error("Error:", error.message);
+            });
     }
-
-    private agent = new https.Agent(credentials);
-    private axios: Axios | undefined;
 }

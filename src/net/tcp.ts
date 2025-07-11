@@ -1,18 +1,20 @@
 import * as net from "net";
+import type { AddressInfo } from "net";
 import * as tls from "tls";
 import { credentials } from "#settings";
 import { rl } from "#io";
 
 export class tcpserver {
     constructor() {
-        this.server.on("listening", this.onlistening);
-        this.server.on("connection", this.onconnection);
-        this.server.on("close", this.onclose);
-        this.server.on("error", this.onerror);
+        this.clients = [];
     }
 
-    public write(message: string) {
-        for (const sock of this.remotes) {
+    server?: net.Server;
+    clients?: net.Socket[];
+
+    write(message: string) {
+        if (typeof this.clients === "undefined") return;
+        for (const sock of this.clients) {
             sock.write(message, function (error) {
                 if (error) {
                     console.error("Error trying to send message!\n", error);
@@ -21,215 +23,170 @@ export class tcpserver {
         }
     }
 
-    public listen(port: number) {
+    listen(port: number) {
+        this.server = net.createServer();
+        this.server.on("listening", () => this.onlistening());
+        this.server.on("connection", (socket) => this.onconnection(socket));
+        this.server.on("close", () => this.onclose());
+        this.server.on("error", (err) => this.onerror(err));
+
         this.server.listen(port);
     }
 
-    public close() {
-        for (const sock of this.remotes) {
-            sock.end();
+    close() {
+        if (this.clients) {
+            for (const sock of this.clients) {
+                sock.end();
+            }
         }
-        this.server.close((err) => {
+        this.server?.close((err) => {
             if (err) this.onerror(err);
         });
         process.exit();
     }
 
-    private server: net.Server = net.createServer();
-    private remotes: (net.Socket)[] = [];
-
-    private online(input: string) {
+    online(input: string) {
         if (input === "") return;
         if (input === "quit") {
-            rl.close();
             this.close();
             return;
         }
         this.write(input);
     }
 
-    private onlistening() {
-        console.log(`TCP server listening on ${this.server.address()?.toString()}`);
+    onlistening() {
+        const addr = this.server?.address();
+        if (addr && typeof addr === "object" && "address" in addr)
+            console.log(`TCP listenings on localhost:${(addr as AddressInfo).port}`);
+        
 
-        rl.on("SIGINT", this.close);
-        rl.on("line", this.online);
+        rl.on("SIGINT", () => this.close());
+        rl.on("line", (input) => this.online(input));
     }
 
-    private onconnection(socket: net.Socket) {
-        if (this.remotes.indexOf(socket) === -1) {
-            this.remotes.push(socket);
+    onconnection(socket: net.Socket) {
+        if (this.clients && this.clients.indexOf(socket) === -1) {
+            this.clients.push(socket);
             console.log(
-                `(${socket.remoteAddress}:${socket.remotePort} -> login, ${this.remotes.length} client(s))`
+                `(${socket.remoteAddress}:${socket.remotePort} -> login, ${this.clients.length} client(s))`
             );
         }
 
         socket.on("data", (buf: Buffer) => { 
-            this.onremotedata(buf, socket); 
+            this.onclientdata(buf, socket); 
         });
         socket.on("end", () => { 
-            this.onremotend(socket); 
+            this.onclientend(socket); 
         });
         socket.on("error", (err: Error) => {
-            this.onremoterror(err, socket);
+            this.onclientrror(err, socket);
         });
     }
 
-    private onclose() {
+    onclose() {
         console.log("bye!");
     }
 
-    private onerror(err: Error) {
+    onerror(err: Error) {
         console.error(err.message);
     }
 
     // Remote
-    private onremotedata(buf: Buffer, socket: net.Socket) {
+    onclientdata(buf: Buffer, socket: net.Socket) {
         if (buf.length === 0) return;
         const message = `${socket.remotePort} -> ${buf.toString()}`;
         console.log(message);
     }
 
-    private onremotend(socket: net.Socket): void {
-        const index = this.remotes.indexOf(socket);
+    onclientend(socket: net.Socket): void {
+        if (typeof this.clients === "undefined") return;
+        const index = this.clients.indexOf(socket);
         if (index < 0) return;
-        this.remotes.splice(index);
+        this.clients.splice(index);
         console.log(
-            `(${socket.remoteAddress}:${socket.remotePort} -> logout, ${this.remotes.length} client(s))`
+            `(${socket.remoteAddress}:${socket.remotePort} -> logout, ${this.clients.length} client(s))`
         );
     }
 
-    private onremoterror(err: Error, socket: net.Socket): void {
+    onclientrror(err: Error, socket: net.Socket): void {
         console.error(`Error ${socket.localAddress}:${socket.localPort} -> ${err}`);
     }
 }
 
-export class tcpserver_ssl {
-    constructor() {
-        this.server.on("listening", this.onlistening);
-        this.server.on("connection", this.onconnection);
-        this.server.on("close", this.onclose);
-        this.server.on("error", this.onerror);
-    }
+export class tcpserver_ssl extends tcpserver {
+    declare server?: tls.Server;
+    declare clients?: net.Socket[];
 
-    public write(message: string) {
-        for (const sock of this.remotes) {
-            sock.write(message, function (error) {
-                if (error) {
-                    console.error("Error trying to send message!\n", error);
-                }
-            });
-        }
-    }
+    override listen(port: number) {
+        this.server = tls.createServer(credentials, (socket) => this.onconnection(socket));
+        this.server.on("listening", () => this.onlistening());
+        this.server.on("close", () => this.onclose());
+        this.server.on("error", (err) => this.onerror(err));
 
-    public listen(port: number) {
         this.server.listen(port);
     }
 
-    public close() {
-        for (const sock of this.remotes) {
-            sock.end();
-        }
-        this.server.close((err) => {
-            if (err) this.onerror(err);
-        });
-        process.exit();
+    override onlistening() {
+        if (typeof this.server === "undefined") return;
+        const addr = this.server.address();
+        console.log("teste");
+        if (addr && typeof addr === "object" && "address" in addr)
+            console.log(`TCP ssl listenings on localhost:${(addr as AddressInfo).port}`);        
+
+        rl.on("SIGINT", () => this.close());
+        rl.on("line", (input) => this.online(input));
     }
 
-    private server: tls.Server = tls.createServer(credentials);
-    private remotes: net.Socket[] = [];
-
-    private online(input: string) {
-        if (input === "") return;
-        if (input === "quit") {
-            rl.close();
-            this.close();
-            return;
-        }
-        this.write(input);
-    }
-
-    private onlistening() {
-        console.log(`TCP SSL server listening on ${this.server.address()?.toString()}`);
-
-        rl.on("SIGINT", this.close);
-        rl.on("line", this.online);
-    }
-
-    private onconnection(socket: net.Socket) {
-        if (this.remotes.indexOf(socket) === -1) {
-            this.remotes.push(socket);
+    override onconnection(socket: tls.TLSSocket) {
+        if (this.clients && this.clients.indexOf(socket) === -1) {
+            this.clients.push(socket);
             console.log(
-                `(${socket.remoteAddress}:${socket.remotePort} -> login, ${this.remotes.length} client(s))`
+                `(${socket.remoteAddress}:${socket.remotePort} -> login, ${this.clients.length} client(s))`
             );
         }
 
+        socket.setEncoding('utf8');
+        socket.pipe(socket);
+
         socket.on("data", (buf: Buffer) => { 
-            this.onremotedata(buf, socket); 
+            this.onclientdata(buf, socket); 
         });
         socket.on("end", () => { 
-            this.onremotend(socket); 
+            this.onclientend(socket); 
         });
         socket.on("error", (err: Error) => {
-            this.onremoterror(err, socket);
+            this.onclientrror(err, socket);
         });
-    }
-
-    private onclose() {
-        console.log("bye!");
-    }
-
-    private onerror(err: Error) {
-        console.error(err);
-    }
-
-    // Remote
-    private onremotedata(buf: Buffer, socket: net.Socket) {
-        if (buf.length === 0) return;
-        const message = `${socket.remotePort} -> ${buf.toString()}`;
-        console.log(message);
-    }
-
-    private onremotend(socket: net.Socket): void {
-        const index = this.remotes.indexOf(socket);
-        if (index < 0) return;
-        this.remotes.splice(index);
-        console.log(
-            `(${socket.remoteAddress}:${socket.remotePort} -> logout, ${this.remotes.length} client(s))`
-        );
-    }
-
-    private onremoterror(err: Error, socket: net.Socket): void {
-        console.error(`Error ${socket.localAddress}:${socket.localPort} -> ${err}`);
     }
 }
 
 export class tcpclient {
-    constructor() {
-        this.socket.on("connect", this.onconnect);
-        this.socket.on("data", this.ondata);
-        this.socket.on("end", this.onclose);
-        this.socket.on("error", this.onerror);
-    }
+    constructor() {}
 
-    public write(message: string) {
-        this.socket.write(message, (err) => {
+    socket?: net.Socket;
+
+    write(message: string) {
+        this.socket?.write(message, (err) => {
             if (err)
                 console.error(err);
         })
     }
 
-    public connnect(port: number) {
+    connect(port: number) {
+        this.socket = new net.Socket()
+        this.socket.on("connect", () => this.onconnect());
+        this.socket.on("data", (data) => this.ondata(data));
+        this.socket.on("end", () => this.onclose());
+        this.socket.on("error", (err) => this.onerror(err));
         this.socket.connect({ host: "localhost", port });
     }
 
-    public close() {
-        this.socket.end();
+    close() {
+        this.socket?.end();
         process.exit();
     }
 
-    private socket: net.Socket = new net.Socket();
-
-    private online(input: string) {
+    online(input: string) {
         if (input === "") return;
         if (input === "quit") {
             rl.close();
@@ -239,95 +196,50 @@ export class tcpclient {
         this.write(input);
     }
 
-    private onconnect() {
-        console.log(`TCP client connected at locahost:${this.socket.localPort}:`);
+    onconnect() {
+        console.log(`TCP connected at locahost:${this.socket?.localPort}`);
 
-        rl.on("SIGINT", this.close);
-        rl.on("line", this.online);
+        rl.on("SIGINT", () => this.close());
+        rl.on("line", (input) => this.online(input));
     }
 
-    private ondata(buf: Buffer) {
-        if (buf.length === 0) return;
-        const message = buf.toString();
+    ondata(data: Buffer) {
+        if (data.length === 0) return;
+        const message = data.toString();
         console.log(message);
     }
 
-    private onclose() {
+    onclose() {
         console.log("bye!");
     }
 
-    private onerror(err: Error) {
+    onerror(err: Error) {
         console.error(err);
     }
 }
 
-export class tcpclient_ssl {
-    constructor() {
-        
-    }
+export class tcpclient_ssl extends tcpclient {
+    declare socket?: tls.TLSSocket;
 
-    public write(message: string) {
-        if (!this.socket) {
-            console.error("Socket not connected.");
-            return;
-        }
-        this.socket.write(message, (err) => {
-            if (err) console.error(err);
-        });
-    }
-
-    public connect(port: number) {
+    override connect(port: number) {
         this.socket = tls.connect(
             {
                 host: "localhost",
                 port,
+                rejectUnauthorized: false,
                 ...credentials
             },
             () => this.onconnect()
         );
-        this.socket.on("data", (buf) => this.ondata(buf));
+        this.socket.on("data", (data) => this.ondata(data));
         this.socket.on("end", () => this.onclose());
         this.socket.on("error", (err) => this.onerror(err));
     }
 
-    public close() {
-        if (this.socket) {
-            this.socket.end();
-        }
-        process.exit();
-    }
-
-    private socket?: tls.TLSSocket;
-
-    private online = (input: string) => {
-        if (input === "") return;
-        if (input === "quit") {
-            rl.close();
-            this.close();
-            return;
-        }
-        this.write(input);
-    };
-
-    private onconnect() {
-        if (!this.socket) return;
-        console.log(`TCP SSL client connected at ${this.socket.localAddress}:${this.socket.localPort}`);
+    override onconnect() {
+        console.log(`TCP ssl connected at locahost:${this.socket?.localPort}`);
 
         rl.on("SIGINT", () => this.close());
-        rl.on("line", this.online);
-    }
-
-    private ondata(buf: Buffer) {
-        if (buf.length === 0) return;
-        const message = buf.toString();
-        console.log(message);
-    }
-
-    private onclose() {
-        console.log("bye!");
-    }
-
-    private onerror(err: Error) {
-        console.error(err);
+        rl.on("line", (input) => { this.online(input); });
     }
 }

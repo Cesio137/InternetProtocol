@@ -6,20 +6,21 @@
   "private": true,
   "scripts": {
     "check": "tsc --noEmit && echo ✔ Ok",
-    "build": "tsup",
-    "dev": "tsx ./src/index.ts",
-    "watch": "tsx ./src/index.ts",
-    "start": "node ."
+    "build": "tsc",
+    "dev": "bun ./src/index.ts",
+    "watch": "bun --watch ./src/index.ts",
+    "start": "bun ."
   },
   "dependencies": {
     "axios": "latest",
-    "express": "latest"
+    "express": "latest",
+    "ws": "latest"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/express": "latest",
-    "tsup": "latest",
-    "tsx": "latest"
+    "@types/ws": "latest",
+    "tsup": "latest"
   },
   "peerDependencies": {
     "typescript": "latest"
