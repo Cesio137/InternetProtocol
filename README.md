@@ -1,4 +1,4 @@
-# Nodejs
+# Bun
 
 ---
 
@@ -8,37 +8,36 @@ Codes to test server and client connection of asio library
 
 ---
 
-- [Nodejs LTS](https://nodejs.org/en/download/package-manager)
+- [Bun](https://bun.sh/)
 
-## Getting Started
+## Scripts
 
----
+- `dev`: running app in development
+- `check`: check project type
+- `build`: build the project
+- `watch`: running in watch mode
+- `start`: running the compiled app
 
-### `npm run start <resolver>`
+## Args
 
-Runs the app.\
-Use adress [http://localhost:3000](http://localhost:3000) to connect the clients.
+- `udp-server`
+- `udp-client`
+- `tcp-server`
+- `tcp-client`
+- `http-server`
+- `http-client`
+- `ws-server`
+- `ws-client`
 
-### `npm run dev <resolver>`
+## TLS
 
-Runs the app.\
-Use adress [http://localhost:3000](http://localhost:3000) to connect the clients.
+### Just add `tls` to command arg.
 
-The code will reload if you make edits.\
-You will also see any lint errors in the console.
+## Example
 
-### `npm run build`
+```bash
+bun run start tcp-server
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+bun run start tcp-server tls # for ssl connection
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-## Resolver
-
-### `udp`, `tcp`, `http`, `ws`
-
-## OpenSSL
-
-### Just add `openssl` to command arg.
+```
