@@ -3,7 +3,7 @@ import * as dgram from "dgram";
 import type { AddressInfo } from "net";
 
 
-export class udpserver {
+export class udpserver{
     constructor() {
         this.socket.on("listening", () => this.onlistening());
         this.socket.on("message", (msg, rinfo) => this.onmessage(msg, rinfo));
@@ -36,7 +36,6 @@ export class udpserver {
     online(input: string) {
         if (input === "") return;
         if (input === "quit") {
-            rl.close();
             this.close();
             return;
         }
@@ -113,7 +112,6 @@ export class udpclient {
     online(input: string) {
         if (input === "") return;
         if (input === "quit") {
-            rl.close();
             this.close();
             return;
         }

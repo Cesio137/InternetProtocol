@@ -19,20 +19,20 @@ switch (resolver_arg) {
 
     case "tcp-server":
         if (use_tls) {
-            const tcpServer = new tcpserver_ssl();
+            const tcpServer = tcpserver_ssl.create();
             tcpServer.listen(port);
         } else {
-            const tcpServer = new tcpserver();
+            const tcpServer = tcpserver.create();
             tcpServer.listen(port);
         }
         break;
 
     case "tcp-client":
         if (use_tls) {
-            const tcpClient = new tcpclient_ssl();
+            const tcpClient = tcpclient_ssl.create();
             tcpClient.connect(port);
         } else {
-            const tcpClient = new tcpclient();
+            const tcpClient = tcpclient.create();
             tcpClient.connect(port);
         }
         break;

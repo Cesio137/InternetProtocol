@@ -5,15 +5,24 @@ import { credentials } from "#settings";
 import { rl } from "#io";
 
 export class tcpserver {
-    constructor() {
+    constructor(server: net.Server | tls.Server) {
+        this.server = server;
         this.clients = [];
+        this.server.on("listening", () => this.onlistening());
+        this.server.on("connection", (socket) => this.onconnection(socket));
+        this.server.on("close", () => this.onclose());
+        this.server.on("error", (err) => this.onerror(err));
     }
 
-    server?: net.Server;
-    clients?: net.Socket[];
+    public static create() {
+        const server = net.createServer();
+        return new tcpserver(server);
+    }
+
+    server: net.Server;
+    clients: net.Socket[];
 
     write(message: string) {
-        if (typeof this.clients === "undefined") return;
         for (const sock of this.clients) {
             sock.write(message, function (error) {
                 if (error) {
@@ -24,22 +33,14 @@ export class tcpserver {
     }
 
     listen(port: number) {
-        this.server = net.createServer();
-        this.server.on("listening", () => this.onlistening());
-        this.server.on("connection", (socket) => this.onconnection(socket));
-        this.server.on("close", () => this.onclose());
-        this.server.on("error", (err) => this.onerror(err));
-
         this.server.listen(port);
     }
 
     close() {
-        if (this.clients) {
-            for (const sock of this.clients) {
-                sock.end();
-            }
+        for (const sock of this.clients) {
+            sock.end();
         }
-        this.server?.close((err) => {
+        this.server.close((err) => {
             if (err) this.onerror(err);
         });
         process.exit();
@@ -55,7 +56,7 @@ export class tcpserver {
     }
 
     onlistening() {
-        const addr = this.server?.address();
+        const addr = this.server.address();
         if (addr && typeof addr === "object" && "address" in addr)
             console.log(`TCP listenings on localhost:${(addr as AddressInfo).port}`);
         
@@ -65,7 +66,7 @@ export class tcpserver {
     }
 
     onconnection(socket: net.Socket) {
-        if (this.clients && this.clients.indexOf(socket) === -1) {
+        if (this.clients.indexOf(socket) === -1) {
             this.clients.push(socket);
             console.log(
                 `(${socket.remoteAddress}:${socket.remotePort} -> login, ${this.clients.length} client(s))`
@@ -93,13 +94,11 @@ export class tcpserver {
 
     // Remote
     onclientdata(buf: Buffer, socket: net.Socket) {
-        if (buf.length === 0) return;
         const message = `${socket.remotePort} -> ${buf.toString()}`;
         console.log(message);
     }
 
     onclientend(socket: net.Socket): void {
-        if (typeof this.clients === "undefined") return;
         const index = this.clients.indexOf(socket);
         if (index < 0) return;
         this.clients.splice(index);
@@ -114,20 +113,17 @@ export class tcpserver {
 }
 
 export class tcpserver_ssl extends tcpserver {
-    declare server?: tls.Server;
-    declare clients?: net.Socket[];
+    static override create() {
+        const server = tls.createServer(credentials);
+        return new tcpserver(server);
+    }
+    declare server: tls.Server;
 
     override listen(port: number) {
-        this.server = tls.createServer(credentials, (socket) => this.onconnection(socket));
-        this.server.on("listening", () => this.onlistening());
-        this.server.on("close", () => this.onclose());
-        this.server.on("error", (err) => this.onerror(err));
-
         this.server.listen(port);
     }
 
     override onlistening() {
-        if (typeof this.server === "undefined") return;
         const addr = this.server.address();
         console.log("teste");
         if (addr && typeof addr === "object" && "address" in addr)
@@ -138,7 +134,7 @@ export class tcpserver_ssl extends tcpserver {
     }
 
     override onconnection(socket: tls.TLSSocket) {
-        if (this.clients && this.clients.indexOf(socket) === -1) {
+        if (this.clients.indexOf(socket) === -1) {
             this.clients.push(socket);
             console.log(
                 `(${socket.remoteAddress}:${socket.remotePort} -> login, ${this.clients.length} client(s))`
@@ -161,35 +157,40 @@ export class tcpserver_ssl extends tcpserver {
 }
 
 export class tcpclient {
-    constructor() {}
+    constructor(socket: net.Socket | tls.TLSSocket) {
+        this.socket = socket;
+        this.socket.on("connect", () => this.onconnect());
+        this.socket.on("data", (data) => this.ondata(data));
+        this.socket.on("end", () => this.onclose());
+        this.socket.on("error", (err) => this.onerror(err));
+    }
 
-    socket?: net.Socket;
+    public static create() {
+        const socket = new net.Socket();
+        return new tcpclient(socket);
+    }
+
+    socket: net.Socket;
 
     write(message: string) {
-        this.socket?.write(message, (err) => {
+        this.socket.write(message, (err) => {
             if (err)
                 console.error(err);
         })
     }
 
     connect(port: number) {
-        this.socket = new net.Socket()
-        this.socket.on("connect", () => this.onconnect());
-        this.socket.on("data", (data) => this.ondata(data));
-        this.socket.on("end", () => this.onclose());
-        this.socket.on("error", (err) => this.onerror(err));
         this.socket.connect({ host: "localhost", port });
     }
 
     close() {
-        this.socket?.end();
+        this.socket.end();
         process.exit();
     }
 
     online(input: string) {
         if (input === "") return;
         if (input === "quit") {
-            rl.close();
             this.close();
             return;
         }
@@ -219,21 +220,16 @@ export class tcpclient {
 }
 
 export class tcpclient_ssl extends tcpclient {
-    declare socket?: tls.TLSSocket;
+    static override  create() {
+        const rawSock = new net.Socket();
+        const socket = new tls.TLSSocket(rawSock, { ...credentials, rejectUnauthorized: false });
+        return new tcpclient(socket);
+    }
+
+    declare socket: tls.TLSSocket;
 
     override connect(port: number) {
-        this.socket = tls.connect(
-            {
-                host: "localhost",
-                port,
-                rejectUnauthorized: false,
-                ...credentials
-            },
-            () => this.onconnect()
-        );
-        this.socket.on("data", (data) => this.ondata(data));
-        this.socket.on("end", () => this.onclose());
-        this.socket.on("error", (err) => this.onerror(err));
+        this.socket.connect({ host: "localhost", port });
     }
 
     override onconnect() {
