@@ -176,7 +176,7 @@ export class tcpclient {
         this.socket.write(message, (err) => {
             if (err)
                 console.error(err);
-        })
+        });
     }
 
     connect(port: number) {

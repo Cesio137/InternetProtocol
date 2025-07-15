@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "check": "tsc --noEmit && echo ✔ Ok",
-    "build": "tsc",
+    "build": "tsup",
     "dev": "bun ./src/index.ts",
     "watch": "bun --watch ./src/index.ts",
     "start": "bun ."
