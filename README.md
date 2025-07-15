@@ -32,7 +32,7 @@ in the unreal-dev branch.
 
 - [CMake 3.20 or above](https://cmake.org/download/)
 
-- [VCPKG](https://vcpkg.io/en/index.html)
+- [Xmake 3 or above](https://xmake.io/)
 
 - Windows only
     - Build With Visual Studio 2019/2022 is more recommended
@@ -80,6 +80,7 @@ in the unreal-dev branch.
 
 - Add [ASIO NON-BOOST](https://sourceforge.net/projects/asio/files/asio/) header to your project.
 
+
 ## Setup Repository
 
 ---
@@ -88,26 +89,27 @@ in the unreal-dev branch.
 git clone https://github.com/Cesio137/InternetProtocol.git
 ```
 
-## Setup project
+#### Setup Project
+Configure and install all dependencies
+```shell
+xmake f --mode=debug
+```
+```shell
+xmake f --mode=release
+```
 
----
+#### Generate cmake/vs files
 
-VCPKG_ROOT
-
-* Setup VCPKG
-	* Add VCPKG to `PATH` to path variable
-    * Create a enviroment variable called `VCPKG_ROOT` if do not exist:
-         ```Path
-      <Path to VCPKG>/
-      ```
-
-* Setup Project.
-    * Create a `build` folder and open terminal inside.
-    * Commands to generate project
-       ```bash
-      cmake .. --preset=debug
-      cmake .. --preset=release
+* CMake
+  * Commands to generate cmake project
+    * ```shell
+      xmake project -k cmake
       ``` 
+* Visual Studio
+  * Commands to generate visual studio project
+    * ```shell
+      xmake project -k vsxmake
+      ```
 
 ### Bug Reporting Template:
 

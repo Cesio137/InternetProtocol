@@ -1,4 +1,12 @@
+# Xmake cache
+.xmake/
+build/
+
+# MacOS Cache
+.DS_Store
+
 CMakeLists.txt.user
+CMakeLists.txt
 CMakeCache.txt
 CMakeFiles
 CMakeScripts
@@ -9,9 +17,11 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
-build/*
+debug/*
 .idea/*
 out/*
 .vscode/*
 .vs/*
 .cache/*
+
+
