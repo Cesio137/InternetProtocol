@@ -113,7 +113,7 @@ namespace ip {
 
     // Server side
 
-    struct udp_bind_options_t {
+    struct bind_options_t {
         std::string address;
         uint16_t port = 8080;
         protocol_type_e protocol = v4;

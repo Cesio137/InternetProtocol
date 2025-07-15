@@ -409,6 +409,7 @@ namespace ip {
                     net.ssl_context.set_verify_mode(asio::ssl::verify_fail_if_no_peer_cert);
                     break;
                 default:
+                    break;
             }
 
             net.ssl_socket = asio::ssl::stream<tcp::socket>(net.context, net.ssl_context);

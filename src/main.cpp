@@ -7,21 +7,18 @@ using namespace ip;
 int main(int argc, char** argv) {
     std::cout << "hello world!" << std::endl;
     tcp_server_c net;
-    /*
-    net.set_socket(v4, 8080);
-    std::set<std::shared_ptr<tcp::socket>> sockets;
-    net.on_socket_accepted = [&](const std::shared_ptr<tcp::socket> &sock) {
-        sockets.insert(sock);
-        std::cout << sock->local_endpoint().address() << ":" << sock->local_endpoint().port() << " -> " << "login" << std::endl;
-    };
-    net.on_socket_disconnected = [&](const asio::error_code &ec, const std::shared_ptr<tcp::socket> &sock) {
-        if (!sock) return;
-        if (sockets.find(sock) != sockets.end())
-            sockets.erase(sock);
-        //std::cout << sock->local_endpoint().address() << ":" << sock->local_endpoint().port() << " -> " << "logout" << std::endl;
-    };
-    net.on_message_received = [&](const std::vector<uint8_t> &msg, const std::shared_ptr<tcp::socket> &sock) {
-        std::cout << buffer_to_string(msg) << std::endl;
+    net.on_client_accepted = [&](const std::shared_ptr<tcp_remote_c> &remote) {
+        std::cout << remote->local_endpoint().address() << ":" << remote->local_endpoint().port() << " -> " << "login" << std::endl;
+        const int port = remote->local_endpoint().port();
+        remote->on_message_received = [&, port](const std::vector<uint8_t> &buffer, const size_t bytes_recvd) {
+            std::cout << port << " -> " << buffer_to_string(buffer) << std::endl;
+        };
+        remote->on_close = [&, port]() {
+            std::cout << port << " -> " << "logout" << std::endl;
+        };
+        remote->on_error = [&](const asio::error_code &ec) {
+            std::cout << ec.message() << std::endl;
+        };
     };
     net.open();
 
@@ -31,12 +28,11 @@ int main(int argc, char** argv) {
             net.close();
             break;
         }
-        for (const auto &socket: sockets) {
-            net.write_to(input, socket);
-            net.write_to("teste", socket);
+        for (const auto &client: net.clients()) {
+            client->write(input);
         }
     }
-    join_threads();*/
+    join_threads();
 
     return 0;
 }

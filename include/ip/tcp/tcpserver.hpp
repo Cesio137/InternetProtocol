@@ -37,12 +37,27 @@ namespace ip {
         tcp::endpoint local_endpoint() const { return net.acceptor.local_endpoint(); }
 
         /**
-         * Get a reference to a std::set of connected clients.
+         * Gets a constant reference to the set of clients connected to the server.
+         *
+         * This method returns a std::set containing shared pointers to all tcp_remote_c
+         * clients currently connected to the server. Useful for monitoring active
+         * connections or performing operations on all connected clients.
+         *
+         * @return A constant reference to the std::set of connected clients.
          *
          * @par Example
          * @code
          * tcp_server_c server;
-         * asio::ip::tcp::endpoint ep = server.local_endpoint();
+         * server.open();
+         *
+         * // Check the number of connected clients
+         * size_t num_clients = server.clients().size();
+         *
+         * // Iterate over all connected clients
+         * for(const auto& client : server.clients()) {
+         *     // Perform some operation with each client
+         *     client->send("Message to everyone");
+         * }
          * @endcode
          */
         const std::set<std::shared_ptr<tcp_remote_c>> &clients() const { return net.clients; }
@@ -58,46 +73,109 @@ namespace ip {
          */
         const asio::error_code &get_error_code() const { return error_code; }
 
+        /**
+         * Sets the maximum number of simultaneous client connections the server will accept.
+         *
+         * This method configures the maximum number of concurrent client connections
+         * that the server will maintain. When this limit is reached, any new connection
+         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
+         *
+         * @param max_connections The maximum number of concurrent connections to allow.
+         *                        Must be a positive integer.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * // Limit the server to handle at most 100 concurrent clients
+         * server.set_max_connections(100);
+         * server.open({"", 8080});
+         * @endcode
+         */
         void set_max_connections(const int max_connections) {
             this->max_connections = max_connections;
         }
+
+        /**
+         * Gets the current maximum connection limit for this server.
+         *
+         * Returns the maximum number of simultaneous client connections
+         * that this server is configured to accept.
+         *
+         * @return The current maximum connection limit as an integer.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * // Get the current connection limit
+         * int max_conn = server.get_max_connections();
+         * @endcode
+         */
         int get_max_connections() const { return max_connections; }
 
-
-        bool open(const udp_bind_options_t &bind_opts = { "", 8080, v4, true }) {
+        /**
+         * Opens the TCP server and starts listening for incoming connections.
+         *
+         * This method initializes the server socket, binds it to the specified address and port,
+         * and begins listening for client connections. If the server is already open, the method
+         * returns false without making any changes.
+         *
+         * If any operation fails, the error handler (on_error) will be called if set,
+         * and the method will return false.
+         *
+         * @param bind_opts An struct specifying protocol parameters to be used.
+         * If 'port' is not specified or is 0, the operating system will attempt to bind to a random port.
+         * If 'address' is not specified, the operating system will attempt to listen on all addresses.
+         *
+         * @return true if the server was successfully opened and is now listening;
+         *         false if the server is already open or if any error occurred during setup.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         *
+         * server.open({"", 8080, v4, true})
+         * @endcode
+         */
+        bool open(const bind_options_t &bind_opts = { "", 8080, v4, true }) {
             if (net.acceptor.is_open())
                 return false;
 
-            tcp::endpoint endpoint(resolver.protocol == v4
-                                                 ? tcp::v4()
-                                                 : tcp::v6(),
-                                                 resolver.port);
-            error_code = asio::error_code();
-            net.acceptor.open(resolver.protocol == v4
+            net.acceptor.open(bind_opts.protocol == v4
                                   ? tcp::v4()
                                   : tcp::v6(),
                                   error_code);
+
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
                 on_error(error_code);
                 return false;
             }
-            net.acceptor.set_option(asio::socket_base::reuse_address(true), error_code);
+
+            net.acceptor.set_option(asio::socket_base::reuse_address(bind_opts.reuse_address), error_code);
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
-                if (on_error) on_error(error_code);
+                on_error(error_code);
                 return false;
             }
+
+            const tcp::endpoint endpoint = bind_opts.address.empty() ?
+                                        tcp::endpoint(bind_opts.protocol == v4
+                                                        ? tcp::v4()
+                                                        : tcp::v6(),
+                                                        bind_opts.port) :
+                                        tcp::endpoint(make_address(bind_opts.address), bind_opts.port);
+
             net.acceptor.bind(endpoint, error_code);
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
-                if (on_error) on_error(error_code);
+                on_error(error_code);
                 return false;
             }
+
             net.acceptor.listen(max_connections, error_code);
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
-                if (on_error) on_error(error_code);
+                on_error(error_code);
                 return false;
             }
 
@@ -105,7 +183,18 @@ namespace ip {
             return true;
         }
 
-        void close() {
+        /**
+         * Close the underlying socket and stop listening for data on it. 'on_close' event will be triggered.
+         *
+         * @param force Cancel all asynchronous operations associated with the client sockets if true.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * server.close(false);
+         * @endcode
+         */
+        void close(const bool force = false) {
             is_closing.store(true);
             if (net.acceptor.is_open()) {
                 std::lock_guard guard(mutex_error);
@@ -116,13 +205,11 @@ namespace ip {
                 std::lock_guard guard(mutex_error);
                 for (const auto &client : net.clients) {
                     if (client)
-                        client->close();
+                        client->close(force);
                 }
+                net.clients.clear();
             }
             net.context.stop();
-            if (!net.clients.empty())
-                net.clients.clear();
-
             net.context.restart();
             net.acceptor = tcp::acceptor(net.context);
             if (on_close)
@@ -130,13 +217,60 @@ namespace ip {
             is_closing.store(false);
         }
 
-        /*EVENTS*/
+        /**
+         * Adds the listener function to 'on_listening'.
+         * This event will be triggered when socket start to listening.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * server.on_listening = [&]() {
+         *      // your code...
+         * };
+         * @endcode
+         */
+        std::function<void()> on_listening;
+
+        /**
+         * Adds the listener function to 'on_client_accepted'.
+         * This event will be triggered when new client connect.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * server.on_client_accepted = [&](const std::shared_ptr<tcp_remote_c> &remote) {
+         *      // your code...
+         * };
+         * @endcode
+         */
         std::function<void(const std::shared_ptr<tcp_remote_c> &)> on_client_accepted;
-        //std::function<void(const size_t, const size_t)> on_bytes_transfered;
-        //std::function<void(const asio::error_code &, const std::shared_ptr<tcp_remote_c> &)> on_message_sent;
-        //std::function<void(const std::vector<uint8_t> &, const std::shared_ptr<tcp_remote_c> &)> on_message_received;
-        //std::function<void(const asio::error_code &, const std::shared_ptr<tcp::socket> &)> on_socket_disconnected;
+
+        /**
+         * Adds the listener function to 'on_close'.
+         * This event will be triggered after acceptor socket has been closed and all client has been disconnected.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * server.on_close = [&]() {
+         *      // your code...
+         * };
+         * @endcode
+         */
         std::function<void()> on_close;
+
+        /**
+         * Adds the listener function to 'on_error'.
+         * This event will be triggered when any error has been returned by asio.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * server.on_error = [&](const asio::error_code &ec) {
+         *      // your code...
+         * };
+         * @endcode
+         */
         std::function<void(const asio::error_code &)> on_error;
 
     private:
@@ -176,6 +310,7 @@ namespace ip {
                 return;
             }
             if (net.clients.size() < max_connections) {
+                client->connect();
                 net.clients.insert(client);
                 client->on_close = [&, client]() { net.clients.erase(client); };
 

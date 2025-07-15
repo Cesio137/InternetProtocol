@@ -5,18 +5,11 @@
 using namespace asio::ip;
 
 namespace ip {
-    /**
-    * Return true if socket is open.
-    *
-    * @par Example
-    * @code
-    * tcp_remote_c client;
-    * bool is_open = client.is_open();
-    * @endcode
-    */
     class tcp_remote_c {
     public:
-        explicit tcp_remote_c(asio::io_context &io_context): socket(io_context) {}
+        explicit tcp_remote_c(asio::io_context &io_context): socket(io_context) {
+        }
+
         ~tcp_remote_c() {
             if (socket.is_open())
                 close();
@@ -89,10 +82,10 @@ namespace ip {
                 return false;
 
             asio::async_write(socket,
-                                asio::buffer(message.c_str(), message.size()),
-                                [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                    write_cb(ec, bytes_sent);
-                                });
+                              asio::buffer(message.c_str(), message.size()),
+                              [&](const asio::error_code &ec, const size_t bytes_sent) {
+                                  write_cb(ec, bytes_sent);
+                              });
             return true;
         }
 
@@ -116,11 +109,22 @@ namespace ip {
                 return false;
 
             asio::async_write(socket,
-                                asio::buffer(buffer.data(), buffer.size()),
-                                [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                    write_cb(ec, bytes_sent);
-                                });
+                              asio::buffer(buffer.data(), buffer.size()),
+                              [&](const asio::error_code &ec, const size_t bytes_sent) {
+                                  write_cb(ec, bytes_sent);
+                              });
             return true;
+        }
+
+        /// Ignore this function
+        void connect() {
+            asio::async_read(socket,
+                             recv_buffer,
+                             asio::transfer_at_least(1),
+                             [&](const asio::error_code &ec, const size_t bytes_received) {
+                                 std::cout << "read" << std::endl;
+                                 read_cb(ec, bytes_received);
+                             });
         }
 
         /**
@@ -137,8 +141,7 @@ namespace ip {
         void close(const bool force = false) {
             if (force) {
                 if (socket.is_open()) {
-                    socket.cancel();
-                    {
+                    socket.cancel(); {
                         std::lock_guard guard(mutex_error);
                         socket.close(error_code);
                         if (error_code && on_error)
@@ -216,6 +219,7 @@ namespace ip {
          * @endcode
          */
         std::function<void(const asio::error_code &)> on_error;
+
     private:
         std::mutex mutex_error;
         tcp::socket socket;
@@ -264,11 +268,11 @@ namespace ip {
 
             consume_recv_buffer();
             asio::async_read(socket,
-                                recv_buffer,
-                                asio::transfer_at_least(1),
-                                [&](const asio::error_code &ec, const size_t bytes_received) {
-                                    read_cb(ec, bytes_received);
-                                });
+                             recv_buffer,
+                             asio::transfer_at_least(1),
+                             [&](const asio::error_code &ec, const size_t bytes_received) {
+                                 read_cb(ec, bytes_received);
+                             });
         }
     };
 }
