@@ -6,8 +6,8 @@ using namespace ip;
 
 int main(int argc, char** argv) {
     std::cout << "hello world!" << std::endl;
-    tcp_server_c net;
-    net.on_client_accepted = [&](const std::shared_ptr<tcp_remote_c> &remote) {
+    tcp_server_ssl_c net({ "", "", "", "", file_format_e::pem, verify_peer, "" });
+    net.on_client_accepted = [&](const std::shared_ptr<tcp_remote_ssl_c> &remote) {
         std::cout << remote->local_endpoint().address() << ":" << remote->local_endpoint().port() << " -> " << "login" << std::endl;
         const int port = remote->local_endpoint().port();
         remote->on_message_received = [&, port](const std::vector<uint8_t> &buffer, const size_t bytes_recvd) {

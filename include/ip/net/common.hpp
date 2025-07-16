@@ -135,4 +135,15 @@ namespace ip {
         tcp::acceptor acceptor;
         std::set<std::shared_ptr<tcp_remote_c>> clients;
     };
+
+#ifdef ENABLE_SSL
+    struct tcp_server_ssl_t {
+        tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13_server) {}
+
+        asio::io_context context;
+        asio::ssl::context ssl_context;
+        tcp::acceptor acceptor;
+        std::set<std::shared_ptr<tcp_remote_ssl_c>> ssl_clients;
+    };
+#endif
 }

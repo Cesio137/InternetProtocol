@@ -16,7 +16,6 @@ namespace ip {
         tcp_client_c() {}
 
         ~tcp_client_c() {
-            net.resolver.cancel();
             if (net.socket.is_open())
                 close();
             consume_recv_buffer();
@@ -414,7 +413,11 @@ namespace ip {
 
             net.ssl_socket = asio::ssl::stream<tcp::socket>(net.context, net.ssl_context);
         }
-        ~tcp_client_ssl_c() {}
+        ~tcp_client_ssl_c() {
+            if (net.ssl_socket.next_layer().is_open())
+                close();
+            consume_recv_buffer();
+        }
 
         /**
          * Return true if socket is open.
@@ -594,8 +597,6 @@ namespace ip {
             net.context.restart();
             net.endpoint = tcp::endpoint();
             net.ssl_socket = asio::ssl::stream<tcp::socket>(net.context, net.ssl_context);
-            if (on_close)
-                on_close();
             is_closing.store(true);
         }
 
@@ -729,7 +730,7 @@ namespace ip {
             if (on_connected)
                 on_connected();
 
-            consume_response_buffer();
+            consume_recv_buffer();
             asio::async_read(net.ssl_socket,
                             recv_buffer,
                             asio::transfer_at_least(1),
@@ -752,7 +753,7 @@ namespace ip {
                 on_message_sent(error, bytes_sent);
         }
 
-        void consume_response_buffer() {
+        void consume_recv_buffer() {
             const size_t size = recv_buffer.size();
             if (size > 0)
                 recv_buffer.consume(size);
@@ -775,7 +776,7 @@ namespace ip {
                 on_message_received(buffer, bytes_recvd);
             }
 
-            consume_response_buffer();
+            consume_recv_buffer();
             asio::async_read(net.ssl_socket,
                             recv_buffer,
                             asio::transfer_at_least(1),
