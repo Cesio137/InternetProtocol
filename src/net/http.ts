@@ -8,7 +8,7 @@ import type { AddressInfo } from "net";
 
 export class httpserver {
     constructor() {
-        this.app.get("/", this.get);
+        this.app.get("/", (req, res) => this.get(req, res));
     }
 
     listen(port: number) {
@@ -20,8 +20,8 @@ export class httpserver {
             this.onlistening();
         });
 
-        this.server.on("close", this.onclose);
-        this.server.on("error", this.onerror);
+        this.server.on("close", () => this.onclose());
+        this.server.on("error", (err) => this.onerror(err));
     }
 
     close() {
@@ -115,7 +115,6 @@ export class httpclient {
         });
 
         console.log(`HTTP client connected at http://localhost:${port}/`);
-
         const response = this.axios
         .get("/", {
             baseURL: `http://localhost:${port}/`,

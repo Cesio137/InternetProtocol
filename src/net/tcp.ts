@@ -157,7 +157,7 @@ export class tcpserver_ssl extends tcpserver {
 }
 
 export class tcpclient {
-    constructor(socket: net.Socket | tls.TLSSocket) {
+    constructor(socket: net.Socket) {
         this.socket = socket;
         this.socket.on("connect", () => this.onconnect());
         this.socket.on("data", (data) => this.ondata(data));
@@ -221,19 +221,14 @@ export class tcpclient {
 
 export class tcpclient_ssl extends tcpclient {
     static override  create() {
-        const rawSock = new net.Socket();
-        const socket = new tls.TLSSocket(rawSock, { ...credentials, rejectUnauthorized: false });
-        return new tcpclient(socket);
+        const socket = tls.connect({ host: "localhost", port: 8080, ...credentials, rejectUnauthorized: false });
+        return new tcpclient_ssl(socket);
     }
 
     declare socket: tls.TLSSocket;
 
-    override connect(port: number) {
-        this.socket.connect({ host: "localhost", port });
-    }
-
     override onconnect() {
-        console.log(`TCP ssl connected at locahost:${this.socket?.localPort}`);
+        console.log(`TCP ssl connected at locahost:${this.socket.localPort}`);
 
         rl.on("SIGINT", () => this.close());
         rl.on("line", (input) => { this.online(input); });

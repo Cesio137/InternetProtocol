@@ -30,7 +30,7 @@ switch (resolver_arg) {
     case "tcp-client":
         if (use_tls) {
             const tcpClient = tcpclient_ssl.create();
-            tcpClient.connect(port);
+            //tcpClient.connect(port);
         } else {
             const tcpClient = tcpclient.create();
             tcpClient.connect(port);
