@@ -158,7 +158,7 @@ namespace ip {
          * server.bind({ "", 8080, v4, true });
          * @endcode
          */
-        bool bind(const bind_options_t &bind_opts = { "", 8080, v4, true }) {
+        bool bind(const server_bind_options_t &bind_opts = { "", 8080, v4, true }) {
             if (net.socket.is_open())
                 return false;
 

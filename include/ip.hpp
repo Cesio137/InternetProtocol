@@ -9,5 +9,9 @@
 #include "ip/tcp/tcpserver.hpp"
 #include "ip/tcp/tcpremote.hpp"
 
+#include "ip/http/httpserver.hpp"
+#include "ip/http/httpclient.hpp"
+
 #include "ip/utils/buffer.hpp"
+#include "ip/utils/net.hpp"
 #include "ip/utils/package.hpp"

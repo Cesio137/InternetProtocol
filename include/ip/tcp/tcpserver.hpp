@@ -8,7 +8,8 @@ namespace ip {
     class tcp_server_c {
     public:
         tcp_server_c() {}
-        ~tcp_server_c() {
+
+        virtual ~tcp_server_c() {
             if (net.acceptor.is_open() || net.clients.size() > 0) {
                 close();
             }
@@ -136,7 +137,7 @@ namespace ip {
          * server.open({"", 8080, v4, true})
          * @endcode
          */
-        bool open(const bind_options_t &bind_opts = { "", 8080, v4, true }) {
+        virtual bool open(const server_bind_options_t &bind_opts = { "", 8080, v4, true }) {
             if (net.acceptor.is_open())
                 return false;
 
@@ -497,7 +498,7 @@ namespace ip {
          * server.open({"", 8080, v4, true})
          * @endcode
          */
-        bool open(const bind_options_t &bind_opts = { "", 8080, v4, true }) {
+        bool open(const server_bind_options_t &bind_opts = { "", 8080, v4, true }) {
             if (net.acceptor.is_open())
                 return false;
 
