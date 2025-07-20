@@ -9,11 +9,10 @@
 #include <asio/ssl.hpp>
 #include <asio/ssl/stream.hpp>
 #endif
-#include "ip/tcp/tcpremote.hpp"
 
 using namespace asio::ip;
 
-namespace ip {
+namespace internetprotocol {
     inline extern asio::thread_pool thread_pool(std::thread::hardware_concurrency());
 
     /**
@@ -248,14 +247,14 @@ namespace ip {
         X_Powered_By,
         X_Robots_Tag,
         X_XSS_Protection
-    } headers_e;
+    } http_headers_e;
 
     struct http_request_t {
         request_method_e method = GET;
         std::string path = "/";
         std::string version = "1.1";
         std::map<std::string, std::string> params;
-        std::map<headers_e, std::string> headers;
+        std::map<http_headers_e, std::string> headers;
         std::string body;
     };
 
@@ -263,7 +262,7 @@ namespace ip {
         int status_code = 200;
         std::string status_message;
         std::string version = "1.1";
-        std::map<headers_e, std::string> headers;
+        std::map<http_headers_e, std::string> headers;
         std::string body;
     };
 
@@ -350,41 +349,6 @@ namespace ip {
         protocol_type_e protocol = v4;
     };
 
-    struct udp_client_t {
-        udp_client_t(): socket(context), resolver(context) {
-        }
-
-        asio::io_context context;
-        udp::socket socket;
-        udp::endpoint endpoint;
-        udp::resolver resolver;
-    };
-
-    struct tcp_client_t {
-        tcp_client_t(): socket(context), resolver(context) {
-        }
-
-        asio::io_context context;
-        tcp::socket socket;
-        tcp::endpoint endpoint;
-        tcp::resolver resolver;
-    };
-
-#ifdef ENABLE_SSL
-    struct tcp_client_ssl_t {
-        tcp_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
-                            ssl_socket(context, ssl_context),
-                            resolver(context) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::resolver resolver;
-        tcp::endpoint endpoint;
-        asio::ssl::stream<tcp::socket> ssl_socket;
-    };
-#endif
-
     // Server side
 
     struct server_bind_options_t {
@@ -393,34 +357,4 @@ namespace ip {
         protocol_type_e protocol = v4;
         bool reuse_address = true;
     };
-
-    struct udp_server_t {
-        udp_server_t(): socket(context) {
-        }
-
-        asio::io_context context;
-        udp::socket socket;
-        udp::endpoint remote_endpoint;
-    };
-
-    struct tcp_server_t {
-        tcp_server_t(): acceptor(context) {
-        }
-
-        asio::io_context context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<tcp_remote_c> > clients;
-    };
-
-#ifdef ENABLE_SSL
-    struct tcp_server_ssl_t {
-        tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13_server) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<tcp_remote_ssl_c> > ssl_clients;
-    };
-#endif
 }

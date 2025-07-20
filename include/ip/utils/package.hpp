@@ -2,7 +2,7 @@
 
 #include <asio.hpp>
 
-namespace ip {
+namespace internetprotocol {
     std::vector<asio::const_buffer> slice_string(const std::string &str, const size_t size) {
         std::vector<asio::const_buffer> buffers;
         // Return only one aso buffer if str->size() <= size

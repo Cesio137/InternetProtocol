@@ -10,6 +10,7 @@
 #include "ip/tcp/tcpremote.hpp"
 
 #include "ip/http/httpserver.hpp"
+#include "ip/http/httpremote.hpp"
 #include "ip/http/httpclient.hpp"
 
 #include "ip/utils/buffer.hpp"

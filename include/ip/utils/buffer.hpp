@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace ip {
+namespace internetprotocol {
     inline std::string buffer_to_string(const std::vector<uint8_t> &buf) {
         std::string str;
         if (buf.empty()) return str;

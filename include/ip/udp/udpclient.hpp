@@ -5,7 +5,17 @@
 
 using namespace asio::ip;
 
-namespace ip {
+namespace internetprotocol {
+    struct udp_client_t {
+        udp_client_t(): socket(context), resolver(context) {
+        }
+
+        asio::io_context context;
+        udp::socket socket;
+        udp::endpoint endpoint;
+        udp::resolver resolver;
+    };
+
     class udp_client_c {
     public:
         udp_client_c() { recv_buffer.reserve(recv_buffer_size); }

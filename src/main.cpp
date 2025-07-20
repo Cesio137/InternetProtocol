@@ -2,7 +2,7 @@
 #include <iostream>
 #include "ip.hpp"
 
-using namespace ip;
+using namespace internetprotocol;
 
 http_request_t req = {
     GET,
@@ -18,17 +18,17 @@ http_request_t req = {
 };
 
 int main(int argc, char** argv) {
-    http_client_c net;
-    net.set_host({"localhost", "8080", v4});
+    http_server_c net;
 
-    net.request(req, [&](const asio::error_code &ec, const http_response_t &res) {
-        if (ec) {
-            std::cout << ec.message() << std::endl;
-            return;
-        }
-        std::cout << res.status_code << " " << res.status_message << std::endl;
-        std::cout << res.body << std::endl;
+    net.on_error = [&](const asio::error_code &ec) {
+        std::cout << ec.message() << std::endl;
+    };
+    net.get("/", [&](const http_request_t &request,  const std::shared_ptr<http_remote_c> &response) {
+        http_response_t &res = response->get_response();
+        res.body = "Your remote port is: " + std::to_string(response->remote_endpoint().port());
+        response->write();
     });
+    net.open({});
 
     std::string input;
     while (std::getline(std::cin, input)) {

@@ -1,10 +1,18 @@
 #pragma once
 
-#include <thread>
-
 #include "ip/net/common.hpp"
+#include "ip/tcp/tcpremote.hpp"
 
-namespace ip {
+namespace internetprotocol {
+    struct tcp_server_t {
+        tcp_server_t(): acceptor(context) {
+        }
+
+        asio::io_context context;
+        tcp::acceptor acceptor;
+        std::set<std::shared_ptr<tcp_remote_c> > clients;
+    };
+
     class tcp_server_c {
     public:
         tcp_server_c() {}
@@ -137,7 +145,7 @@ namespace ip {
          * server.open({"", 8080, v4, true})
          * @endcode
          */
-        virtual bool open(const server_bind_options_t &bind_opts = { "", 8080, v4, true }) {
+        bool open(const server_bind_options_t &bind_opts = { "", 8080, v4, true }) {
             if (net.acceptor.is_open())
                 return false;
 
@@ -332,6 +340,16 @@ namespace ip {
         }
     };
 #ifdef ENABLE_SSL
+    struct tcp_server_ssl_t {
+        tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13_server) {
+        }
+
+        asio::io_context context;
+        asio::ssl::context ssl_context;
+        tcp::acceptor acceptor;
+        std::set<std::shared_ptr<tcp_remote_ssl_c> > ssl_clients;
+    };
+
     class tcp_server_ssl_c {
     public:
         tcp_server_ssl_c(const security_context_opts sec_opts = {}) {

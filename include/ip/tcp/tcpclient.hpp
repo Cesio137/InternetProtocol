@@ -2,15 +2,17 @@
 
 #include "ip/net/common.hpp"
 
-namespace ip {
-    /**
-    * Create a tcp client class
-    *
-    * @par Example
-    * @code
-    * tcp_remote_c client;
-    * @endcode
-    */
+namespace internetprotocol {
+    struct tcp_client_t {
+        tcp_client_t(): socket(context), resolver(context) {
+        }
+
+        asio::io_context context;
+        tcp::socket socket;
+        tcp::endpoint endpoint;
+        tcp::resolver resolver;
+    };
+
     class tcp_client_c {
     public:
         tcp_client_c() {}
@@ -362,14 +364,19 @@ namespace ip {
     };
 
 #ifdef ENABLE_SSL
-    /**
-    * Create a tcp client class with tls 1.3.
-    *
-    * @par Example
-    * @code
-    * tcp_client_ssl_c client({});
-    * @endcode
-    */
+    struct tcp_client_ssl_t {
+        tcp_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
+                            ssl_socket(context, ssl_context),
+                            resolver(context) {
+        }
+
+        asio::io_context context;
+        asio::ssl::context ssl_context;
+        tcp::resolver resolver;
+        tcp::endpoint endpoint;
+        asio::ssl::stream<tcp::socket> ssl_socket;
+    };
+
     class tcp_client_ssl_c {
     public:
         tcp_client_ssl_c(const security_context_opts sec_opts = {}) {

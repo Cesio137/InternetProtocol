@@ -4,7 +4,7 @@
 
 using namespace asio::ip;
 
-namespace ip {
+namespace internetprotocol {
     class tcp_remote_c {
     public:
         explicit tcp_remote_c(asio::io_context &io_context): socket(io_context) {

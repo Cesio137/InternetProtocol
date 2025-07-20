@@ -1,8 +1,9 @@
 #pragma once
 
 #include "ip/net/common.hpp"
+#include "buffer.hpp"
 
-namespace ip {
+namespace internetprotocol {
     // HTTP
     std::string request_method_to_string(request_method_e method) {
         switch (method) {
@@ -42,7 +43,7 @@ namespace ip {
     }
 
 
-    inline std::string header_enum_to_string(headers_e header) {
+    inline std::string header_enum_to_string(http_headers_e header) {
         switch (header) {
             case Accept: return "Accept";
             case Accept_CH: return "Accept-CH";
@@ -205,8 +206,8 @@ namespace ip {
         }
     }
 
-    inline headers_e string_to_header_enum(const std::string &header_str) {
-        static std::unordered_map<std::string, headers_e> header_map = {
+    inline http_headers_e string_to_header_enum(const std::string &header_str) {
+        static std::unordered_map<std::string, http_headers_e> header_map = {
             {"Accept", Accept},
             {"Accept-CH", Accept_CH},
             {"Accept-Encoding", Accept_Encoding},
@@ -374,7 +375,7 @@ namespace ip {
         return Unknown;
     }
 
-    inline std::string prepare_payload(const http_request_t &req, const std::string &address, const uint16_t port) {
+    inline std::string prepare_request(const http_request_t &req, const std::string &address, const uint16_t port) {
         std::string payload;
 
         payload = request_method_to_string(req.method) + " " + req.path;
@@ -390,15 +391,17 @@ namespace ip {
         payload += " HTTP/" + req.version + "\r\n";
 
         payload += "Host: " + address;
-        if (port != 80 && port != 443) payload += ":" + port;
+        if (port != 80 && port != 443) payload += ":" + std::to_string(port);
         payload += "\r\n";
 
         if (!req.headers.empty()) {
-            for (const std::pair<headers_e, std::string> header: req.headers) {
+            for (const std::pair<http_headers_e, std::string> header: req.headers) {
                 payload += header_enum_to_string(header.first) + ": " + header.second + "\r\n";
             }
-            payload +=
+            if (req.headers.find(Content_Length) == req.headers.end()) {
+                payload +=
                     "Content-Length: " + std::to_string(req.body.length()) + "\r\n";
+            }
         }
         payload += "\r\n";
 
@@ -407,6 +410,40 @@ namespace ip {
         std::cout << payload << std::endl;
 
         return payload;
+    }
+
+    inline std::string prepare_response(const http_response_t &res) {
+        std::string payload;
+
+        payload = "HTTP/" + std::string(res.version) + " " + std::to_string(res.status_code) + " " + res.status_message + "\r\n";
+        if (!res.headers.empty()) {
+            for (const std::pair<http_headers_e, std::string> header: res.headers) {
+                payload += header_enum_to_string(header.first) + ": " + header.second + "\r\n";
+            }
+            if (res.headers.find(Content_Length) == res.headers.end()) {
+                payload +=
+                    "Content-Length: " + std::to_string(res.body.length()) + "\r\n";
+            }
+        }
+        payload += "\r\n";
+        if (!res.body.empty()) payload += res.body;
+
+        return payload;
+    }
+
+    inline void req_append_header(http_request_t &req, const std::string &headerline) {
+        size_t pos = headerline.find(':');
+        if (pos != std::string::npos) {
+            std::string key = trim_whitespace(headerline.substr(0, pos));
+            std::string value = trim_whitespace(headerline.substr(pos + 1));
+            /*
+            std::vector<std::string> values = split_string(value, ';');
+            std::transform(
+                values.begin(), values.end(), values.begin(),
+                [&](const std::string &str) { return trim_whitespace(str); });
+            */
+            req.headers.insert_or_assign(string_to_header_enum(key), value);
+        }
     }
 
     inline void res_append_header(http_response_t &res, const std::string &headerline) {
