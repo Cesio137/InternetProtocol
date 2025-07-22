@@ -340,7 +340,7 @@ namespace internetprotocol {
     };
 #ifdef ENABLE_SSL
     struct tcp_server_ssl_t {
-        tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13_server) {
+        tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
         }
 
         asio::io_context context;

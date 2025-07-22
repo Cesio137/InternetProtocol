@@ -1,38 +1,47 @@
 #define ENABLE_SSL
+#include <fstream>
 #include <iostream>
 #include "ip.hpp"
 
 using namespace internetprotocol;
 
-http_request_t req = {
-    GET,
-    "/",
-    "1.1",
-    {},
-    {
-                {Accept, "/*"},
-                {User_Agent, "ASIO"},
-                {Connection, "close"}
-    },
-    "",
-};
+std::string loadfile(const std::string& file) {
+    std::ifstream arquivo(file);
+
+    if (!arquivo.is_open()) {
+        throw std::runtime_error("Erro trying to open file: " + file);
+    }
+
+    std::stringstream buffer;
+    buffer << arquivo.rdbuf();
+
+    return buffer.str();
+}
+
+const std::string cert = loadfile("cert.pem");
+const std::string key = loadfile("key.pem");
+const std::string csr = loadfile("csr.pem");
+const std::string ca_cert = loadfile("ca-cert.pem");
 
 int main(int argc, char** argv) {
-    http_server_c net;
+    http_server_ssl_c net({key, cert, "", "", file_format_e::pem, none, ""});
 
     net.on_error = [&](const asio::error_code &ec) {
         std::cout << ec.message() << std::endl;
     };
-    net.get("/", [&](const http_request_t &request,  const std::shared_ptr<http_remote_c> &response) {
+    net.get("/", [&](const http_request_t &request,  const std::shared_ptr<http_remote_ssl_c> &response) {
         response->on_close = []() {
             std::cout << "close" << std::endl;
         };
+        response->on_error = [&](const asio::error_code &ec) {
+            std::cout << ec.message() << std::endl;
+        };
         std::cout << request.headers.at(Connection) << std::endl;
-        http_response_t &res = response->get_response();
-        res.body = "Your remote port is: " + std::to_string(response->remote_endpoint().port());
+        http_response_t &headers = response->headers();
+        headers.body = "Your remote port is: " + std::to_string(response->remote_endpoint().port());
         response->write();
     });
-    net.open({});
+    net.open({"", 8080});
 
     std::string input;
     while (std::getline(std::cin, input)) {
@@ -48,9 +57,8 @@ int main(int argc, char** argv) {
 
 /*
 int main(int argc, char** argv) {
-    std::cout << "hello world!" << std::endl;
     http_client_c http_client;
-    tcp_server_ssl_c net({ "", "", "", "", file_format_e::pem, verify_peer, "" });
+    tcp_server_ssl_c net({ key, cert, "", "", file_format_e::pem, none, "" });
     net.on_client_accepted = [&](const std::shared_ptr<tcp_remote_ssl_c> &remote) {
         std::cout << remote->local_endpoint().address() << ":" << remote->local_endpoint().port() << " -> " << "login" << std::endl;
         const int port = remote->local_endpoint().port();
@@ -64,7 +72,7 @@ int main(int argc, char** argv) {
             std::cout << ec.message() << std::endl;
         };
     };
-    net.open();
+    net.open({"", 8080});
 
     std::string input;
     while (std::getline(std::cin, input)) {

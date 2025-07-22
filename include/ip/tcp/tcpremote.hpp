@@ -275,7 +275,8 @@ namespace internetprotocol {
     class tcp_remote_ssl_c {
     public:
         tcp_remote_ssl_c(asio::io_context &io_context, asio::ssl::context &ssl_context)
-        : ssl_socket(io_context, ssl_context) {}
+            : ssl_socket(io_context, ssl_context) {
+        }
 
         ~tcp_remote_ssl_c() {
             if (ssl_socket.next_layer().is_open())
@@ -383,12 +384,10 @@ namespace internetprotocol {
 
         /// Ignore this function
         void connect() {
-            asio::async_read(ssl_socket,
-                             recv_buffer,
-                             asio::transfer_at_least(1),
-                             [&](const asio::error_code &ec, const size_t bytes_received) {
-                                 read_cb(ec, bytes_received);
-                             });
+            ssl_socket.async_handshake(asio::ssl::stream_base::server,
+                                       [&](const asio::error_code &ec) {
+                                           ssl_handshake(ec);
+                                       });
         }
 
         /**
@@ -503,6 +502,24 @@ namespace internetprotocol {
         asio::error_code error_code;
         asio::streambuf recv_buffer;
 
+        void ssl_handshake(const asio::error_code &error) {
+            if (error) {
+                std::lock_guard guard(mutex_error);
+                error_code = error;
+                if (on_error) on_error(error);
+                if (on_close) on_close();
+                return;
+            }
+
+            consume_recv_buffer();
+            asio::async_read(ssl_socket,
+                             recv_buffer,
+                             asio::transfer_at_least(1),
+                             [&](const asio::error_code &ec, const size_t bytes_received) {
+                                 read_cb(ec, bytes_received);
+                             });
+        }
+
         void write_cb(const asio::error_code &error, const size_t bytes_sent) {
             if (error) {
                 error_code = error;
@@ -524,14 +541,13 @@ namespace internetprotocol {
         void read_cb(const asio::error_code &ec, std::size_t bytes_recvd) {
             if (ec) {
                 if (ec == asio::error::eof) {
-                    if (on_close)
-                        on_close();
+                    close();
+                    if (on_close) on_close();
                     return;
                 }
-                if (on_error)
-                    on_error(ec);
-                if (on_close)
-                    on_close();
+                if (on_error) on_error(ec);
+                close();
+                if (on_close) on_close();
                 return;
             }
 
