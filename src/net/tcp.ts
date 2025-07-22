@@ -157,7 +157,7 @@ export class tcpserver_ssl extends tcpserver {
 }
 
 export class tcpclient {
-    constructor(socket: net.Socket) {
+    constructor(socket: net.Socket | tls.TLSSocket) {
         this.socket = socket;
         this.socket.on("connect", () => this.onconnect());
         this.socket.on("data", (data) => this.ondata(data));
