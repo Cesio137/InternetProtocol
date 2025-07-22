@@ -24,6 +24,10 @@ int main(int argc, char** argv) {
         std::cout << ec.message() << std::endl;
     };
     net.get("/", [&](const http_request_t &request,  const std::shared_ptr<http_remote_c> &response) {
+        response->on_close = []() {
+            std::cout << "close" << std::endl;
+        };
+        std::cout << request.headers.at(Connection) << std::endl;
         http_response_t &res = response->get_response();
         res.body = "Your remote port is: " + std::to_string(response->remote_endpoint().port());
         response->write();

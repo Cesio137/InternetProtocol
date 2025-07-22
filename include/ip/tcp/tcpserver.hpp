@@ -65,7 +65,7 @@ namespace internetprotocol {
          * // Iterate over all connected clients
          * for(const auto& client : server.clients()) {
          *     // Perform some operation with each client
-         *     client->send("Message to everyone");
+         *     client->write("Message to everyone");
          * }
          * @endcode
          */
@@ -141,7 +141,6 @@ namespace internetprotocol {
          * @par Example
          * @code
          * tcp_server_c server;
-         *
          * server.open({"", 8080, v4, true})
          * @endcode
          */
@@ -436,7 +435,7 @@ namespace internetprotocol {
          * // Iterate over all connected clients
          * for(const auto& client : server.clients()) {
          *     // Perform some operation with each client
-         *     client->send("Message to everyone");
+         *     client->write("Message to everyone");
          * }
          * @endcode
          */

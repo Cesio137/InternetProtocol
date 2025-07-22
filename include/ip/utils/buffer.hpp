@@ -35,4 +35,13 @@ namespace internetprotocol {
 
         return std::string(start, end + 1);
     }
+
+    inline std::string string_to_lower(const std::string &str) {
+        std::string lower_str;
+        lower_str.reserve(str.size());
+        for (const auto &c : str) {
+            lower_str.push_back(std::tolower(c));
+        }
+        return lower_str;
+    }
 }
