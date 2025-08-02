@@ -244,8 +244,8 @@ namespace internetprotocol {
                 response.status_code = 400;
                 response.status_message = "Bad Request";
                 response.body = "HTTP version not supported.";
-                response.headers.insert_or_assign(Content_Type, "text/plain");
-                response.headers.insert_or_assign(Content_Length, std::to_string(response.body.size()));
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Content-Length", std::to_string(response.body.size()));
                 will_close = true;
                 write();
                 return;
@@ -253,9 +253,9 @@ namespace internetprotocol {
 
             if (string_to_request_method(method) == UNKNOWN) {
                 response.body = "Method not supported.";
-                response.headers.insert_or_assign(Allow, "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
-                response.headers.insert_or_assign(Content_Type, "text/plain");
-                response.headers.insert_or_assign(Content_Length, std::to_string(response.body.size()));
+                response.headers.insert_or_assign("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Content-Length", std::to_string(response.body.size()));
                 response.status_code = 400;
                 response.status_message = "Bad Request";
                 will_close = true;
@@ -301,10 +301,12 @@ namespace internetprotocol {
 
             response.status_code = 200;
             response.status_message = "OK";
-            response.headers.insert_or_assign(Content_Type, "text/plain");
-            response.headers.insert_or_assign(X_Powered_By, "ASIO");
+            response.headers.insert_or_assign("Content-Type", "text/plain");
+            response.headers.insert_or_assign("X-Powered-By", "ASIO");
 
-            will_close = req.headers.find(Connection) != req.headers.end() ? req.headers.at(Connection) != "keep-alive" : true;
+            will_close = req.headers.find("Connection") != req.headers.end() ? req.headers.at("Connection") != "keep-alive" : true;
+            if (!will_close)
+                will_close = req.headers.find("connection") != req.headers.end() ? req.headers.at("connection") != "keep-alive" : true;
 
             consume_recv_buffer();
             if (on_request) on_request(req);
@@ -586,8 +588,8 @@ namespace internetprotocol {
                 response.status_code = 400;
                 response.status_message = "Bad Request";
                 response.body = "HTTP version not supported.";
-                response.headers.insert_or_assign(Content_Type, "text/plain");
-                response.headers.insert_or_assign(Content_Length, std::to_string(response.body.size()));
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Content-Length", std::to_string(response.body.size()));
                 will_close = true;
                 write();
                 return;
@@ -595,9 +597,9 @@ namespace internetprotocol {
 
             if (string_to_request_method(method) == UNKNOWN) {
                 response.body = "Method not supported.";
-                response.headers.insert_or_assign(Allow, "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
-                response.headers.insert_or_assign(Content_Type, "text/plain");
-                response.headers.insert_or_assign(Content_Length, std::to_string(response.body.size()));
+                response.headers.insert_or_assign("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+                response.headers.insert_or_assign("Content-Type", "text/plain");
+                response.headers.insert_or_assign("Content-Length", std::to_string(response.body.size()));
                 response.status_code = 400;
                 response.status_message = "Bad Request";
                 will_close = true;
@@ -643,10 +645,12 @@ namespace internetprotocol {
 
             response.status_code = 200;
             response.status_message = "OK";
-            response.headers.insert_or_assign(Content_Type, "text/plain");
-            response.headers.insert_or_assign(X_Powered_By, "ASIO");
+            response.headers.insert_or_assign("Content-Type", "text/plain");
+            response.headers.insert_or_assign("X-Powered-By", "ASIO");
 
-            will_close = req.headers.find(Connection) != req.headers.end() ? req.headers.at(Connection) != "keep-alive" : true;
+            will_close = req.headers.find("Connection") != req.headers.end() ? req.headers.at("Connection") != "keep-alive" : true;
+            if (!will_close)
+                will_close = req.headers.find("connection") != req.headers.end() ? req.headers.at("connection") != "keep-alive" : true;
 
             consume_recv_buffer();
             if (on_request) on_request(req);

@@ -13,6 +13,10 @@
 #include "ip/http/httpremote.hpp"
 #include "ip/http/httpclient.hpp"
 
+#include "ip/websocket/wsclient.hpp"
+
 #include "ip/utils/buffer.hpp"
+#include "ip/utils/dataframe.hpp"
+#include "ip/utils/handshake.hpp"
 #include "ip/utils/net.hpp"
 #include "ip/utils/package.hpp"

@@ -254,7 +254,7 @@ namespace internetprotocol {
         std::string path = "/";
         std::string version = "1.1";
         std::map<std::string, std::string> params;
-        std::map<http_headers_e, std::string> headers;
+        std::map<std::string, std::string> headers;
         std::string body;
     };
 
@@ -262,7 +262,7 @@ namespace internetprotocol {
         int status_code = 200;
         std::string status_message;
         std::string version = "1.1";
-        std::map<http_headers_e, std::string> headers;
+        std::map<std::string, std::string> headers;
         std::string body;
     };
 
@@ -341,8 +341,32 @@ namespace internetprotocol {
         {511, "Network Authentication Required"}
     };
 
-    // Client side
+    typedef enum  : uint8_t {
+        TEXT_FRAME = 0x01,
+        BINARY_FRAME = 0x02,
+        CLOSE_FRAME = 0x08,
+        PING = 0x09,
+        PONG = 0x0A
+    } opcode_e;
 
+    typedef enum : uint8_t {
+        RSV1 = 0x40,
+        RSV2 = 0x20,
+        RSV3 = 0x10
+    } RSV_e;
+
+    struct dataframe_t {
+        bool fin = true;
+        bool rsv1 = false;
+        bool rsv2 = false;
+        bool rsv3 = false;
+        bool mask = true;
+        opcode_e opcode = TEXT_FRAME;
+        size_t length = 0;
+        std::array<uint8_t, 4> masking_key{};
+    };
+
+    // Client side
     struct client_bind_options_t {
         std::string address;
         std::string port = "8080";
@@ -350,7 +374,6 @@ namespace internetprotocol {
     };
 
     // Server side
-
     struct server_bind_options_t {
         std::string address;
         uint16_t port = 8080;

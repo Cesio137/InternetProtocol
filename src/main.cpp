@@ -24,31 +24,24 @@ const std::string csr = loadfile("csr.pem");
 const std::string ca_cert = loadfile("ca-cert.pem");
 
 int main(int argc, char** argv) {
-    http_server_ssl_c net({key, cert, "", "", file_format_e::pem, none, ""});
+    ws_client_c net;
 
     net.on_error = [&](const asio::error_code &ec) {
         std::cout << ec.message() << std::endl;
     };
-    net.get("/", [&](const http_request_t &request,  const std::shared_ptr<http_remote_ssl_c> &response) {
-        response->on_close = []() {
-            std::cout << "close" << std::endl;
-        };
-        response->on_error = [&](const asio::error_code &ec) {
-            std::cout << ec.message() << std::endl;
-        };
-        std::cout << request.headers.at(Connection) << std::endl;
-        http_response_t &headers = response->headers();
-        headers.body = "Your remote port is: " + std::to_string(response->remote_endpoint().port());
-        response->write();
-    });
-    net.open({"", 8080});
+    net.on_message_received = [&](const std::vector<uint8_t> &buffer, bool is_binary) {
+        buffer_to_string(buffer);
+        std::cout << "Message received: " << buffer_to_string(buffer) << std::endl;
+    };
+    net.connect();
 
     std::string input;
     while (std::getline(std::cin, input)) {
         if (input == "quit") {
-            net.close();
+            net.close(1000, "Finished");
             break;
         }
+        net.write(input);
     }
     join_threads();
 
