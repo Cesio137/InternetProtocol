@@ -59,21 +59,17 @@ switch (resolver_arg) {
 
     case "ws-server":
         if (use_tls) {
-            const wsServer = new websocketserver_ssl();
-            wsServer.listen(port);
+            const wsServer = websocketserver_ssl.create(port);
         } else {
-            const wsServer = new websocketserver();
-            wsServer.listen(port);
+            const wsServer = websocketserver.create(port);
         }
         break;
 
     case "ws-client":
         if (use_tls) {
-            const wsClient = new websocketclient_ssl();
-            wsClient.connect(port);
+            const wsClient = websocketclient_ssl.create(port);
         } else {
-            const wsClient = new websocketclient();
-            wsClient.connect(port);
+            const wsClient = websocketclient.create(port);
         }
         break;
 

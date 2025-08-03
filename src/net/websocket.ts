@@ -5,7 +5,18 @@ import { credentials } from "#settings";
 import { rl } from "#io";
 
 export class websocketserver {
-    constructor() {}
+    constructor(server: WebSocketServer) {
+        this.server = server;
+        this.server.on("listening", () => this.onlistening());
+        this.server.on("connection", (ws, req) => this.onconnection(ws, req));
+        this.server.on("close", () => this.onclose());
+        this.server.on("error", (err) => this.onerror(err));
+    }
+
+    public static create(port: number) {
+        const server = new WebSocketServer({ port });
+        return new websocketserver(server);
+    }
 
     write(message: string) {
         if (typeof this.server === "undefined") return;
@@ -17,14 +28,6 @@ export class websocketserver {
         }
     }
 
-    listen(port: number) {
-        this.server = new WebSocketServer({ port });
-        this.server.on("listening", () => this.onlistening());
-        this.server.on("connection", (ws, req) => this.onconnection(ws, req));
-        this.server.on("close", () => this.onclose());
-        this.server.on("error", (err) => this.onerror(err));
-    }
-
     close() {
         if (typeof this.server === "undefined") return;
         for (const client of this.server.clients) {
@@ -34,7 +37,7 @@ export class websocketserver {
         process.exit();
     }
 
-    server?: WebSocketServer;
+    server: WebSocketServer;
 
     online(input: string) {
         if (input === "") return;
@@ -62,7 +65,7 @@ export class websocketserver {
             );
 
         ws.on("message", (data, isBinary) => this.onclientmessage(data, isBinary, req));
-        ws.on("close", () => this.onclientclose(req));
+        ws.on("close", (code, reason) => this.onclientclose(code, reason, req));
         ws.on("error", (err) => this.onclienterror(err));
     }
 
@@ -81,9 +84,9 @@ export class websocketserver {
         console.log(message);
     }
 
-    onclientclose(req: IncomingMessage) {
+    onclientclose(code: number, reason: Buffer, req: IncomingMessage) {
         console.log(
-                `(${req.socket.remotePort} -> logout, ${this.server?.clients.size} client(s))`
+                `(${req.socket.remotePort} -> logout, ${this.server?.clients.size} client(s))\n{code: ${code} -> ${reason.toString()}}`
             );
     }
 
@@ -93,24 +96,18 @@ export class websocketserver {
 }
 
 export class websocketserver_ssl extends websocketserver {
-    httpsServer = https.createServer(credentials);
-
-    override listen(port: number) {
-        this.server = new WebSocketServer({ server: this.httpsServer });
-        this.httpsServer.listen(port, () => {
+    public static override create(port: number) {
+        const httpsServer = https.createServer(credentials);
+        const server = new WebSocketServer({ server: httpsServer });
+        httpsServer.listen(port, () => {
             console.log(`WSS listening at adress localhost:${port}`);
         });
-        this.server.on("listening", () => this.onlistening());
-        this.server.on("connection", (ws, req) => this.onconnection(ws, req));
-        this.server.on("close", () => this.onclose());
-        this.server.on("error", (err) => this.onerror(err));
+        return new websocketserver_ssl(server);
     }
 
     override close() {
-        if (typeof this.server === "undefined") return;
-        this.httpsServer.close();
         for (const client of this.server.clients) {
-            client.close();
+            client.close(1000, "Server going to shutdown");
         }
         this.server.close();
     }
@@ -122,27 +119,30 @@ export class websocketserver_ssl extends websocketserver {
 }
 
 export class websocketclient {
-    constructor() {}
+    constructor(client: WebSocket) {
+        this.client = client;
+        this.client.on("open", () => this.onopen());
+        this.client.on("message", (data, isBinary) => this.onmessage(data, isBinary));
+        this.client.on("close", (code, reason) => this.onclose(code, reason));
+        this.client.on("error", (err) => this.onerror(err));
+    }
 
-    client?: WebSocket;
+    public static create(port: number) {
+        const client = new WebSocket(`ws:localhost:${port}`);
+        return new websocketclient(client);
+    }
+
+    client: WebSocket;
 
     write(menssage: string) {
-        this.client?.send(menssage, (err) => {
+        this.client.send(menssage, (err) => {
             if (err)
                 console.error(err);
         });
     }
 
-    connect(port: number) {
-        this.client = new WebSocket(`ws:localhost:${port}`);
-        this.client?.on("open", () => this.onopen());
-        this.client?.on("message", (data, isBinary) => this.onmessage(data, isBinary));
-        this.client?.on("close", () => this.onclose());
-        this.client?.on("error", (err) => this.onerror(err));
-    }
-
     close() {
-        this.client?.close();
+        this.client.close();
         process.exit();
     }
 
@@ -167,8 +167,8 @@ export class websocketclient {
         console.log(message);
     }
 
-    onclose() {
-        console.log("bye!");
+    onclose(code: number, reason: Buffer) {
+        console.log(`${code} -> ${reason.toString()}\nbye!`);
     }
 
     onerror(err: Error) {
@@ -177,14 +177,10 @@ export class websocketclient {
 }
 
 export class websocketclient_ssl extends websocketclient {
-    httpAgent = new https.Agent(credentials);
-
-    override connect(port: number) {
-        this.client = new WebSocket(`wss:localhost:${port}`, { agent:  this.httpAgent});
-        this.client?.on("open", () => this.onopen());
-        this.client?.on("message", (ws, req) => this.onmessage(ws, req));
-        this.client?.on("close", () => this.onclose());
-        this.client?.on("error", (err) => this.onerror(err));
+    public static override create(port: number) {
+        const httpAgent = new https.Agent(credentials);
+        const client = new WebSocket(`wss:localhost:${port}`, { agent:  httpAgent});
+        return new websocketclient_ssl(client);
     }
 
     override onopen() {
