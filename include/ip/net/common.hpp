@@ -366,6 +366,12 @@ namespace internetprotocol {
         std::array<uint8_t, 4> masking_key{};
     };
 
+    typedef enum : uint8_t  {
+        CLOSED = 0,
+        CLOSING = 1,
+        OPEN = 2
+    } close_state_e;
+
     // Client side
     struct client_bind_options_t {
         std::string address;

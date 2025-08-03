@@ -24,8 +24,11 @@ const std::string csr = loadfile("csr.pem");
 const std::string ca_cert = loadfile("ca-cert.pem");
 
 int main(int argc, char** argv) {
-    ws_client_c net;
+    ws_client_ssl_c net({ key, cert, "", "", file_format_e::pem, none, "" });
 
+    net.on_close = [&](uint16_t code, const std::string &reason) {
+        std::cout << code << " -> " << reason << std::endl;
+    };
     net.on_error = [&](const asio::error_code &ec) {
         std::cout << ec.message() << std::endl;
     };
