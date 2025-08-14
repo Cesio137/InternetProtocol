@@ -100,6 +100,8 @@ namespace internetprotocol {
          *
          * @param endpoint Remote endpoint to send data.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * udp_server_c server;
@@ -110,14 +112,14 @@ namespace internetprotocol {
          * server.send_to(message, ep);
          * @endcode
          */
-        bool send_to(const std::string &message, const udp::endpoint &endpoint) {
+        bool send_to(const std::string &message, const udp::endpoint &endpoint, const std::function<void(const asio::error_code &, const size_t, const udp::endpoint &)> &callback = nullptr) {
             if (!net.socket.is_open() || message.empty())
                 return false;
 
             net.socket.async_send_to(asio::buffer(message.c_str(),  message.size()),
                                         endpoint,
-                                        [&](const asio::error_code &ec, size_t bytes_sent) {
-                                            send_cb(ec, bytes_sent, endpoint);
+                                        [&, callback](const asio::error_code &ec, size_t bytes_sent) {
+                                            if (callback) callback(ec, bytes_sent, endpoint);
                                         });
             return true;
         }
@@ -130,6 +132,8 @@ namespace internetprotocol {
          *
          * @param endpoint Remote endpoint to send data.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * udp_server_c server;
@@ -140,14 +144,14 @@ namespace internetprotocol {
          * server.send_buffer_to(buffer, ep);
          * @endcode
          */
-        bool send_buffer_to(const std::vector<uint8_t> &buffer, const udp::endpoint &endpoint) {
+        bool send_buffer_to(const std::vector<uint8_t> &buffer, const udp::endpoint &endpoint, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!net.socket.is_open() || buffer.empty())
                 return false;
 
             net.socket.async_send_to(asio::buffer(buffer.data(),  buffer.size()),
                                         endpoint,
-                                        [&](const asio::error_code &ec, size_t bytes_sent) {
-                                            send_cb(ec, bytes_sent, endpoint);
+                                        [&, callback](const asio::error_code &ec, size_t bytes_sent) {
+                                            if (callback) callback(ec, bytes_sent);
                                         });
             return true;
         }
@@ -201,36 +205,22 @@ namespace internetprotocol {
         /**
          * Close the underlying socket and stop listening for data on it. 'on_close' event will be triggered.
          *
-         * @param force Cancel all asynchronous operations associated with the socket if true.
-         *
          * @par Example
          * @code
          * udp_server_c server;
          * server.close();
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
-            if (force) {
-                if (net.socket.is_open()) {
-                    net.socket.cancel();
-                    {
-                        std::lock_guard guard(mutex_error);
-                        net.socket.close(error_code);
-                        if (error_code && on_error)
-                            on_error(error_code);
-                    }
-                }
-            } else {
-                if (net.socket.is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    net.socket.shutdown(udp::socket::shutdown_both, error_code);
-                    if (error_code && on_error)
-                         on_error(error_code);
-                    net.socket.close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
+            if (net.socket.is_open()) {
+                std::lock_guard guard(mutex_error);
+                net.socket.shutdown(udp::socket::shutdown_both, error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                net.socket.close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
             }
             net.context.stop();
             net.context.restart();
@@ -252,21 +242,6 @@ namespace internetprotocol {
          * @endcode
          */
         std::function<void()> on_listening;
-
-        /**
-         * Adds the listener function to 'on_message_sent'.
-         * This event will be triggered when a message has been sent.
-         * 'error code' may be used to check if socket fail to send message.
-         *
-         * @par Example
-         * @code
-         * udp_server_c server;
-         * server.on_message_sent = [&](const asio::error_code &ec, const size_t bytes_sent, const udp::endpoint &endpoint) {
-         *      // your code...
-         * };
-         * @endcode
-         */
-        std::function<void(const asio::error_code &, const size_t, const udp::endpoint &)> on_message_sent;
 
         /**
          * Adds the listener function to 'on_message_received'.
@@ -329,19 +304,6 @@ namespace internetprotocol {
             net.context.run();
             if (net.socket.is_open() && !is_closing.load())
                 close();
-        }
-
-        void send_cb(const asio::error_code &error, const size_t bytes_sent, const udp::endpoint &endpoint) {
-            if (error) {
-                std::lock_guard guard(mutex_error);
-                error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent, endpoint);
-                return;
-            }
-
-            if (on_message_sent)
-                on_message_sent(error, bytes_sent, endpoint);
         }
 
         void consume_receive_buffer() {

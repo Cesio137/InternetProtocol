@@ -65,7 +65,8 @@ namespace internetprotocol {
         return string_buffer;
     }
 
-    inline std::vector<uint8_t> encode_buffer_payload(const std::vector<uint8_t> &payload, const dataframe_t &dataframe) {
+    inline std::vector<uint8_t>
+    encode_buffer_payload(const std::vector<uint8_t> &payload, const dataframe_t &dataframe) {
         std::vector<uint8_t> buffer;
         uint64_t payload_length = payload.size();
 
@@ -95,73 +96,81 @@ namespace internetprotocol {
             }
         }
 
-        if (payload.empty())
-            return buffer;
-
         std::array<uint8_t, 4> masking_key{};
         if (dataframe.mask) {
             masking_key = mask_gen();
-            for (uint8_t key: masking_key) buffer.push_back(key);
+            for (uint8_t key: masking_key) {
+                buffer.push_back(key);
+            }
         }
 
-        // payload data and mask
-        for (size_t i = 0; i < payload.size(); ++i) {
-            if (dataframe.mask) {
-                buffer.push_back(payload[i] ^ masking_key[i % 4]);
-            } else {
-                buffer.push_back(payload[i]);
+        if (!payload.empty()) {
+            // payload data and mask
+            for (size_t i = 0; i < payload.size(); ++i) {
+                if (dataframe.mask) {
+                    buffer.push_back(payload[i] ^ masking_key[i % 4]);
+                } else {
+                    buffer.push_back(payload[i]);
+                }
             }
         }
 
         return buffer;
     }
 
-    inline bool decode_payload(const std::vector<uint8_t> &buffer, std::vector<uint8_t> &payload, dataframe_t &dataframe) {
-            size_t pos = 0;
-            // FIN, RSV, Opcode
-            const uint8_t byte1 = buffer[pos++];
-            dataframe.fin = byte1 & 0x80;
-            dataframe.rsv1 = byte1 & 0x80;
-            dataframe.rsv2 = byte1 & 0x40;
-            dataframe.rsv3 = byte1 & 0x10;
-            dataframe.opcode = static_cast<opcode_e>(byte1 & 0x0F);
+    inline bool decode_payload(const std::vector<uint8_t> &buffer, std::vector<uint8_t> &payload,
+                               dataframe_t &dataframe) {
+        size_t pos = 0;
+        if (buffer.size() < 2) return false;
 
-            // Mask and payload length
-            uint8_t byte2 = buffer[pos++];
-            dataframe.mask = byte2 & 0x80;
-            uint64_t payload_length = byte2 & 0x7F;
-            if (payload_length == 126) {
-                if (buffer.size() < pos + 2) return false;
-                payload_length = static_cast<uint64_t>(buffer[pos] << 8 | buffer[pos + 1]);
-                pos += 2;
-            } else if (payload_length == 127) {
-                if (buffer.size() < pos + 8) return false;
-                payload_length = 0;
-                for (int i = 0; i < 8; ++i) {
-                    payload_length = static_cast<uint64_t>(static_cast<uint8_t>(payload_length) << 8 | buffer[pos + i]);
-                }
-                pos += 8;
+        // FIN, RSV, Opcode
+        const uint8_t byte1 = buffer[pos++];
+        dataframe.fin = byte1 & 0x80;
+        dataframe.rsv1 = byte1 & 0x40;
+        dataframe.rsv2 = byte1 & 0x20;
+        dataframe.rsv3 = byte1 & 0x10;
+        dataframe.opcode = static_cast<opcode_e>(byte1 & 0x0F);
+
+        // Mask and payload length
+        uint8_t byte2 = buffer[pos++];
+        dataframe.mask = byte2 & 0x80;
+        uint64_t payload_length = byte2 & 0x7F;
+
+        if (payload_length == 126) {
+            if (buffer.size() < pos + 2) return false;
+            payload_length = (static_cast<uint64_t>(buffer[pos]) << 8) | buffer[pos + 1];
+            pos += 2;
+        } else if (payload_length == 127) {
+            if (buffer.size() < pos + 8) return false;
+            payload_length = 0;
+            for (int i = 0; i < 8; ++i) {
+                payload_length = (payload_length << 8) | buffer[pos + i];
             }
-            dataframe.length = payload_length;
+            pos += 8;
+        }
+        dataframe.length = payload_length;
 
-            // Masking key
+        // Masking key
+        if (dataframe.mask) {
+            if (buffer.size() < pos + 4) return false;
+            for (int i = 0; i < 4; ++i) {
+                dataframe.masking_key[i] = buffer[pos++];
+            }
+        }
+
+        // Payload data
+        if (buffer.size() < pos + payload_length) return false;
+        payload.clear();
+        payload.reserve(payload_length);
+
+        for (size_t i = 0; i < payload_length; ++i) {
+            uint8_t byte = buffer[pos++];
             if (dataframe.mask) {
-                if (buffer.size() < pos + 4) return false;
-                for (int i = 0; i < 4; ++i) {
-                    dataframe.masking_key[i] = buffer[pos++];
-                }
+                byte ^= dataframe.masking_key[i % 4];
             }
+            payload.push_back(byte);
+        }
 
-            // Payload data
-            if (buffer.size() < pos + payload_length) return false;
-            payload.reserve(payload_length);
-            for (size_t i = 0; i < payload_length; ++i) {
-                payload.push_back(buffer[pos++]);
-                if (dataframe.mask) {
-                    payload[i] ^= dataframe.masking_key[i % 4];
-                }
-            }
-
-            return true;
+        return true;
     }
 }

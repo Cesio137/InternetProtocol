@@ -74,6 +74,8 @@ namespace internetprotocol {
          *
          * @param message String to be send.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * tcp_client_c client;
@@ -83,14 +85,14 @@ namespace internetprotocol {
          * client.write(message);
          * @endcode
          */
-        bool write(const std::string &message) {
+        bool write(const std::string &message, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!net.socket.is_open() || message.empty())
                 return false;
 
             asio::async_write(net.socket,
                                 asio::buffer(message.c_str(), message.size()),
-                                [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                    write_cb(ec, bytes_sent);
+                                [&, callback](const asio::error_code &ec, const size_t bytes_sent) {
+                                    if (callback) callback(ec, bytes_sent);
                                 });
             return true;
         }
@@ -101,6 +103,8 @@ namespace internetprotocol {
          *
          * @param buffer String to be send.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * tcp_client_c client;
@@ -110,14 +114,14 @@ namespace internetprotocol {
          * client.write_buffer(buffer);
          * @endcode
          */
-        bool write_buffer(const std::vector<uint8_t> &buffer) {
+        bool write_buffer(const std::vector<uint8_t> &buffer, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!net.socket.is_open() || buffer.empty())
                 return false;
 
             asio::async_write(net.socket,
                                 asio::buffer(buffer.data(), buffer.size()),
-                                [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                    write_cb(ec, bytes_sent);
+                                [&, callback](const asio::error_code &ec, const size_t bytes_sent) {
+                                    if (callback) callback(ec, bytes_sent);
                                 });
             return true;
         }
@@ -153,36 +157,22 @@ namespace internetprotocol {
         /**
          * Close the underlying socket and stop listening for data on it. 'on_close' event will be triggered.
          *
-         * @param force Cancel all asynchronous operations associated with the socket if true.
-         *
          * @par Example
          * @code
          * tcp_client_c client;
          * client.close();
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
-            if (force) {
-                if (net.socket.is_open()) {
-                    net.socket.cancel();
-                    {
-                        std::lock_guard guard(mutex_error);
-                        net.socket.close(error_code);
-                        if (error_code && on_error)
-                            on_error(error_code);
-                    }
-                }
-            } else {
-                if (net.socket.is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    net.socket.shutdown(tcp::socket::shutdown_both, error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    net.socket.close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
+            if (net.socket.is_open()) {
+                std::lock_guard guard(mutex_error);
+                net.socket.shutdown(tcp::socket::shutdown_both, error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                net.socket.close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
             }
             net.context.stop();
             net.context.restart();
@@ -205,21 +195,6 @@ namespace internetprotocol {
          * @endcode
          */
         std::function<void()> on_connected;
-
-        /**
-         * Adds the listener function to 'on_message_sent'.
-         * This event will be triggered when a message has been sent.
-         * 'error_code' may be used to check if socket fail to send message.
-         *
-         * @par Example
-         * @code
-         * tcp_client_c client;
-         * client.on_message_sent = [&](const asio::error_code &ec, const size_t bytes_sent, const tcp::endpoint &endpoint) {
-         *      // your code...
-         * };
-         * @endcode
-         */
-        std::function<void(const asio::error_code &, const size_t)> on_message_sent;
 
         /**
          * Adds the listener function to 'on_message_received'.
@@ -315,19 +290,6 @@ namespace internetprotocol {
                                 [&](const asio::error_code &ec, const size_t bytes_recvd) {
                                     read_cb(ec, bytes_recvd);
                                 });
-        }
-
-        void write_cb(const asio::error_code &error, const size_t bytes_sent) {
-            if (error) {
-                std::lock_guard guard(mutex_error);
-                error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent);
-                return;
-            }
-
-            if (on_message_sent)
-                on_message_sent(error, bytes_sent);
         }
 
         void consume_recv_buffer() {
@@ -476,6 +438,8 @@ namespace internetprotocol {
          *
          * @param message String to be send.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * tcp_client_ssl_c client({});
@@ -485,14 +449,14 @@ namespace internetprotocol {
          * client.write(message);
          * @endcode
          */
-        bool write(const std::string &message) {
+        bool write(const std::string &message, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!net.ssl_socket.next_layer().is_open() || message.empty())
                 return false;
 
             asio::async_write(net.ssl_socket,
                                 asio::buffer(message.c_str(), message.size()),
-                                [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                    write_cb(ec, bytes_sent);
+                                [&, callback](const asio::error_code &ec, const size_t bytes_sent) {
+                                    if (callback) callback(ec, bytes_sent);
                                 });
             return true;
         }
@@ -503,6 +467,8 @@ namespace internetprotocol {
          *
          * @param buffer String to be send.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * tcp_client_ssl_c client({});
@@ -512,14 +478,14 @@ namespace internetprotocol {
          * client.write_buffer(buffer);
          * @endcode
          */
-        bool write_buffer(const std::vector<uint8_t> &buffer) {
+        bool write_buffer(const std::vector<uint8_t> &buffer, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!net.ssl_socket.next_layer().is_open() || buffer.empty())
                 return false;
 
             asio::async_write(net.ssl_socket,
                                 asio::buffer(buffer.data(), buffer.size()),
-                                [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                    write_cb(ec, bytes_sent);
+                                [&, callback](const asio::error_code &ec, const size_t bytes_sent) {
+                                    if (callback) callback(ec, bytes_sent);
                                 });
             return true;
         }
@@ -555,50 +521,29 @@ namespace internetprotocol {
         /**
          * Close the underlying socket and stop listening for data on it. 'on_close' event will be triggered.
          *
-         * @param force Cancel all asynchronous operations associated with the socket if true.
-         *
          * @par Example
          * @code
          * tcp_client_ssl_c client({});
          * client.close(false);
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
-            if (force) {
-                if (net.ssl_socket.next_layer().is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    net.ssl_socket.lowest_layer().cancel(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    net.ssl_socket.lowest_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
+            if (net.ssl_socket.next_layer().is_open()) {
+                std::lock_guard guard(mutex_error);
+                net.ssl_socket.lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                net.ssl_socket.lowest_layer().close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
 
-                    net.ssl_socket.shutdown(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    net.ssl_socket.next_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
-            } else {
-                if (net.ssl_socket.next_layer().is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    net.ssl_socket.lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    net.ssl_socket.lowest_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-
-                    net.ssl_socket.shutdown(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    net.ssl_socket.next_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
+                net.ssl_socket.shutdown(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                net.ssl_socket.next_layer().close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
             }
             net.context.stop();
             net.context.restart();
@@ -620,21 +565,6 @@ namespace internetprotocol {
          * @endcode
          */
         std::function<void()> on_connected;
-
-        /**
-         * Adds the listener function to 'on_message_sent'.
-         * This event will be triggered when a message has been sent.
-         * 'error_code' may be used to check if socket fail to send message.
-         *
-         * @par Example
-         * @code
-         * tcp_client_ssl_c client({});
-         * client.on_message_sent = [&](const asio::error_code &ec, const size_t bytes_sent, const tcp::endpoint &endpoint) {
-         *      // your code...
-         * };
-         * @endcode
-         */
-        std::function<void(const asio::error_code &, const size_t)> on_message_sent;
 
         /**
          * Adds the listener function to 'on_message_received'.
@@ -745,19 +675,6 @@ namespace internetprotocol {
                                 read_cb(ec, bytes_received);
                             });
 
-        }
-
-        void write_cb(const asio::error_code &error, const size_t bytes_sent) {
-            if (error) {
-                std::lock_guard guard(mutex_error);
-                error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent);
-                return;
-            }
-
-            if (on_message_sent)
-                on_message_sent(error, bytes_sent);
         }
 
         void consume_recv_buffer() {

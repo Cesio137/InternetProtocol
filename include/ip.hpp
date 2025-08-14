@@ -14,6 +14,8 @@
 #include "ip/http/httpclient.hpp"
 
 #include "ip/websocket/wsclient.hpp"
+#include "ip/websocket/wsserver.hpp"
+#include "ip/websocket/wsremote.hpp"
 
 #include "ip/utils/buffer.hpp"
 #include "ip/utils/dataframe.hpp"

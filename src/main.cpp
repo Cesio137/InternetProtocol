@@ -24,27 +24,43 @@ const std::string csr = loadfile("csr.pem");
 const std::string ca_cert = loadfile("ca-cert.pem");
 
 int main(int argc, char** argv) {
-    ws_client_ssl_c net({ key, cert, "", "", file_format_e::pem, none, "" });
+    //ws_server_ssl_c net({ key, cert, "", "", file_format_e::pem, none, "" });
+    ws_server_c net;
 
-    net.on_close = [&](uint16_t code, const std::string &reason) {
-        std::cout << code << " -> " << reason << std::endl;
-    };
     net.on_error = [&](const asio::error_code &ec) {
         std::cout << ec.message() << std::endl;
     };
-    net.on_message_received = [&](const std::vector<uint8_t> &buffer, bool is_binary) {
-        buffer_to_string(buffer);
-        std::cout << "Message received: " << buffer_to_string(buffer) << std::endl;
+    net.on_client_accepted = [&](const std::shared_ptr<ws_remote_c> &client) {
+        client->on_connected = [&, client](const http_request_t &req) {
+            std::cout << client->local_endpoint().port() << " -> connected" << std::endl;
+        };
+        client->on_unexpected_handshake = [&, client](const http_request_t &req) {
+            std::cout << "handshake error" << std::endl;
+        };
+        client->on_message_received = [&, client](const std::vector<uint8_t> &buffer, bool is_binary) {
+            std::cout << "chat: " << buffer_to_string(buffer) << std::endl;
+        };
+        client->on_close = [&, client](const uint16_t code, const std::string &reason) {
+            std::cout << reason << std::endl;
+            std::cout << "client: disconnected" << std::endl;
+        };
     };
-    net.connect();
+    net.open();
 
     std::string input;
     while (std::getline(std::cin, input)) {
-        if (input == "quit") {
-            net.close(1000, "Finished");
+        if (input == "end") {
+            for (const auto &client : net.clients()) {
+                client->end(1000, "Shutdown server");
+            }
             break;
         }
-        net.write(input);
+        if (input == "quit") {
+            break;
+        }
+        for (const auto &client: net.clients()) {
+            client->write(input);
+        }
     }
     join_threads();
 

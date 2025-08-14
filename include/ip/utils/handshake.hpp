@@ -138,6 +138,41 @@ namespace internetprotocol {
         return base64_encode(hash.data(), hash.size());
     }
 
+    inline bool validate_handshake_request(const http_request_t &req_handshake, http_response_t &res_handshake) {
+        if (req_handshake.headers.find("connection") == req_handshake.headers.end()) {
+            res_handshake.body = "\"Connection\" header not found";
+            return false;
+        }
+        if (req_handshake.headers.at("connection") != "Upgrade") {
+            res_handshake.body = "\"Connection\" header value is not \"Upgrade\"";
+            return false;
+        }
+
+        if (req_handshake.headers.find("upgrade") == req_handshake.headers.end()) {
+            res_handshake.body = "\"Upgrade\" header not found";
+            return false;
+        }
+        if (req_handshake.headers.at("upgrade") != "websocket") {
+            res_handshake.body = "\"Upgrade\" header value is not \"websocket\"";
+            return false;
+        }
+
+        if (req_handshake.headers.find("sec-websocket-key") == req_handshake.headers.end()) {
+            res_handshake.body = "\"Sec-WebSocket-Key\" header not found";
+            return false;
+        }
+
+        if (req_handshake.headers.find("sec-websocket-version") == req_handshake.headers.end()) {
+            res_handshake.body = "\"Sec-WebSocket-Version\" header not found";
+            return false;
+        }
+        if (req_handshake.headers.at("sec-websocket-version") != "13") {
+            res_handshake.body = "Invalid \"Sec-WebSocket-Version\" header value";
+            return false;
+        }
+        return true;
+    }
+
     inline bool validate_handshake_response(const http_request_t &req_handshake, http_response_t &res_handshake) {
         if (res_handshake.headers.find("connection") == res_handshake.headers.end()) {
             res_handshake.body = "Connection header not found";

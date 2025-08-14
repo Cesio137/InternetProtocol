@@ -4,7 +4,6 @@ set_languages("c++17")
 add_requires("asio")
 add_requires("openssl3")
 
-
 target("InternetProtocol")
     set_kind("headeronly")
     add_includedirs("include/", {public = true})

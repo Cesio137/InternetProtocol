@@ -86,8 +86,9 @@ namespace internetprotocol {
 
     inline std::string prepare_response(const http_response_t &res) {
         std::string payload;
+        payload.reserve(8192);
 
-        payload = "HTTP/" + std::string(res.version) + " " + std::to_string(res.status_code) + " " + res.status_message
+        payload = "HTTP/" + res.version + " " + std::to_string(res.status_code) + " " + res.status_message
                   + "\r\n";
         if (!res.headers.empty()) {
             for (const std::pair<std::string, std::string> header: res.headers) {

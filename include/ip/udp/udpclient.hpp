@@ -101,6 +101,8 @@ namespace internetprotocol {
          *
          * @param message String to be send.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * udp_client_c client;
@@ -110,14 +112,14 @@ namespace internetprotocol {
          * client.send(message);
          * @endcode
          */
-        bool send(const std::string &message) {
+        bool send(const std::string &message, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!net.socket.is_open() || message.empty())
                 return false;
 
             net.socket.async_send_to(asio::buffer(message.c_str(), message.size()),
                                         net.endpoint,
-                                        [&](const asio::error_code &ec, size_t bytes_sent) {
-                                            send_cb(ec, bytes_sent);
+                                        [&, callback](const asio::error_code &ec, size_t bytes_sent) {
+                                            if (callback) callback(ec, bytes_sent);
                                         });
             return true;
         }
@@ -127,6 +129,8 @@ namespace internetprotocol {
          * It returns false if socket is closed or if buffer is empty.
          *
          * @param buffer Data to be send.
+         *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
          *
          * @par Example
          * @code
@@ -138,14 +142,14 @@ namespace internetprotocol {
          * client.send_buffer(buffer);
          * @endcode
          */
-        bool send_buffer(const std::vector<uint8_t> &buffer) {
+        bool send_buffer(const std::vector<uint8_t> &buffer, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!net.socket.is_open() || buffer.empty())
                 return false;
 
             net.socket.async_send_to(asio::buffer(buffer.data(), buffer.size()),
                                         net.endpoint,
-                                        [&](const asio::error_code &ec, size_t bytes_sent) {
-                                            send_cb(ec, bytes_sent);
+                                        [&, callback](const asio::error_code &ec, size_t bytes_sent) {
+                                            if (callback) callback(ec, bytes_sent);
                                         });
             return true;
         }
@@ -181,36 +185,22 @@ namespace internetprotocol {
         /**
          * Close the underlying socket and stop listening for data on it. 'on_close' event will be triggered.
          *
-         * @param force Cancel all asynchronous operations associated with the socket if true.
-         *
          * @par Example
          * @code
          * udp_client_c client;
          * client.close();
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
-            if (force) {
-                if (net.socket.is_open()) {
-                    net.socket.cancel();
-                    {
-                        std::lock_guard guard(mutex_error);
-                        net.socket.close(error_code);
-                        if (error_code && on_error)
-                            on_error(error_code);
-                    }
-                }
-            } else {
-                if (net.socket.is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    net.socket.shutdown(udp::socket::shutdown_both, error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    net.socket.close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
+            if (net.socket.is_open()) {
+                std::lock_guard guard(mutex_error);
+                net.socket.shutdown(udp::socket::shutdown_both, error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                net.socket.close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
             }
             net.context.stop();
             net.context.restart();
@@ -338,19 +328,6 @@ namespace internetprotocol {
                                             [&](const asio::error_code &ec, const size_t bytes_recvd) {
                                                 receive_from_cb(ec, bytes_recvd);
                                             });
-        }
-
-        void send_cb(const asio::error_code &error, const size_t bytes_sent) {
-            if (error) {
-                std::lock_guard guard(mutex_error);
-                error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent);
-                return;
-            }
-
-            if (on_message_sent)
-                on_message_sent(error, bytes_sent);
         }
 
         void consume_receive_buffer() {
