@@ -230,7 +230,7 @@ namespace internetprotocol {
         }
 
         /**
-         * Close the underlying socket and stop listening for data on it. 'on_close' event will be triggered.
+         * Perform a smooth close of socket following ws protocol and stop listening for data on it. 'on_close' event will be triggered.
          *
          * @param code Closing code.
          *
@@ -932,7 +932,7 @@ namespace internetprotocol {
         }
 
         /**
-         * Close the underlying socket and stop listening for data on it. 'on_close' event will be triggered.
+         * Perform a smooth close of socket following ws protocol and stop listening for data on it. 'on_close' event will be triggered.
          *
          * @param code Closing code.
          *

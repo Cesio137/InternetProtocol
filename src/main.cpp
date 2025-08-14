@@ -24,13 +24,13 @@ const std::string csr = loadfile("csr.pem");
 const std::string ca_cert = loadfile("ca-cert.pem");
 
 int main(int argc, char** argv) {
-    //ws_server_ssl_c net({ key, cert, "", "", file_format_e::pem, none, "" });
-    ws_server_c net;
+    ws_server_ssl_c net({ key, cert, "", "", file_format_e::pem, none, "" });
+    //ws_server_c net;
 
     net.on_error = [&](const asio::error_code &ec) {
         std::cout << ec.message() << std::endl;
     };
-    net.on_client_accepted = [&](const std::shared_ptr<ws_remote_c> &client) {
+    net.on_client_accepted = [&](const std::shared_ptr<ws_remote_ssl_c> &client) {
         client->on_connected = [&, client](const http_request_t &req) {
             std::cout << client->local_endpoint().port() << " -> connected" << std::endl;
         };
