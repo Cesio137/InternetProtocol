@@ -19,7 +19,6 @@ export class websocketserver {
     }
 
     write(message: string) {
-        if (typeof this.server === "undefined") return;
         for (const client of this.server.clients) {
             client.send(message, (err) => {
                 if (err)
@@ -49,7 +48,6 @@ export class websocketserver {
     }
 
     onlistening() {
-        if (typeof this.server === "undefined") return;
         const addr = this.server.address();
         if (addr && typeof addr === "object" && "address" in addr)
             console.log(`WS listenings on localhost:${(addr as AddressInfo).port}`);
@@ -59,7 +57,6 @@ export class websocketserver {
     }
 
     onconnection(ws: WebSocket, req: IncomingMessage) {
-        if (typeof this.server === "undefined") return;
         console.log(
                 `(${req.socket.remotePort} -> login, ${this.server.clients.size} client(s))`
             );
