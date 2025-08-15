@@ -1,4 +1,5 @@
 export * from "./udp.js"
+export * from "./ue.js"
 export * from "./tcp.js"
 export * from "./http.js"
 export * from "./websocket.js"

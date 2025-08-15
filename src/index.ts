@@ -1,4 +1,4 @@
-import { udpserver, udpclient, tcpserver, tcpserver_ssl, tcpclient, tcpclient_ssl, httpserver, httpserver_ssl, httpclient, httpclient_ssl, websocketserver_ssl, websocketserver, websocketclient, websocketclient_ssl } from "#net";
+import { udpserver, udpclient, udpUnreal, tcpserver, tcpserver_ssl, tcpclient, tcpclient_ssl, httpserver, httpserver_ssl, httpclient, httpclient_ssl, websocketserver_ssl, websocketserver, websocketclient, websocketclient_ssl } from "#net";
 
 const port = 8080;
 const args = process.argv;
@@ -15,6 +15,10 @@ switch (resolver_arg) {
     case "udp-client":
         const udpClient = new udpclient();
         udpClient.connect(port);
+        break;
+
+    case "ue-server":
+        const ueServer = udpUnreal.create();
         break;
 
     case "tcp-server":
