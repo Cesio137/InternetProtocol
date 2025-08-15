@@ -1,3 +1,8 @@
+/** 
+ * MIT License (MIT)
+ * Copyright © 2025 Nathan Miguel
+*/
+
 #pragma once
 
 #include "ip/net/common.hpp"
@@ -77,6 +82,8 @@ namespace internetprotocol {
          *
          * @param dataframe Custom dataframe if needed.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_c client;
@@ -85,7 +92,7 @@ namespace internetprotocol {
          * client.write(message);
          * @endcode
          */
-        bool write(const std::string &message, const dataframe_t &dataframe = {}) {
+        bool write(const std::string &message, const dataframe_t &dataframe = {}, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open() || message.empty() || close_state.load() != OPEN) return false;
 
             dataframe_t frame = dataframe;
@@ -95,7 +102,7 @@ namespace internetprotocol {
             asio::async_write(socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -108,6 +115,8 @@ namespace internetprotocol {
          *
          * @param dataframe Custom dataframe if needed.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_c client;
@@ -116,7 +125,7 @@ namespace internetprotocol {
          * client.write_buffer(buffer);
          * @endcode
          */
-        bool write_buffer(const std::vector<uint8_t> &buffer, const dataframe_t &dataframe = {}) {
+        bool write_buffer(const std::vector<uint8_t> &buffer, const dataframe_t &dataframe = {}, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open() || buffer.empty() || close_state.load() != OPEN) return false;
 
             dataframe_t frame = dataframe;
@@ -126,7 +135,7 @@ namespace internetprotocol {
             asio::async_write(socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -134,13 +143,15 @@ namespace internetprotocol {
         /**
          * Send a ping message.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_c client;
          * client.ping();
          * @endcode
          */
-        bool ping() {
+        bool ping(const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open() || close_state.load() != OPEN) return false;
 
             dataframe_t dataframe;
@@ -150,7 +161,7 @@ namespace internetprotocol {
             asio::async_write(socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -158,13 +169,15 @@ namespace internetprotocol {
         /**
          * Send a pong message. This is already performed automatically.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_c client;
          * client.pong();
          * @endcode
          */
-        bool pong() {
+        bool pong(const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open()) return false;
 
             dataframe_t dataframe;
@@ -174,7 +187,7 @@ namespace internetprotocol {
             asio::async_write(socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -281,21 +294,6 @@ namespace internetprotocol {
          * @endcode
          */
         std::function<void(const http_request_t &)> on_unexpected_handshake;
-
-        /**
-         * Adds the listener function to 'on_message_sent'.
-         * This event will be triggered when a message has been sent.
-         * 'error_code' may be used to check if socket fail to send message.
-         *
-         * @par Example
-         * @code
-         * ws_remote_c client();
-         * client.on_message_sent = [&](const asio::error_code &ec, const size_t bytes_sent, const tcp::endpoint &endpoint) {
-         *      // your code...
-         * };
-         * @endcode
-         */
-        std::function<void(const asio::error_code &, const size_t)> on_message_sent;
 
         /**
          * Adds the listener function to 'on_message_received'.
@@ -475,7 +473,6 @@ namespace internetprotocol {
                 asio::async_write(socket,
                                   asio::buffer(payload.data(), payload.size()),
                                   [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                      write_cb(ec, bytes_sent);
                                       close(1002, "Protocol error");
                                   });
                 if (on_unexpected_handshake) on_unexpected_handshake(request);
@@ -490,7 +487,6 @@ namespace internetprotocol {
                 asio::async_write(socket,
                                   asio::buffer(payload.data(), payload.size()),
                                   [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                      write_cb(ec, bytes_sent);
                                       close(1002, "Protocol error");
                                   });
                 if (on_unexpected_handshake) on_unexpected_handshake(request);
@@ -528,7 +524,6 @@ namespace internetprotocol {
                 asio::async_write(socket,
                                   asio::buffer(payload.data(), payload.size()),
                                   [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                      write_cb(ec, bytes_sent);
                                       close(1002, "Protocol error");
                                   });
                 if (on_unexpected_handshake) on_unexpected_handshake(request);
@@ -550,8 +545,6 @@ namespace internetprotocol {
             if (error) {
                 std::lock_guard lock(mutex_error);
                 error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent);
                 if (on_error)
                     on_error(error);
                 close(1006, "Abnormal closure");
@@ -566,22 +559,6 @@ namespace internetprotocol {
                              [&](const asio::error_code &ec, const size_t bytes_recvd) {
                                  read_cb(ec, bytes_recvd);
                              });
-        }
-
-        void write_cb(const asio::error_code &error, const size_t bytes_sent) {
-            if (error) {
-                std::lock_guard lock(mutex_error);
-                error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent);
-                if (on_error)
-                    on_error(error);
-                close(1006, "Abnormal closure");
-                return;
-            }
-
-            if (on_message_sent)
-                on_message_sent(error, bytes_sent);
         }
 
         void consume_recv_buffer() {
@@ -737,6 +714,8 @@ namespace internetprotocol {
          *
          * @param dataframe Custom dataframe if needed.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_ssl_c client();
@@ -745,7 +724,7 @@ namespace internetprotocol {
          * client.write(message);
          * @endcode
          */
-        bool write(const std::string &message, const dataframe_t &dataframe = {}) {
+        bool write(const std::string &message, const dataframe_t &dataframe = {}, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open() || message.empty() || close_state.load() != OPEN) return false;
 
             dataframe_t frame = dataframe;
@@ -755,7 +734,7 @@ namespace internetprotocol {
             asio::async_write(ssl_socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -768,6 +747,8 @@ namespace internetprotocol {
          *
          * @param dataframe Custom dataframe if needed.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_ssl_c client();
@@ -776,7 +757,7 @@ namespace internetprotocol {
          * client.write_buffer(buffer);
          * @endcode
          */
-        bool write_buffer(const std::vector<uint8_t> &buffer, const dataframe_t &dataframe = {}) {
+        bool write_buffer(const std::vector<uint8_t> &buffer, const dataframe_t &dataframe = {}, const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open() || buffer.empty() || close_state.load() != OPEN) return false;
 
             dataframe_t frame = dataframe;
@@ -786,7 +767,7 @@ namespace internetprotocol {
             asio::async_write(ssl_socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -794,13 +775,15 @@ namespace internetprotocol {
         /**
          * Send a ping message.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_ssl_c client();
          * client.ping();
          * @endcode
          */
-        bool ping() {
+        bool ping(const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open() || close_state.load() != OPEN) return false;
 
             dataframe_t dataframe;
@@ -810,7 +793,7 @@ namespace internetprotocol {
             asio::async_write(ssl_socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -818,13 +801,15 @@ namespace internetprotocol {
         /**
          * Send a pong message. This is already performed automatically.
          *
+         * @param callback An optional callback function may be specified to as a way of reporting DNS errors or for determining when it is safe to reuse the buf object.
+         *
          * @par Example
          * @code
          * ws_remote_ssl_c client();
          * client.pong();
          * @endcode
          */
-        bool pong() {
+        bool pong(const std::function<void(const asio::error_code &, const size_t)> &callback = nullptr) {
             if (!is_open()) return false;
 
             dataframe_t dataframe;
@@ -834,7 +819,7 @@ namespace internetprotocol {
             asio::async_write(ssl_socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                  write_cb(ec, bytes_sent);
+                                  if (callback) callback(ec, bytes_sent);
                               });
             return true;
         }
@@ -946,21 +931,6 @@ namespace internetprotocol {
          * @endcode
          */
         std::function<void(const http_request_t &)> on_unexpected_handshake;
-
-        /**
-         * Adds the listener function to 'on_message_sent'.
-         * This event will be triggered when a message has been sent.
-         * 'error_code' may be used to check if socket fail to send message.
-         *
-         * @par Example
-         * @code
-         * ws_remote_ssl_c client();
-         * client.on_message_sent = [&](const asio::error_code &ec, const size_t bytes_sent, const tcp::endpoint &endpoint) {
-         *      // your code...
-         * };
-         * @endcode
-         */
-        std::function<void(const asio::error_code &, const size_t)> on_message_sent;
 
         /**
          * Adds the listener function to 'on_message_received'.
@@ -1156,7 +1126,6 @@ namespace internetprotocol {
                 asio::async_write(ssl_socket,
                                   asio::buffer(payload.data(), payload.size()),
                                   [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                      write_cb(ec, bytes_sent);
                                       close(1002, "Protocol error");
                                   });
                 if (on_unexpected_handshake) on_unexpected_handshake(request);
@@ -1171,7 +1140,6 @@ namespace internetprotocol {
                 asio::async_write(ssl_socket,
                                   asio::buffer(payload.data(), payload.size()),
                                   [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                      write_cb(ec, bytes_sent);
                                       close(1002, "Protocol error");
                                   });
                 if (on_unexpected_handshake) on_unexpected_handshake(request);
@@ -1209,7 +1177,6 @@ namespace internetprotocol {
                 asio::async_write(ssl_socket,
                                   asio::buffer(payload.data(), payload.size()),
                                   [&](const asio::error_code &ec, const size_t bytes_sent) {
-                                      write_cb(ec, bytes_sent);
                                       close(1002, "Protocol error");
                                   });
                 if (on_unexpected_handshake) on_unexpected_handshake(request);
@@ -1231,8 +1198,6 @@ namespace internetprotocol {
             if (error) {
                 std::lock_guard lock(mutex_error);
                 error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent);
                 if (on_error)
                     on_error(error);
                 close(1006, "Abnormal closure");
@@ -1247,22 +1212,6 @@ namespace internetprotocol {
                              [&](const asio::error_code &ec, const size_t bytes_recvd) {
                                  read_cb(ec, bytes_recvd);
                              });
-        }
-
-        void write_cb(const asio::error_code &error, const size_t bytes_sent) {
-            if (error) {
-                std::lock_guard lock(mutex_error);
-                error_code = error;
-                if (on_message_sent)
-                    on_message_sent(error, bytes_sent);
-                if (on_error)
-                    on_error(error);
-                close(1006, "Abnormal closure");
-                return;
-            }
-
-            if (on_message_sent)
-                on_message_sent(error, bytes_sent);
         }
 
         void consume_recv_buffer() {

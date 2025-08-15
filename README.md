@@ -80,6 +80,8 @@ in the unreal-dev branch.
 
 - Add [ASIO NON-BOOST](https://sourceforge.net/projects/asio/files/asio/) header to your project.
 
+- Add [Openssl](https://sourceforge.net/projects/asio/files/asio/) lib to your project if you need to use it.
+
 
 ## Setup Repository
 
@@ -136,16 +138,13 @@ A description of what actually happens.
 
 # LICENCE
 
-InternetProtocol is licensed under the GNU Affero General Public License, version 3 (AGPL v3).  
-This means you are free to use, modify, and distribute this software, provided that you comply with the terms of the
-AGPL v3, which ensures that any modified versions or derivative works are also open-source and licensed under the AGPL
-v3.
+InternetProtocol is licensed under the MIT License.
 
 See the full license text in the `LICENSE` file or
-at [https://www.gnu.org/licenses/agpl-3.0.txt](https://www.gnu.org/licenses/agpl-3.0.txt).
+at [https://mit-license.org/](https://mit-license.org/).
 
 ## Support the Project
 
-If you find this project useful or want to use the code without (AGPL v3) limitation, purchasing a copy
-on [Fab.com](https://www.fab.com) provided by Epic Games. Your support helps fund continued development and maintenance.
+If you find this project useful and want to support me, purchasing a copy
+on [Fab.com](https://www.fab.com/listings/4eb6260b-19ea-4629-a653-250ea1777b8d) provided by Epic Games. Your support help me keep developing and maintening the project.
 

@@ -1,3 +1,8 @@
+/** 
+ * MIT License (MIT)
+ * Copyright © 2025 Nathan Miguel
+*/
+
 #pragma once
 
 #include <asio.hpp>
