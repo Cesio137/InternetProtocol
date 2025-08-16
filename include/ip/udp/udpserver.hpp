@@ -315,10 +315,10 @@ namespace internetprotocol {
             if (!recv_buffer.empty()) 
                 recv_buffer.clear();
 
-            if (recv_buffer.capacity() != recv_buffer_size)
+            if (recv_buffer.capacity() != recv_buffer_size) {
                 recv_buffer.shrink_to_fit();
-
-            recv_buffer.resize(recv_buffer_size);
+                recv_buffer.resize(recv_buffer_size);
+            }
         }
 
         void receive_from_cb(const asio::error_code &error, const size_t bytes_recvd) {

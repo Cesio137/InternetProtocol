@@ -145,12 +145,12 @@ namespace internetprotocol {
          * client.connect("localhost", 8080, v4, true);
          * @endcode
          */
-        bool connect(const std::string &address = "localhost", const std::string &port = "8080", const protocol_type_e protocol = v4) {
+        bool connect(const client_bind_options_t &bind_opts = {}) {
             if (net.socket.is_open())
                 return false;
 
-            net.resolver.async_resolve(protocol == v4 ? tcp::v4() : tcp::v6(),
-                                        address, port,
+            net.resolver.async_resolve(bind_opts.protocol == v4 ? tcp::v4() : tcp::v6(),
+                                        bind_opts.address, bind_opts.port,
                                         [&](const asio::error_code &ec, const tcp::resolver::results_type &results) {
                                             resolve(ec, results);
                                         });

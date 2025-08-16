@@ -163,22 +163,22 @@ namespace internetprotocol {
          * Listen for datagram messages on a named port and address.
          * It returns false if socket is already open or if asio return any error code during the bind.
          *
-         * @param address A string identifying a location. May be a descriptive name or a numeric address string. If an empty string and the passive flag has been specified, the resolved endpoints are suitable for local service binding.
-         * @param port This may be a descriptive name or a numeric string corresponding to a port number. May be an empty string, in which case all resolved endpoints will have a port number of 0.
-         * @param protocol A protocol object, normally representing either the IPv4 or IPv6 version of an internet protocol.
+         * @param bind_opts An struct specifying protocol parameters to be used.
+         * If 'port' is not specified or is 0, the operating system will attempt to bind to a random port.
+         * If 'address' is not specified, the operating system will attempt to listen on all addresses.
          *
          * @par Example
          * @code
          * udp_client_c client;
-         * client.connect("", 8080, v4, true);
+         * client.connect();
          * @endcode
          */
-        bool connect(const std::string &address = "localhost", const std::string &port = "8080", const protocol_type_e protocol = v4) {
+        bool connect(const client_bind_options_t &bind_opts = {}) {
             if (net.socket.is_open())
                 return false;
 
-            net.resolver.async_resolve(protocol == v4 ? udp::v4() : udp::v6(),
-                                        address, port,
+            net.resolver.async_resolve(bind_opts.protocol == v4 ? udp::v4() : udp::v6(),
+                                        bind_opts.address, bind_opts.port,
                                         [&](const asio::error_code &ec, const udp::resolver::results_type &results) {
                                             resolve(ec, results);
                                         });
@@ -227,21 +227,6 @@ namespace internetprotocol {
          * @endcode
          */
         std::function<void()> on_connected;
-
-        /**
-         * Adds the listener function to 'on_message_sent'.
-         * This event will be triggered when a message has been sent.
-         * 'error_code' may be used to check if socket fail to send message.
-         *
-         * @par Example
-         * @code
-         * udp_client_c client;
-         * client.on_message_sent = [&](const asio::error_code &ec, const size_t bytes_sent, const udp::endpoint &endpoint) {
-         *      // your code...
-         * };
-         * @endcode
-         */
-        std::function<void(const asio::error_code &, const size_t)> on_message_sent;
 
         /**
          * Adds the listener function to 'on_message_received'.
@@ -339,11 +324,10 @@ namespace internetprotocol {
             if (!recv_buffer.empty()) 
                 recv_buffer.clear();
 
-            if (recv_buffer.capacity() != recv_buffer_size)
+            if (recv_buffer.capacity() != recv_buffer_size) {
                 recv_buffer.shrink_to_fit();
-
-            if (recv_buffer.size() != recv_buffer_size)
                 recv_buffer.resize(recv_buffer_size);
+            }
         }
 
         void receive_from_cb(const asio::error_code &error, const size_t bytes_recvd) {
