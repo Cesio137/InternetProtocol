@@ -1,130 +1,102 @@
-/*
- * Copyright (c) 2023-2025 Nathan Miguel
- *
- * InternetProtocol is free library: you can redistribute it and/or modify it under the terms
- * of the GNU Affero General Public License as published by the Free Software Foundation,
- * version 3.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU Affero General Public License for more details.
- *
- * For complete copyright and license terms please see the LICENSE at the root of this distribution.
-*/
+/** 
+ * MIT License (MIT)
+ * Copyright © 2025 Nathan Miguel
+ */
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Net/Commons.h"
-#include "UDPClient.generated.h"
+#include "net/asio.h"
+#include "udpclient.generated.h"
+
+using namespace asio::ip;
 
 /**
  * 
  */
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateUdpClient);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegateUdpClientMessageSent, const FErrorCode &, ErrorCode, int, BytesSent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpClientMessage, const TArray<uint8> &, Buffer, int,  BytesRecv);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpClientError, const FErrorCode &, ErrorCode);
+
+struct udp_client_t {
+	udp_client_t(): socket(context), resolver(context) {
+	}
+
+	asio::io_context context;
+	udp::socket socket;
+	udp::endpoint endpoint;
+	udp::resolver resolver;
+};
+
 UCLASS(Blueprintable, BlueprintType, Category = "IP|UDP")
-class INTERNETPROTOCOL_API UUDPClient : public UObject
+class INTERNETPROTOCOL_API UUDPClient: public UObject
 {
 	GENERATED_BODY()
+public:
+	UUDPClient() {
+		recv_buffer.SetNumUninitialized(recv_buffer_size);
+	};
+	~UUDPClient() {
+		net.resolver.cancel();
+		if (net.socket.is_open()) Close();
+	};
 
-public:	
-	virtual void BeginDestroy() override
-	{
-		UDP.resolver.cancel();
-		if (GetSocket().RawPtr->is_open())
-		{
-			Close();
-		}
-		Super::BeginDestroy();
-	}
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
+	bool IsOpen();
 
-	/*HOST*/
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Remote")
-	void SetHost(const FString& IP = "localhost", const FString& Port = "3000", const EProtocolType Protocol = EProtocolType::V4)
-	{
-		Host = IP;
-		Service = Port;
-		ProtocolType = Protocol;
-	}
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
+	FUdpEndpoint LocalEndpoint();
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Socket")
-	FUDPSocket GetSocket() { return UDP.socket; }
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
+	FUdpEndpoint RemoteEndpoint();
 
-	/*SETTINGS*/
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Settings")
-	void SetMaxSendBufferSize(int Value = 1024) { MaxSendBufferSize = Value; }
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP")
+	void SetRecvBufferSize(int Val);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Settings")
-	int GetMaxSendBufferSize() const { return MaxSendBufferSize; }
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
+	int GetRecvBufferSize();
 
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Settings")
-	void SetMaxReceiveBufferSize(int Value = 1024) { MaxReceiveBufferSize = Value; }
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
+	FErrorCode GetErrorCode();
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Settings")
-	int GetMaxReceiveBufferSize() const { return MaxReceiveBufferSize; }
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP")
+	bool Send(const FString &Message, const FDelegateUdpClientMessageSent &Callback);
 
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Settings")
-	void SetSplitPackage(bool Value = true) { SplitBuffer = Value; }
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP")
+	bool SendBuffer(const TArray<uint8> &Buffer, const FDelegateUdpClientMessageSent &Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Settings")
-	bool GetSplitPackage() const { return SplitBuffer; }
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP")
+	bool Connect(const FClientBindOptions &BindOpts);
 
-	/*MESSAGE*/
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Message")
-	bool SendStr(const FString& Message);
-
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Message")
-	bool SendBuffer(const TArray<uint8>& Buffer);
-
-	/*CONNECTION*/
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Connection")
-	bool Connect();
-
-	UFUNCTION(BlueprintCallable, Category = "IP|UDP|Connection")
+	UFUNCTION(BlueprintCallable, Category = "IP|UDP")
 	void Close();
 
-	/*ERRORS*/
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|UDP|Error")
-	FErrorCode GetErrorCode() const
-	{
-		return ErrorCode;
-	}
-
-	/*EVENTS*/
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
-	FDelegateConnection OnConnected;
+	FDelegateUdpClient OnConnected;
+	
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
-	FDelegateBytesTransferred OnBytesTransferred;
+	FDelegateUdpClientMessage OnMessage;
+	
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
-	FDelegateMessageSent OnMessageSent;
+	FDelegateUdpClient OnClose;
+	
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
-	FDelegateUdpMessage OnMessageReceived;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
-	FDelegateConnection OnClose;
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|UDP|Events")
-	FDelegateError OnError;
+	FDelegateUdpClientError OnError;
 
 private:
-	FCriticalSection MutexIO;
-	FCriticalSection MutexBuffer;
-	FCriticalSection MutexError;
-	bool IsClosing = false;
-	FAsioUdpClient UDP;
-	asio::error_code ErrorCode;
-	FString Host = "localhost";
-	FString Service = "3000";
-	EProtocolType ProtocolType = EProtocolType::V4;
-	bool SplitBuffer = true;
-	int MaxSendBufferSize = 1024;
-	int MaxReceiveBufferSize = 1024;
-	FUdpMessage RBuffer;
+	FCriticalSection mutex_io;
+	FCriticalSection mutex_error;
+	TAtomic<bool> is_closing = false;
+	udp_client_t net;
+	asio::error_code error_code;
+	size_t recv_buffer_size = 16384;
+	TArray<uint8> recv_buffer;
 
-	void package_string(const FString& str);
-	void package_buffer(const TArray<uint8>& buffer);
-	void consume_receive_buffer();
 	void run_context_thread();
-	void resolve(const asio::error_code& error, const asio::ip::udp::resolver::results_type& results);
-	void conn(const asio::error_code& error);
-	void send_to(const asio::error_code& error, const size_t bytes_sent);
-	void receive_from(const asio::error_code& error, const size_t bytes_recvd);
+	void resolve(const asio::error_code &error, const udp::resolver::results_type &results);
+	void conn(const asio::error_code &error);
+	void consume_recv_buffer();
+	void receive_from_cb(const asio::error_code &error, const size_t bytes_recvd);
 };
