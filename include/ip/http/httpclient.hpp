@@ -9,6 +9,16 @@
 #include "ip/utils/net.hpp"
 
 namespace internetprotocol {
+    struct http_client_t {
+        http_client_t(): socket(context), resolver(context) {
+        }
+
+        asio::io_context context;
+        tcp::socket socket;
+        tcp::endpoint endpoint;
+        tcp::resolver resolver;
+    };
+    
     class http_client_c {
     public:
         http_client_c(): idle_timer(net.context) {
@@ -147,7 +157,7 @@ namespace internetprotocol {
         asio::steady_timer idle_timer;
         uint16_t idle_timeout_seconds = 0;
         client_bind_options_t bind_options;
-        tcp_client_t net;
+        http_client_t net;
         asio::streambuf recv_buffer;
 
         void start_idle_timer() {
@@ -304,6 +314,19 @@ namespace internetprotocol {
         }
     };
 #ifdef ENABLE_SSL
+    struct http_client_ssl_t {
+        http_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
+                            ssl_socket(context, ssl_context),
+                            resolver(context) {
+        }
+
+        asio::io_context context;
+        asio::ssl::context ssl_context;
+        tcp::resolver resolver;
+        tcp::endpoint endpoint;
+        asio::ssl::stream<tcp::socket> ssl_socket;
+    };
+
     class http_client_ssl_c {
     public:
         explicit http_client_ssl_c(const security_context_opts &sec_opts = {}): idle_timer(net.context) {
@@ -349,6 +372,9 @@ namespace internetprotocol {
         }
 
         ~http_client_ssl_c() {
+            if (net.ssl_socket.next_layer().is_open())
+                close();
+            consume_recv_buffer();
         }
 
         /**

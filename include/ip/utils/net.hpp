@@ -55,7 +55,7 @@ namespace internetprotocol {
         if (!req.params.empty()) {
             payload += "?";
             bool first = true;
-            for (const std::pair<std::string, std::string> param: req.params) {
+            for (const std::pair<std::string, std::string> &param: req.params) {
                 if (!first) payload += "&";
                 payload += param.first + "=" + param.second;
                 first = false;
@@ -68,7 +68,7 @@ namespace internetprotocol {
         payload += "\r\n";
 
         if (!req.headers.empty()) {
-            for (const std::pair<std::string, std::string> header: req.headers) {
+            for (const std::pair<std::string, std::string> &header: req.headers) {
                 payload += header.first + ": " + header.second + "\r\n";
             }
             if (req.headers.find("Content-Length") == req.headers.end() && req.body.length() > 0) {
@@ -96,7 +96,7 @@ namespace internetprotocol {
         payload = "HTTP/" + res.version + " " + std::to_string(res.status_code) + " " + res.status_message
                   + "\r\n";
         if (!res.headers.empty()) {
-            for (const std::pair<std::string, std::string> header: res.headers) {
+            for (const std::pair<std::string, std::string> &header: res.headers) {
                 payload += header.first + ": " + header.second + "\r\n";
             }
             if (res.headers.find("Content-Length") == res.headers.end() && res.body.length() > 0) {
@@ -110,6 +110,9 @@ namespace internetprotocol {
         payload += "\r\n";
         if (!res.body.empty()) payload += res.body;
 
+        if (payload.capacity() > payload.length())
+            payload.shrink_to_fit();
+
         return payload;
     }
 
@@ -118,7 +121,7 @@ namespace internetprotocol {
         if (pos != std::string::npos) {
             std::string key = trim_whitespace(headerline.substr(0, pos));
             string_to_lower(key);
-            std::string value = trim_whitespace(headerline.substr(pos + 1));
+            std::string value = headerline.substr(pos + 1);
             /*
             std::vector<std::string> values = split_string(value, ';');
             std::transform(
@@ -134,7 +137,7 @@ namespace internetprotocol {
         if (pos != std::string::npos) {
             std::string key = trim_whitespace(headerline.substr(0, pos));
             string_to_lower(key);
-            std::string value = trim_whitespace(headerline.substr(pos + 1));
+            std::string value = headerline.substr(pos + 1);
             /*
             std::vector<std::string> values = split_string(value, ';');
             std::transform(

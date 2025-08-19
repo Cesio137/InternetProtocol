@@ -463,14 +463,14 @@ namespace internetprotocol {
                 recv_buffer.consume(size);
         }
 
-        void read_cb(const asio::error_code &ec, std::size_t bytes_recvd) {
-            if (ec) {
-                if (ec == asio::error::eof) {
+        void read_cb(const asio::error_code &error, std::size_t bytes_recvd) {
+            if (error) {
+                if (error == asio::error::eof) {
                     close();
                     if (on_close) on_close();
                     return;
                 }
-                if (on_error) on_error(ec);
+                if (on_error) on_error(error);
                 close();
                 if (on_close) on_close();
                 return;

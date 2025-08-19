@@ -329,7 +329,7 @@ namespace internetprotocol {
                     on_client_accepted(client);
             } else {
                 std::lock_guard guard(mutex_error);
-                if (!is_closing)
+                if (!is_closing.load())
                     client->close();
             }
             if (net.acceptor.is_open()) {

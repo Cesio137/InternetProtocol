@@ -346,7 +346,7 @@ namespace internetprotocol {
 
     class tcp_client_ssl_c {
     public:
-        tcp_client_ssl_c(const security_context_opts sec_opts = {}) {
+        tcp_client_ssl_c(const security_context_opts &sec_opts = {}) {
             if (!sec_opts.private_key.empty()) {
                 const asio::const_buffer buffer(sec_opts.private_key.data(), sec_opts.private_key.size());
                 net.ssl_context.use_private_key(buffer, sec_opts.file_format);
@@ -380,6 +380,9 @@ namespace internetprotocol {
                     break;
                 case verify_fail_if_no_peer_cert:
                     net.ssl_context.set_verify_mode(asio::ssl::verify_fail_if_no_peer_cert);
+                    break;
+                case verify_client_once:
+                    net.ssl_context.set_verify_mode(asio::ssl::verify_client_once);
                     break;
                 default:
                     break;
@@ -509,12 +512,13 @@ namespace internetprotocol {
          * client.connect("localhost", 8080, v4, true);
          * @endcode
          */
-        bool connect(const std::string &address = "localhost", const std::string &port = "8080", const protocol_type_e protocol = v4) {
+        bool connect(const client_bind_options_t &bind_opts = {}) {
             if (net.ssl_socket.next_layer().is_open())
                 return false;
 
-            net.resolver.async_resolve(address,
-                                        port,
+            net.resolver.async_resolve(bind_opts.protocol == v4 ? tcp::v4() : tcp::v6(),
+                                        bind_opts.address,
+                                        bind_opts.port,
                                         [&](const asio::error_code &ec, const tcp::resolver::results_type &results) {
                                             resolve(ec, results);
                                         });
@@ -554,6 +558,8 @@ namespace internetprotocol {
             net.context.restart();
             net.endpoint = tcp::endpoint();
             net.ssl_socket = asio::ssl::stream<tcp::socket>(net.context, net.ssl_context);
+            if (on_close)
+                on_close();
             is_closing.store(true);
         }
 

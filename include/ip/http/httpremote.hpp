@@ -16,6 +16,11 @@ namespace internetprotocol {
         http_remote_c(asio::io_context &io_context, const uint16_t timeout = 0): socket(io_context),
             idle_timer(io_context) { idle_timeout_seconds = timeout; }
 
+        ~http_remote_c() {
+            if (socket.is_open())
+                close();
+        }
+
         /**
          * Return true if socket is open.
          *
@@ -111,27 +116,16 @@ namespace internetprotocol {
          * client.close(false);
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
-            if (force) {
-                if (socket.is_open()) {
-                    socket.cancel(); {
-                        std::lock_guard guard(mutex_error);
-                        socket.close(error_code);
-                        if (error_code && on_error)
-                            on_error(error_code);
-                    }
-                }
-            } else {
-                if (socket.is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    socket.shutdown(tcp::socket::shutdown_both, error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    socket.close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
+            if (socket.is_open()) {
+                std::lock_guard guard(mutex_error);
+                socket.shutdown(tcp::socket::shutdown_both, error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                socket.close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
             }
             is_closing.store(false);
         }
@@ -424,42 +418,23 @@ namespace internetprotocol {
          * client.close(false);
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
-            if (force) {
-                if (ssl_socket.next_layer().is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    ssl_socket.lowest_layer().cancel(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    ssl_socket.lowest_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
+            if (ssl_socket.next_layer().is_open()) {
+                std::lock_guard guard(mutex_error);
+                ssl_socket.lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                ssl_socket.lowest_layer().close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
 
-                    ssl_socket.shutdown(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    ssl_socket.next_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
-            } else {
-                if (ssl_socket.next_layer().is_open()) {
-                    std::lock_guard guard(mutex_error);
-                    ssl_socket.lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    ssl_socket.lowest_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-
-                    ssl_socket.shutdown(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                    ssl_socket.next_layer().close(error_code);
-                    if (error_code && on_error)
-                        on_error(error_code);
-                }
+                ssl_socket.shutdown(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
+                ssl_socket.next_layer().close(error_code);
+                if (error_code && on_error)
+                    on_error(error_code);
             }
             is_closing.store(false);
         }
@@ -539,7 +514,6 @@ namespace internetprotocol {
         void ssl_handshake(const asio::error_code &error) {
             if (error) {
                 std::lock_guard guard(mutex_error);
-                std::cerr << "SSL handshake error: " << error.message() << std::endl;
                 error_code = error;
                 if (on_error) on_error(error);
                 if (on_close) on_close();
