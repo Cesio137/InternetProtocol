@@ -397,7 +397,7 @@ namespace internetprotocol {
          * server.close(false);
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
             if (net.acceptor.is_open()) {
                 std::lock_guard guard(mutex_error);
@@ -408,7 +408,7 @@ namespace internetprotocol {
                 std::lock_guard guard(mutex_error);
                 for (const auto &client : net.clients) {
                     if (client)
-                        client->close(force);
+                        client->close();
                 }
                 net.clients.clear();
             }
