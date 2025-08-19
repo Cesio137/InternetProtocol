@@ -571,20 +571,6 @@ namespace internetprotocol {
                         }
                     }
                     break;
-                case CONNECT:
-                    if (patch_cb.find(request.path) != patch_cb.end()) {
-                        if (patch_cb[request.path]) {
-                            patch_cb[request.path](request, client);
-                        }
-                    }
-                    break;
-                case TRACE:
-                    if (patch_cb.find(request.path) != patch_cb.end()) {
-                        if (patch_cb[request.path]) {
-                            patch_cb[request.path](request, client);
-                        }
-                    }
-                    break;
             }
         }
     };
@@ -1017,7 +1003,7 @@ namespace internetprotocol {
          * server.close(false);
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
             if (net.acceptor.is_open()) {
                 std::lock_guard guard(mutex_error);
@@ -1028,7 +1014,7 @@ namespace internetprotocol {
                 std::lock_guard guard(mutex_error);
                 for (const auto &client : net.ssl_clients) {
                     if (client)
-                        client->close(force);
+                        client->close();
                 }
                 net.ssl_clients.clear();
             }
@@ -1186,20 +1172,6 @@ namespace internetprotocol {
                     }
                     break;
                 case PATCH:
-                    if (patch_cb.find(request.path) != patch_cb.end()) {
-                        if (patch_cb[request.path]) {
-                            patch_cb[request.path](request, client);
-                        }
-                    }
-                    break;
-                case CONNECT:
-                    if (patch_cb.find(request.path) != patch_cb.end()) {
-                        if (patch_cb[request.path]) {
-                            patch_cb[request.path](request, client);
-                        }
-                    }
-                    break;
-                case TRACE:
                     if (patch_cb.find(request.path) != patch_cb.end()) {
                         if (patch_cb[request.path]) {
                             patch_cb[request.path](request, client);
