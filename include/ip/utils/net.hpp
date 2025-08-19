@@ -12,7 +12,6 @@ namespace internetprotocol {
     // HTTP
     std::string request_method_to_string(request_method_e method) {
         switch (method) {
-            case CONNECT: return "CONNECT";
             case DEL: return "DELETE";
             case GET: return "GET";
             case HEAD: return "HEAD";
@@ -20,7 +19,6 @@ namespace internetprotocol {
             case PATCH: return "PATCH";
             case POST: return "POST";
             case PUT: return "PUT";
-            case TRACE: return "TRACE";
             default:
                 return "";
         }
@@ -28,15 +26,13 @@ namespace internetprotocol {
 
     request_method_e string_to_request_method(const std::string &method_str) {
         static const std::unordered_map<std::string, request_method_e> method_map = {
-            {"CONNECT", CONNECT},
             {"DELETE", DEL},
             {"GET", GET},
             {"HEAD", HEAD},
             {"OPTIONS", OPTIONS},
             {"PATCH", PATCH},
             {"POST", POST},
-            {"PUT", PUT},
-            {"TRACE", TRACE}
+            {"PUT", PUT}
         };
 
         auto it = method_map.find(method_str);
