@@ -6,39 +6,33 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "net/asio.h"
-#include "tcpclient.generated.h"
+#include "UObject/Object.h"
+#include "tcp/tcpremote.h"
+#include "tcpserver.generated.h"
 
 /**
  * 
  */
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateTcpClient);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegateTcpClientMessageSent, const FErrorCode &, ErrorCode, int, BytesSent);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpClientMessage, const TArray<uint8> &, Buffer, int,  BytesRecv);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpClientError, const FErrorCode &, ErrorCode);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDelegateTcpServer);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpServerClientConnect, UTCPRemote*, Client);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpServerClientSslConnect, UTCPRemoteSsl*, Client);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpServerError, const FErrorCode &, ErrorCode);
 
-struct tcp_client_t {
-	tcp_client_t(): socket(context), resolver(context) {
+struct tcp_server_t {
+	tcp_server_t(): acceptor(context) {
 	}
 
 	asio::io_context context;
-	tcp::socket socket;
-	tcp::endpoint endpoint;
-	tcp::resolver resolver;
+	tcp::acceptor acceptor;
+	TSet<UTCPRemote*> clients;
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
-class INTERNETPROTOCOL_API UTCPClient : public UObject
+class INTERNETPROTOCOL_API UTCPServer : public UObject
 {
 	GENERATED_BODY()
 public:
-	UTCPClient() {}
-	~UTCPClient() {
-		if (net.socket.is_open())
-			Close();
-		consume_recv_buffer();
-	}
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsOpen();
@@ -47,76 +41,69 @@ public:
 	FTcpEndpoint LocalEndpoint();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
-	FTcpEndpoint RemoteEndpoint();
+	const TSet<UTCPRemote*> &Clients();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	FErrorCode GetErrorCode();
 
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
-	bool Write(const FString &Message, const FDelegateTcpClientMessageSent &Callback);
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void SetMaxConnections(int Val);
 
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
-	bool WriteBuffer(const TArray<uint8> &Buffer, const FDelegateTcpClientMessageSent &Callback);
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
+	int GetMaxConnections();
 
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
-	bool Connect(const FClientBindOptions &BindOpts);
-	
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	bool Open(const FServerBindOptions &BindOpts);
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
 	void Close();
 
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClient OnConnected;
+	FDelegateTcpServer OnListening;
 
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClientMessage OnMessage;
+	FDelegateTcpServerClientConnect OnClientAccepted;
 
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClient OnClose;
-
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClientError OnError;
+	FDelegateTcpServer OnClose;
 	
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	FDelegateTcpServerError OnError;
+
 private:
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	tcp_client_t net;
+	tcp_server_t net;
 	asio::error_code error_code;
-	asio::streambuf recv_buffer;
+	int max_connections = 2147483647;
 
 	void run_context_thread();
-	void resolve(const asio::error_code &error, const tcp::resolver::results_type &results);
-	void conn(const asio::error_code &error);
-	void consume_recv_buffer();
-	void read_cb(const asio::error_code &error, const size_t bytes_recvd);
+	void accept(const asio::error_code &error, UTCPRemote* client);
 };
 
-struct tcp_client_ssl_t {
-	tcp_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
-						ssl_socket(context, ssl_context),
-						resolver(context) {
+struct tcp_server_ssl_t {
+	tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
 	}
 
 	asio::io_context context;
 	asio::ssl::context ssl_context;
-	tcp::resolver resolver;
-	tcp::endpoint endpoint;
-	asio::ssl::stream<tcp::socket> ssl_socket;
+	tcp::acceptor acceptor;
+	TSet<UTCPRemoteSsl*> ssl_clients;
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
-class INTERNETPROTOCOL_API UTCPClientSsl : public UObject
+class INTERNETPROTOCOL_API UTCPServerSsl : public UObject
 {
 	GENERATED_BODY()
 public:
-	UTCPClientSsl() = default;
-	~UTCPClientSsl() {
-		if (net.ssl_socket.next_layer().is_open())
+	UTCPServerSsl() {}
+	~UTCPServerSsl() {
+		if (net.acceptor.is_open())
 			Close();
-		consume_recv_buffer();
 	}
 
-	void Construct(const FSecurityContextOpts &SecOpts) {
+	void InitializeSsl(const FSecurityContextOpts &SecOpts) {
 		file_format_e file_format = SecOpts.File_Format == EFileFormat::asn1 ? file_format_e::asn1 : file_format_e::pem;
 		if (!SecOpts.Private_Key.IsEmpty()) {
 			const asio::const_buffer buffer(SecOpts.Private_Key.GetCharArray().GetData(), SecOpts.Private_Key.Len());
@@ -158,8 +145,6 @@ public:
 		default:
 			break;
 		}
-
-		net.ssl_socket = asio::ssl::stream<tcp::socket>(net.context, net.ssl_context);
 	}
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
@@ -169,47 +154,43 @@ public:
 	FTcpEndpoint LocalEndpoint();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
-	FTcpEndpoint RemoteEndpoint();
+	const TSet<UTCPRemoteSsl*> &Clients();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	FErrorCode GetErrorCode();
 
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
-	bool Write(const FString &Message, const FDelegateTcpClientMessageSent &Callback);
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void SetMaxConnections(int Val);
 
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
-	bool WriteBuffer(const TArray<uint8> &Buffer, const FDelegateTcpClientMessageSent &Callback);
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
+	int GetMaxConnections();
 
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
-	bool Connect(const FClientBindOptions &BindOpts);
-	
-	UFUNCTION(BlueprintCallable, Category = "IP|TCP")
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	bool Open(const FServerBindOptions &BindOpts);
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
 	void Close();
 
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClient OnConnected;
-
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClientMessage OnMessage;
-
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClient OnClose;
-
-	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
-	FDelegateTcpClientError OnError;
+	FDelegateTcpServer OnListening;
 	
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	FDelegateTcpServerClientSslConnect OnClientAccepted;
+	
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	FDelegateTcpServer OnClose;
+	
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|TCP|Events")
+	FDelegateTcpServerError OnError;
+
 private:
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	tcp_client_ssl_t net;
+	tcp_server_ssl_t net;
 	asio::error_code error_code;
-	asio::streambuf recv_buffer;
+	int max_connections = 2147483647;
 
 	void run_context_thread();
-	void resolve(const asio::error_code &error, const tcp::resolver::results_type &results);
-	void conn(const asio::error_code &error);
-	void ssl_handshake(const asio::error_code &error);
-	void consume_recv_buffer();
-	void read_cb(const asio::error_code &error, const size_t bytes_recvd);
+	void accept(const asio::error_code &error, UTCPRemoteSsl* client);
 };

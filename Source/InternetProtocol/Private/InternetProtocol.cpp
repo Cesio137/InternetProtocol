@@ -5,12 +5,14 @@
 
 #include "InternetProtocol.h"
 #include "Modules/ModuleManager.h"
+#include "net/common.h"
 
 #define LOCTEXT_NAMESPACE "FInternetProtocolModule"
 
 void FInternetProtocolModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	pool = MakeUnique<asio::thread_pool>(std::thread::hardware_concurrency());
 }
 
 void FInternetProtocolModule::ShutdownModule()

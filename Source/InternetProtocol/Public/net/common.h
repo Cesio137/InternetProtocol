@@ -38,6 +38,12 @@ using namespace asio::ip;
 
 DEFINE_LOG_CATEGORY_STATIC(LogAsio, Log, All);
 
+UENUM(Blueprintable, Category="IP|ENUM|Common")
+enum EOutputExecPins {
+	Success,
+	Failure,
+};
+
 template <typename Exception>
 inline void asio::detail::throw_exception(const Exception& e) {
 	UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR>"));
@@ -45,10 +51,10 @@ inline void asio::detail::throw_exception(const Exception& e) {
 	UE_LOG(LogAsio, Error, TEXT("<ASIO ERROR/>"));
 }
 
-INTERNETPROTOCOL_API inline extern asio::thread_pool& thread_pool() {
-	const unsigned threads = std::max(1u, std::thread::hardware_concurrency());
-	static asio::thread_pool pool(threads);
-	return pool;
+inline extern TUniquePtr<asio::thread_pool> pool = nullptr;
+
+inline asio::thread_pool& thread_pool() {
+	return *pool;
 }
 
 UENUM(Blueprintable, Category="IP|ENUM|Common")
@@ -65,6 +71,39 @@ enum class EVerifyMode: uint8 {
 	Verify_Client_Once = 0x04,
 };
 
+UENUM(Blueprintable, Category="IP|ENUM|Common")
+enum class EFileFormat: uint8 {
+	asn1 = 0,
+	pem = 1,
+};
+typedef asio::ssl::context_base::file_format file_format_e;
+
+USTRUCT(BlueprintType, Category="IP|STRUCT|Common")
+struct FSecurityContextOpts {
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|SecurityContextOpts")
+	FString Private_Key;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|SecurityContextOpts")
+	FString Cert;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|SecurityContextOpts")
+	FString Cert_Chain;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|SecurityContextOpts")
+	FString RSA_Private_Key;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|SecurityContextOpts")
+	EFileFormat File_Format = EFileFormat::pem;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|SecurityContextOpts")
+	EVerifyMode Verify_Mode = EVerifyMode::Verify_Peer;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|SecurityContextOpts")
+	FString Host_Name_Verification;
+};
+
 // HTTP
 UENUM(Blueprintable, Category="IP|ENUM|Common")
 enum class ERequestMethod : uint8 {
@@ -79,8 +118,6 @@ enum class ERequestMethod : uint8 {
 	PUT = 8,
 	TRACE = 9
 };
-
-typedef asio::ssl::context_base::file_format file_format_e;
 
 USTRUCT(BlueprintType, Category="IP|STRUCT|Common")
 struct FHttpRequest {

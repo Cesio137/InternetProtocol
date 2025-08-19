@@ -35,11 +35,11 @@ bool UUDPClient::Send(const FString& Message, const FDelegateUdpClientMessageSen
 	if (!net.socket.is_open() || Message.IsEmpty())
 		return false;
 
-	net.socket.async_send_to(asio::buffer(Message.GetCharArray().GetData(), Message.Len()),
+	net.socket.async_send_to(asio::buffer(TCHAR_TO_UTF8(*Message), Message.Len()),
 								net.endpoint,
 								[&, Callback](const asio::error_code& ec, std::size_t bytes_sent) {
 									AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
-										Callback.Execute(FErrorCode(ec), bytes_sent);
+										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
 	return true;
@@ -53,7 +53,7 @@ bool UUDPClient::SendBuffer(const TArray<uint8>& Buffer, const FDelegateUdpClien
 								net.endpoint,
 								[&, Callback](const asio::error_code& ec, std::size_t bytes_sent) {
 									AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
-										Callback.Execute(FErrorCode(ec), bytes_sent);
+										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
 	return true;

@@ -36,11 +36,11 @@ bool UUDPServer::SendTo(const FString& Message, const FUdpEndpoint& Endpoint,
 	if (!net.socket.is_open() || Message.IsEmpty())
 		return false;
 
-	net.socket.async_send_to(asio::buffer(Message.GetCharArray().GetData(),  Message.Len()),
+	net.socket.async_send_to(asio::buffer(TCHAR_TO_UTF8(*Message),  Message.Len()),
 								Endpoint.Endpoint,
 								[&, Callback](const asio::error_code &ec, size_t bytes_sent) {
 									AsyncTask(ENamedThreads::GameThread, [&, Callback]() {
-										Callback.Execute(FErrorCode(ec), bytes_sent);
+										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
 	return true;
@@ -55,7 +55,7 @@ bool UUDPServer::SendBufferTo(const TArray<uint8>& Buffer, const FUdpEndpoint& E
 								Endpoint.Endpoint,
 								[&, Callback](const asio::error_code &ec, size_t bytes_sent) {
 									AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
-										Callback.Execute(FErrorCode(ec), bytes_sent);
+										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
 	return true;
