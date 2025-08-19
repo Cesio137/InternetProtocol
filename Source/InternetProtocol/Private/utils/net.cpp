@@ -67,13 +67,9 @@ FString prepare_request(const FHttpRequest& req, const FString& address, const u
 		for (const TPair<FString, FString> &header : req.Headers) {
 			payload += header.Key + ": " + header.Value + "\r\n";
 		}
-		if (req.Headers.Contains("Content-Length") && req.Body.Len() > 0) {
+		if ((!req.Headers.Contains("Content-Length") || !req.Headers.Contains("content-length")) && req.Body.Len() > 0) {
 			payload +=
 				"Content-Length: " + FString::FromInt(req.Body.Len()) + "\r\n";
-		}
-		else if (req.Headers.Contains("content-length") && req.Body.Len() > 0) {
-			payload +=
-				"content-length: " + FString::FromInt(req.Body.Len()) + "\r\n";
 		}
 	}
 	payload += "\r\n";
@@ -96,13 +92,9 @@ FString prepare_response(const FHttpResponse& res) {
 		for (const TPair<FString, FString> &header: res.Headers) {
 			payload += header.Key + ": " + header.Value + "\r\n";
 		}
-		if (res.Headers.Contains("Content-Length") && res.Body.Len() > 0) {
+		if ((!res.Headers.Contains("Content-Length") || !res.Headers.Contains("content-length")) && res.Body.Len() > 0) {
 			payload +=
 				"Content-Length: " + FString::FromInt(res.Body.Len()) + "\r\n";
-		}
-		else if (res.Headers.Contains("content-length") && res.Body.Len() > 0) {
-			payload +=
-				"content-length: " + FString::FromInt(res.Body.Len()) + "\r\n";
 		}
 	}
 	payload += "\r\n";

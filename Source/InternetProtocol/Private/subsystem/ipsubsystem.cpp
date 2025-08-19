@@ -23,7 +23,7 @@ UTCPServer* UInternetProtocolSubsystem::CreateTCPServer() {
 
 UTCPServerSsl* UInternetProtocolSubsystem::CreateTCPServerSsl(const FSecurityContextOpts &BindOpts) {
 	UTCPServerSsl* server = NewObject<UTCPServerSsl>();
-	server->InitializeSsl(BindOpts);
+	server->Construct(BindOpts);
 	return server;
 }
 
@@ -38,7 +38,24 @@ UTCPClientSsl* UInternetProtocolSubsystem::CreateTCPClientSsl(const FSecurityCon
 	return client;
 }
 
+UHttpServer* UInternetProtocolSubsystem::CreateHttpServer() {
+	UHttpServer* server = NewObject<UHttpServer>();
+	return server;
+}
+
+UHttpServerSsl* UInternetProtocolSubsystem::CreateHttpServerSsl(const FSecurityContextOpts& SecOpts) {
+	UHttpServerSsl* server = NewObject<UHttpServerSsl>();
+	server->Construct(SecOpts);
+	return server;
+}
+
 UHttpClient* UInternetProtocolSubsystem::CreateHttpClient() {
 	UHttpClient* client = NewObject<UHttpClient>();
+	return client;
+}
+
+UHttpClientSsl* UInternetProtocolSubsystem::CreateHttpClientSsl(const FSecurityContextOpts& SecOpts) {
+	UHttpClientSsl* client = NewObject<UHttpClientSsl>();
+	client->Construct(SecOpts);
 	return client;
 }

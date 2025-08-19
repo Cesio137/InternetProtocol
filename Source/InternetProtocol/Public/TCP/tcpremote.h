@@ -30,7 +30,9 @@ public:
 			Close();
 	}
 
-	void Construct(asio::io_context &io_context);
+	void Construct(TSharedPtr<tcp::socket>& socket_ptr);
+
+	void Destroy();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsOpen();
@@ -73,7 +75,7 @@ public:
 
 private:
 	FCriticalSection mutex_error;
-	TUniquePtr<tcp::socket> socket;
+	TSharedPtr<tcp::socket> socket;
 	asio::error_code error_code;
 	asio::streambuf recv_buffer;
 
@@ -93,7 +95,9 @@ public:
 			Close();
 	}
 
-	void Construct(asio::io_context& io_context, asio::ssl::context& ssl_context);
+	void Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr);
+
+	void Destroy();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsOpen();
@@ -136,7 +140,7 @@ public:
 
 private:
 	FCriticalSection mutex_error;
-	TUniquePtr<asio::ssl::stream<tcp::socket>> ssl_socket;
+	TSharedPtr<asio::ssl::stream<tcp::socket>> ssl_socket;
 	asio::error_code error_code;
 	asio::streambuf recv_buffer;
 

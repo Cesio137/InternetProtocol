@@ -4,12 +4,21 @@
 #include "http/httpremote.h"
 #include "utils/net.h"
 
-void UHttpRemote::Construct(asio::io_context& io_context, const uint8 timeout) {
+void UHttpRemote::Construct(asio::io_context &io_context, TSharedPtr<tcp::socket>& sock, const uint8 timeout) {
+	if (!IsRooted()) AddToRoot();
 	if (timeout > 0) {
 		idle_timeout_seconds = timeout;
 		idle_timer = MakeUnique<asio::steady_timer>(io_context, asio::steady_timer::duration(timeout));
 	}
-	socket = MakeUnique<tcp::socket>(tcp::socket(io_context));
+	socket = sock;
+}
+
+void UHttpRemote::Destroy() {
+	if (IsRooted()) {
+		RemoveFromRoot();
+	}
+    
+	MarkPendingKill();
 }
 
 bool UHttpRemote::IsOpen() {
@@ -35,7 +44,7 @@ tcp::socket& UHttpRemote::get_socket() {
 }
 
 void UHttpRemote::Headers(const FHttpResponse& Response) {
-	response = response;
+	response = Response;
 }
 
 bool UHttpRemote::Write(const FDelegateHttpRemoteMessageSent& Callback) {
@@ -43,7 +52,7 @@ bool UHttpRemote::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 		return false;
 
 	reset_idle_timer();
-
+	
 	FString payload = prepare_response(response);
 	asio::async_write(*socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
@@ -269,12 +278,21 @@ void UHttpRemote::read_headers(const asio::error_code& error, const std::string&
 	if (on_request) on_request(req);
 }
 
-void UHttpRemoteSsl::Construct(asio::io_context& io_context, asio::ssl::context& ssl_context, const uint8 timeout) {
+void UHttpRemoteSsl::Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr, asio::io_context &io_context, const uint8 timeout) {
+	if (!IsRooted()) AddToRoot();
 	if (timeout > 0) {
 		idle_timeout_seconds = timeout;
 		idle_timer = MakeUnique<asio::steady_timer>(io_context, asio::steady_timer::duration(timeout));
 	}
-	ssl_socket = MakeUnique<asio::ssl::stream<tcp::socket>>(asio::ssl::stream<tcp::socket>(io_context, ssl_context));
+	ssl_socket = socket_ptr;
+}
+
+void UHttpRemoteSsl::Destroy() {
+	if (IsRooted()) {
+		RemoveFromRoot();
+	}
+    
+	MarkPendingKill();
 }
 
 bool UHttpRemoteSsl::IsOpen() {
@@ -384,6 +402,7 @@ void UHttpRemoteSsl::start_idle_timer() {
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 	});
 }
@@ -403,6 +422,7 @@ void UHttpRemoteSsl::ssl_handshake(const asio::error_code& error) {
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnError.Broadcast(FErrorCode(error));
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 		return;
 	}
@@ -426,6 +446,7 @@ void UHttpRemoteSsl::write_cb(const asio::error_code& error, const size_t bytes_
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 	}
 }
@@ -442,6 +463,7 @@ void UHttpRemoteSsl::write_error_cb(const asio::error_code& error, const size_t 
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 	}
 }
@@ -466,6 +488,7 @@ void UHttpRemoteSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 		}
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 		return;
 	}
@@ -525,6 +548,7 @@ void UHttpRemoteSsl::read_headers(const asio::error_code& error, const std::stri
 		}
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 		return;
 	}

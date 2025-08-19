@@ -149,54 +149,47 @@ void UHttpServer::Close() {
 void UHttpServer::run_context_thread() {
 	FScopeLock lock(&mutex_io);
 	error_code.clear();
-	UHttpRemote *client_socket = NewObject<UHttpRemote>();
-	client_socket->Construct(net.context);
-	net.acceptor.async_accept(client_socket->get_socket(),
-								[&, client_socket](const asio::error_code &ec) {
-									accept(ec, client_socket);
-								});
+	TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
+	net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
+	if (!IsRooted()) AddToRoot();
 	net.context.run();
+	if (IsRooted()) RemoveFromRoot();
 	if (!is_closing.Load())
 		Close();
 }
 
-void UHttpServer::accept(const asio::error_code& error, UHttpRemote* client) {
+void UHttpServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>& socket) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
-		error_code = error;
 		if (!is_closing.Load())
-			client->Close();
+			if (socket) socket->close(error_code);
+		error_code = error;
 		if (net.acceptor.is_open()) {
-			UHttpRemote *client_socket = NewObject<UHttpRemote>();
-			client_socket->Construct(net.context);
-			net.acceptor.async_accept(client_socket->get_socket(),
-										[&, client_socket](const asio::error_code &ec) {
-											accept(ec, client_socket);
-										});
+			TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
+			net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
 		}
 		return;
 	}
 	if (net.clients.Num() < max_connections) {
+		UHttpRemote *client = NewObject<UHttpRemote>();
+		client->Construct(net.context, socket, iddle_timeout);
 		client->on_request = [&, client](const FHttpRequest &request) {
 			read_cb(request, client);
 		};
 		client->on_close = [&, client]() {
 			net.clients.Remove(client);
+			client->Destroy();
 		};
 		client->connect();
 		net.clients.Add(client);
 	} else {
 		FScopeLock lock(&mutex_error);
 		if (!is_closing.Load())
-			client->Close();
+			if (socket) socket->close(error_code);
 	}
 	if (net.acceptor.is_open()) {
-		UHttpRemote *client_socket = NewObject<UHttpRemote>();
-		client_socket->Construct(net.context);
-		net.acceptor.async_accept(client_socket->get_socket(),
-								[&, client_socket](const asio::error_code &ec) {
-									accept(ec, client_socket);
-								});
+		TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
+		net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
 	}
 }
 
@@ -241,5 +234,239 @@ void UHttpServer::read_cb(const FHttpRequest& request, UHttpRemote* client) {
         }
         break;
     default: break;
+	}
+}
+
+bool UHttpServerSsl::IsOpen() {
+	return net.acceptor.is_open();
+}
+
+FTcpEndpoint UHttpServerSsl::LocalEndpoint() {
+	tcp::endpoint ep = net.acceptor.local_endpoint();
+	return FTcpEndpoint(ep);
+}
+
+TSet<UHttpRemoteSsl*>& UHttpServerSsl::Clients() {
+	return net.ssl_clients;
+}
+
+FErrorCode UHttpServerSsl::GetErrorCode() {
+	return FErrorCode(error_code);
+}
+
+void UHttpServerSsl::SetMaxConnections(int Val) {
+	max_connections = Val < 0 ? 0 : Val;
+}
+
+int UHttpServerSsl::GetMaxConnections() {
+	return max_connections;
+}
+
+void UHttpServerSsl::SetIdleTimeout(uint8 Val) {
+	iddle_timeout = Val;
+}
+
+uint8 UHttpServerSsl::GetIdleTimeout() {
+	return iddle_timeout;
+}
+
+void UHttpServerSsl::All(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	all_cb.Add(Path, Callback);
+}
+
+void UHttpServerSsl::Get(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	get_cb.Add(Path, Callback);
+}
+
+void UHttpServerSsl::Post(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	post_cb.Add(Path, Callback);
+}
+
+void UHttpServerSsl::Put(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	put_cb.Add(Path, Callback);
+}
+
+void UHttpServerSsl::Del(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	del_cb.Add(Path, Callback);
+}
+
+void UHttpServerSsl::Head(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	head_cb.Add(Path, Callback);
+}
+
+void UHttpServerSsl::Options(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	options_cb.Add(Path, Callback);
+}
+
+void UHttpServerSsl::Patch(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
+	patch_cb.Add(Path, Callback);
+}
+
+bool UHttpServerSsl::Open(const FServerBindOptions& BindOpts) {
+	if (net.acceptor.is_open())
+		return false;
+
+	net.acceptor.open(BindOpts.Protocol == EProtocolType::V4 
+						  ? tcp::v4()
+						  : tcp::v6(),
+						  error_code);
+
+	if (error_code) {
+		FScopeLock lock(&mutex_error);
+		OnError.Broadcast(FErrorCode(error_code));
+		return false;
+	}
+
+	net.acceptor.set_option(asio::socket_base::reuse_address(BindOpts.bReuse_Address), error_code);
+	if (error_code) {
+		FScopeLock lock(&mutex_error);
+		if (error_code)
+			OnError.Broadcast(FErrorCode(error_code));
+		return false;
+	}
+
+	const tcp::endpoint endpoint = BindOpts.Address.IsEmpty() ?
+								tcp::endpoint(BindOpts.Protocol == EProtocolType::V4
+												? tcp::v4()
+												: tcp::v6(),
+												BindOpts.Port) :
+								tcp::endpoint(make_address(TCHAR_TO_UTF8(*BindOpts.Address)), BindOpts.Port);
+
+	net.acceptor.bind(endpoint, error_code);
+	if (error_code) {
+		FScopeLock lock(&mutex_error);
+		if (error_code)
+			OnError.Broadcast(FErrorCode(error_code));
+		return false;
+	}
+
+	net.acceptor.listen(max_connections, error_code);
+	if (error_code) {
+		FScopeLock lock(&mutex_error);
+		if (error_code)
+			OnError.Broadcast(FErrorCode(error_code));
+		return false;
+	}
+
+	asio::post(thread_pool(), [&]{ run_context_thread(); });
+	return true;
+}
+
+void UHttpServerSsl::Close() {
+	is_closing.Store(true);
+	if (net.acceptor.is_open()) {
+		FScopeLock lock(&mutex_error);
+		net.acceptor.close(error_code);
+		if (error_code)
+			AsyncTask(ENamedThreads::GameThread, [&]() {
+				OnError.Broadcast(FErrorCode(error_code));
+			});
+	}
+	if (net.ssl_clients.Num()) {
+		FScopeLock lock(&mutex_error);
+		for (const auto &client : net.ssl_clients) {
+			if (client)
+				client->Close();
+		}
+		net.ssl_clients.Empty();
+		net.ssl_clients.Shrink();
+	}
+	net.context.stop();
+	net.context.restart();
+	net.acceptor = tcp::acceptor(net.context);
+	AsyncTask(ENamedThreads::GameThread, [&]() {
+		OnClose.Broadcast();
+	});
+	is_closing.Store(false);
+}
+
+void UHttpServerSsl::run_context_thread() {
+	FScopeLock lock(&mutex_io);
+	error_code.clear();
+	TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
+	net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+	if (!IsRooted()) AddToRoot();
+	net.context.run();
+	if (IsRooted()) RemoveFromRoot();
+	if (!is_closing.Load())
+		Close();
+}
+
+void UHttpServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl::stream<tcp::socket>>& socket) {
+	if (error) {
+		FScopeLock lock(&mutex_error);
+		if (!is_closing.Load())
+			if (socket) socket->next_layer().close(error_code);
+		error_code = error;
+		if (net.acceptor.is_open()) {
+			TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
+			net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+		}
+		return;
+	}
+	if (net.ssl_clients.Num() < max_connections) {
+		UHttpRemoteSsl *client = NewObject<UHttpRemoteSsl>();
+		client->Construct(socket, net.context, iddle_timeout);
+		client->on_request = [&, client](const FHttpRequest &request) {
+			read_cb(request, client);
+		};
+		client->on_close = [&, client]() {
+			net.ssl_clients.Remove(client);
+			client->Destroy();
+		};
+		client->connect();
+		net.ssl_clients.Add(client);
+	} else {
+		FScopeLock lock(&mutex_error);
+		if (!is_closing.Load())
+			if (socket) socket->next_layer().close(error_code);
+	}
+	if (net.acceptor.is_open()) {
+		TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
+		net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+	}
+}
+
+void UHttpServerSsl::read_cb(const FHttpRequest& request, UHttpRemoteSsl* client) {
+	if (all_cb.Contains(request.Path)) {
+		all_cb[request.Path].ExecuteIfBound(request, client);
+	}
+	switch (request.Method) {
+	case ERequestMethod::DEL:
+		if (del_cb.Contains(request.Path)) {
+			del_cb[request.Path].ExecuteIfBound(request, client);
+		}
+		break;
+	case ERequestMethod::GET:
+		if (get_cb.Contains(request.Path)) {
+			get_cb[request.Path].ExecuteIfBound(request, client);
+		}
+		break;
+	case ERequestMethod::HEAD:
+		if (head_cb.Contains(request.Path)) {
+			head_cb[request.Path].ExecuteIfBound(request, client);
+		}
+		break;
+	case ERequestMethod::OPTIONS:
+		if (options_cb.Contains(request.Path)) {
+			options_cb[request.Path].ExecuteIfBound(request, client);
+		}
+		break;
+	case ERequestMethod::POST:
+		if (post_cb.Contains(request.Path)) {
+			post_cb[request.Path].ExecuteIfBound(request, client);
+		}
+		break;
+	case ERequestMethod::PUT:
+		if (put_cb.Contains(request.Path)) {
+			put_cb[request.Path].ExecuteIfBound(request, client);
+		}
+		break;
+	case ERequestMethod::PATCH:
+		if (patch_cb.Contains(request.Path)) {
+			patch_cb[request.Path].ExecuteIfBound(request, client);
+		}
+		break;
+	default: break;
 	}
 }

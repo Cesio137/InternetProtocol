@@ -79,7 +79,7 @@ private:
 	int max_connections = 2147483647;
 
 	void run_context_thread();
-	void accept(const asio::error_code &error, UTCPRemote* client);
+	void accept(const asio::error_code &error, TSharedPtr<tcp::socket>& socket);
 };
 
 struct tcp_server_ssl_t {
@@ -103,7 +103,7 @@ public:
 			Close();
 	}
 
-	void InitializeSsl(const FSecurityContextOpts &SecOpts) {
+	void Construct(const FSecurityContextOpts &SecOpts) {
 		file_format_e file_format = SecOpts.File_Format == EFileFormat::asn1 ? file_format_e::asn1 : file_format_e::pem;
 		if (!SecOpts.Private_Key.IsEmpty()) {
 			const asio::const_buffer buffer(SecOpts.Private_Key.GetCharArray().GetData(), SecOpts.Private_Key.Len());
@@ -192,5 +192,5 @@ private:
 	int max_connections = 2147483647;
 
 	void run_context_thread();
-	void accept(const asio::error_code &error, UTCPRemoteSsl* client);
+	void accept(const asio::error_code &error, TSharedPtr<asio::ssl::stream<tcp::socket>>& socket);
 };

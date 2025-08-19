@@ -11,6 +11,7 @@
 #include "tcp/tcpserver.h"
 #include "tcp/tcpclient.h"
 #include "http/httpclient.h"
+#include "http/httpserver.h"
 #include "Subsystems/WorldSubsystem.h"
 
 #include "ipsubsystem.generated.h"
@@ -43,7 +44,16 @@ public:
 	UTCPClientSsl* CreateTCPClientSsl(const FSecurityContextOpts &BindOpts);
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UHttpServer* CreateHttpServer();
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UHttpServerSsl* CreateHttpServerSsl(const FSecurityContextOpts& SecOpts);
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UHttpClient* CreateHttpClient();
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UHttpClientSsl* CreateHttpClientSsl(const FSecurityContextOpts& SecOpts);
 private:
 	
 };

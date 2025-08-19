@@ -21,11 +21,14 @@ class INTERNETPROTOCOL_API UHttpRemote : public UObject
 public:
 	UHttpRemote() {}
 	~UHttpRemote() {
+		if (!socket.IsValid()) return;
 		if (socket->is_open())
 			Close();
 	}
 
-	void Construct(asio::io_context &io_context, const uint8 timeout = 0);
+	void Construct(asio::io_context &io_context, TSharedPtr<tcp::socket> &sock, const uint8 timeout = 0);
+
+	void Destroy();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
@@ -67,7 +70,7 @@ public:
 private:
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	TUniquePtr<tcp::socket> socket;
+	TSharedPtr<tcp::socket> socket;
 	TUniquePtr<asio::steady_timer> idle_timer;
 	uint8 idle_timeout_seconds = 0;
 	asio::error_code error_code;
@@ -92,11 +95,14 @@ class INTERNETPROTOCOL_API UHttpRemoteSsl : public UObject
 public:
 	UHttpRemoteSsl() {}
 	~UHttpRemoteSsl() {
+		if (!ssl_socket.IsValid()) return;
 		if (ssl_socket->next_layer().is_open())
 			Close();
 	}
 
-	void Construct(asio::io_context &io_context, asio::ssl::context &ssl_context, const uint8 timeout = 0);
+	void Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr, asio::io_context &io_context, const uint8 timeout = 0);
+
+	void Destroy();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
@@ -130,13 +136,15 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpRemote OnClose;
 
+	std::function<void()> on_close;
+
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpRemoteError OnError;
 	
 private:
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	TUniquePtr<asio::ssl::stream<tcp::socket>> ssl_socket;
+	TSharedPtr<asio::ssl::stream<tcp::socket>> ssl_socket;
 	TUniquePtr<asio::steady_timer> idle_timer;
 	uint8 idle_timeout_seconds = 0;
 	asio::error_code error_code;

@@ -5,8 +5,17 @@
 
 #include "tcp/tcpremote.h"
 
-void UTCPRemote::Construct(asio::io_context& io_context) {
-	socket = MakeUnique<tcp::socket>(tcp::socket(io_context));
+void UTCPRemote::Construct(TSharedPtr<tcp::socket>& socket_ptr) {
+	if (!IsRooted()) AddToRoot();
+	socket = socket_ptr;
+}
+
+void UTCPRemote::Destroy() {
+	if (IsRooted()) {
+		RemoveFromRoot();
+	}
+
+	MarkPendingKill();
 }
 
 bool UTCPRemote::IsOpen() {
@@ -116,8 +125,17 @@ void UTCPRemote::read_cb(const asio::error_code& error, std::size_t bytes_recvd)
 					 });
 }
 
-void UTCPRemoteSsl::Construct(asio::io_context& io_context, asio::ssl::context& ssl_context) {
-	ssl_socket = MakeUnique<asio::ssl::stream<tcp::socket>>(asio::ssl::stream<tcp::socket>(io_context, ssl_context));
+void UTCPRemoteSsl::Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr) {
+	if (!IsRooted()) AddToRoot();
+	ssl_socket = socket_ptr;
+}
+
+void UTCPRemoteSsl::Destroy() {
+	if (IsRooted()) {
+		RemoveFromRoot();
+	}
+
+	MarkPendingKill();
 }
 
 bool UTCPRemoteSsl::IsOpen() {

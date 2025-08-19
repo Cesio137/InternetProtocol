@@ -110,7 +110,7 @@ public:
 		consume_recv_buffer();
 	}
 
-	void InitializeSsl(const FSecurityContextOpts &SecOpts) {
+	void Construct(const FSecurityContextOpts &SecOpts) {
 		file_format_e file_format = SecOpts.File_Format == EFileFormat::asn1 ? file_format_e::asn1 : file_format_e::pem;
 		if (!SecOpts.Private_Key.IsEmpty()) {
 			const asio::const_buffer buffer(SecOpts.Private_Key.GetCharArray().GetData(), SecOpts.Private_Key.Len());
