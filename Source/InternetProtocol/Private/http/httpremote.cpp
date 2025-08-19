@@ -108,6 +108,7 @@ void UHttpRemote::start_idle_timer() {
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 	});
 }
@@ -133,6 +134,7 @@ void UHttpRemote::write_cb(const asio::error_code& error, const size_t bytes_sen
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 	}
 }
@@ -149,6 +151,7 @@ void UHttpRemote::write_error_cb(const asio::error_code& error, const size_t byt
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 	}
 }
@@ -173,6 +176,7 @@ void UHttpRemote::read_cb(const asio::error_code& error, const size_t bytes_recv
 		}
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 		return;
 	}
@@ -232,6 +236,7 @@ void UHttpRemote::read_headers(const asio::error_code& error, const std::string&
 		}
 		AsyncTask(ENamedThreads::GameThread, [&]() {
 			OnClose.Broadcast();
+			if (on_close) on_close();
 		});
 		return;
 	}

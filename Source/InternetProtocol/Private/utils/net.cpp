@@ -9,7 +9,6 @@
 
 FString request_method_to_string(ERequestMethod method) {
 	switch (method) {
-	case ERequestMethod::CONNECT: return "CONNECT";
 	case ERequestMethod::DEL: return "DELETE";
 	case ERequestMethod::GET: return "GET";
 	case ERequestMethod::HEAD: return "HEAD";
@@ -17,7 +16,6 @@ FString request_method_to_string(ERequestMethod method) {
 	case ERequestMethod::PATCH: return "PATCH";
 	case ERequestMethod::POST: return "POST";
 	case ERequestMethod::PUT: return "PUT";
-	case ERequestMethod::TRACE: return "TRACE";
 	default:
 		return "";
 	}
@@ -25,15 +23,13 @@ FString request_method_to_string(ERequestMethod method) {
 
 ERequestMethod string_to_request_method(const FString& method_str) {
 	static const TMap<FString, ERequestMethod> method_map = {
-		{"CONNECT", ERequestMethod::CONNECT},
 		{"DELETE", ERequestMethod::DEL},
 		{"GET", ERequestMethod::GET},
 		{"HEAD", ERequestMethod::HEAD},
 		{"OPTIONS", ERequestMethod::OPTIONS},
 		{"PATCH", ERequestMethod::PATCH},
 		{"POST", ERequestMethod::POST},
-		{"PUT", ERequestMethod::PUT},
-		{"TRACE", ERequestMethod::TRACE}
+		{"PUT", ERequestMethod::PUT}
 	};
 
 	if (method_map.Contains(method_str)) {

@@ -202,8 +202,44 @@ void UHttpServer::accept(const asio::error_code& error, UHttpRemote* client) {
 
 void UHttpServer::read_cb(const FHttpRequest& request, UHttpRemote* client) {
 	if (all_cb.Contains(request.Path)) {
-		if (all_cb[request.Path]) {
-			all_cb[request.Path].ExecuteIfBound(request, client);
-		}
+		all_cb[request.Path].ExecuteIfBound(request, client);
+	}
+	switch (request.Method) {
+	case ERequestMethod::DEL:
+    	if (del_cb.Contains(request.Path)) {
+    		del_cb[request.Path].ExecuteIfBound(request, client);
+    	}
+    	break;
+    case ERequestMethod::GET:
+        if (get_cb.Contains(request.Path)) {
+        	get_cb[request.Path].ExecuteIfBound(request, client);
+        }
+        break;
+    case ERequestMethod::HEAD:
+        if (head_cb.Contains(request.Path)) {
+        	head_cb[request.Path].ExecuteIfBound(request, client);
+        }
+        break;
+    case ERequestMethod::OPTIONS:
+        if (options_cb.Contains(request.Path)) {
+        	options_cb[request.Path].ExecuteIfBound(request, client);
+        }
+        break;
+    case ERequestMethod::POST:
+        if (post_cb.Contains(request.Path)) {
+        	post_cb[request.Path].ExecuteIfBound(request, client);
+        }
+        break;
+    case ERequestMethod::PUT:
+        if (put_cb.Contains(request.Path)) {
+        	put_cb[request.Path].ExecuteIfBound(request, client);
+        }
+        break;
+    case ERequestMethod::PATCH:
+        if (patch_cb.Contains(request.Path)) {
+        	patch_cb[request.Path].ExecuteIfBound(request, client);
+        }
+        break;
+    default: break;
 	}
 }

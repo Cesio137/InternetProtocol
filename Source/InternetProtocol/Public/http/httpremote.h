@@ -59,6 +59,8 @@ public:
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpRemote OnClose;
 
+	std::function<void()> on_close;
+
 	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|HTTP|Events")
 	FDelegateHttpRemoteError OnError;
 	

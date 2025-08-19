@@ -108,15 +108,13 @@ struct FSecurityContextOpts {
 UENUM(Blueprintable, Category="IP|ENUM|Common")
 enum class ERequestMethod : uint8 {
 	UNKNOWN = 0,
-	CONNECT = 1,
-	DEL = 2,
-	GET = 3,
-	HEAD = 4,
-	OPTIONS = 5,
-	PATCH = 6,
-	POST = 7,
-	PUT = 8,
-	TRACE = 9
+	DEL = 1,
+	GET = 2,
+	HEAD = 3,
+	OPTIONS = 4,
+	PATCH = 5,
+	POST = 6,
+	PUT = 7
 };
 
 USTRUCT(BlueprintType, Category="IP|STRUCT|Common")
