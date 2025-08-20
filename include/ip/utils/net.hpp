@@ -67,12 +67,9 @@ namespace internetprotocol {
             for (const std::pair<std::string, std::string> &header: req.headers) {
                 payload += header.first + ": " + header.second + "\r\n";
             }
-            if (req.headers.find("Content-Length") == req.headers.end() && req.body.length() > 0) {
+            if ((req.headers.find("Content-Length") == req.headers.end() || req.headers.find("content-length") == req.headers.end()) && req.body.length() > 0) {
                 payload +=
                         "Content-Length: " + std::to_string(req.body.length()) + "\r\n";
-            } else if (req.headers.find("content-length") == req.headers.end() && req.body.length() > 0) {
-                payload +=
-                        "content-length: " + std::to_string(req.body.length()) + "\r\n";
             }
         }
         payload += "\r\n";
@@ -95,12 +92,9 @@ namespace internetprotocol {
             for (const std::pair<std::string, std::string> &header: res.headers) {
                 payload += header.first + ": " + header.second + "\r\n";
             }
-            if (res.headers.find("Content-Length") == res.headers.end() && res.body.length() > 0) {
+            if ((res.headers.find("Content-Length") == res.headers.end() || res.headers.find("content-length") == res.headers.end()) && res.body.length() > 0) {
                 payload +=
                         "Content-Length: " + std::to_string(res.body.length()) + "\r\n";
-            } else if (res.headers.find("content-length") == res.headers.end() && res.body.length() > 0) {
-                payload +=
-                        "content-length: " + std::to_string(res.body.length()) + "\r\n";
             }
         }
         payload += "\r\n";

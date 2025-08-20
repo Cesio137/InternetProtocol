@@ -21,6 +21,10 @@ namespace internetprotocol {
     class http_server_c {
     public:
         http_server_c() {}
+        ~http_server_c() {
+            if (net.acceptor.is_open())
+                close();
+        }
 
         /**
          * Return true if socket is open.
@@ -626,6 +630,10 @@ namespace internetprotocol {
                 default:
                     break;
             }
+        }
+        ~http_server_ssl_c() {
+            if (net.acceptor.is_open())
+                close();
         }
 
         /**
