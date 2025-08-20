@@ -1,5 +1,4 @@
 ﻿/** 
- * MIT License (MIT)
  * Copyright © 2025 Nathan Miguel
  */
 
