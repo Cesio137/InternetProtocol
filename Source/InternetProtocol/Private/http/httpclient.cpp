@@ -11,14 +11,6 @@ bool UHttpClient::IsOpen() {
 	return is_open;
 }
 
-void UHttpClient::SetTimeout(uint8 Value) {
-	idle_timeout_seconds = Value;
-}
-
-uint8 UHttpClient::GetTimeout() {
-	return idle_timeout_seconds;
-}
-
 void UHttpClient::SetHost(const FClientBindOptions& BindOpts) {
 	bind_options = BindOpts;
 }
@@ -27,21 +19,21 @@ void UHttpClient::Request(const FHttpRequest& Req, const FDelegateHttpClientResp
 	if (!net.socket.is_open()) {
 		net.resolver.async_resolve(bind_options.Protocol == EProtocolType::V4 ? tcp::v4() : tcp::v6(),
 								   TCHAR_TO_UTF8(*bind_options.Address), TCHAR_TO_UTF8(*bind_options.Port),
-								   [&, Req, Callback](const asio::error_code &ec,
+								   [this, Req, Callback](const asio::error_code &ec,
 														 const tcp::resolver::results_type &results) {
 									   resolve(ec, results, Req, Callback);
 								   });
-		asio::post(thread_pool(), [&] { run_context_thread(); });
+		asio::post(thread_pool(), [this] { run_context_thread(); });
 		return;
 	}
 
 	FString payload = prepare_request(Req, net.socket.remote_endpoint().address().to_string().c_str(),
 										  net.socket.remote_endpoint().port());
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		reset_idle_timer();
 	asio::async_write(net.socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_cb(ec, bytes_sent, Callback);
 					  });
 }
@@ -60,11 +52,11 @@ void UHttpClient::Close() {
 }
 
 void UHttpClient::start_idle_timer() {
-	if (idle_timeout_seconds == 0)
+	if (IdleTimeoutSeconds == 0)
 		return;
 
-	idle_timer->expires_after(std::chrono::seconds(idle_timeout_seconds));
-	idle_timer->async_wait([&](const asio::error_code &ec) {
+	idle_timer->expires_after(std::chrono::seconds(IdleTimeoutSeconds));
+	idle_timer->async_wait([this](const asio::error_code &ec) {
 		if (ec == asio::error::operation_aborted)
 			return;
 
@@ -76,7 +68,7 @@ void UHttpClient::start_idle_timer() {
 }
 
 void UHttpClient::reset_idle_timer() {
-	if (is_closing.Load() || idle_timeout_seconds == 0)
+	if (is_closing.Load() || IdleTimeoutSeconds == 0)
 		return;
 
 	idle_timer->cancel();
@@ -93,7 +85,7 @@ void UHttpClient::run_context_thread() {
 void UHttpClient::resolve(const asio::error_code& error, const tcp::resolver::results_type& results,
 	const FHttpRequest& req, const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
@@ -102,7 +94,7 @@ void UHttpClient::resolve(const asio::error_code& error, const tcp::resolver::re
 	net.endpoint = results.begin()->endpoint();
 	asio::async_connect(net.socket,
 						results,
-						[&, req, response_cb](const asio::error_code &ec, const tcp::endpoint &ep) {
+						[this, req, response_cb](const asio::error_code &ec, const tcp::endpoint &ep) {
 							conn(ec, req, response_cb);
 						});
 }
@@ -110,7 +102,7 @@ void UHttpClient::resolve(const asio::error_code& error, const tcp::resolver::re
 void UHttpClient::conn(const asio::error_code& error, const FHttpRequest& req,
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
@@ -118,11 +110,11 @@ void UHttpClient::conn(const asio::error_code& error, const FHttpRequest& req,
 
 	FString payload = prepare_request(req, net.socket.remote_endpoint().address().to_string().c_str(),
 										  net.socket.remote_endpoint().port());
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		start_idle_timer();
 	asio::async_write(net.socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&, response_cb](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this, response_cb](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_cb(ec, bytes_sent, response_cb);
 					  });
 }
@@ -130,18 +122,18 @@ void UHttpClient::conn(const asio::error_code& error, const FHttpRequest& req,
 void UHttpClient::write_cb(const asio::error_code& error, const size_t bytes_sent,
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
 	
 	consume_recv_buffer();
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		reset_idle_timer();
 	asio::async_read_until(net.socket,
 						   recv_buffer, "\r\n",
-						   [&, response_cb](const asio::error_code &ec, const size_t bytes_received) {
+						   [this, response_cb](const asio::error_code &ec, const size_t bytes_received) {
 							   read_cb(ec, bytes_received, response_cb);
 						   });
 }
@@ -156,12 +148,12 @@ void UHttpClient::read_cb(const asio::error_code& error, const size_t bytes_recv
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		consume_recv_buffer();
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		reset_idle_timer();
 
 	FHttpResponse response;
@@ -176,7 +168,7 @@ void UHttpClient::read_cb(const asio::error_code& error, const size_t bytes_recv
 		consume_recv_buffer();
 		response.Status_Code = 505;
 		response.Status_Message = "HTTP Version Not Supported";
-		AsyncTask(ENamedThreads::GameThread, [&, response, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
@@ -185,7 +177,7 @@ void UHttpClient::read_cb(const asio::error_code& error, const size_t bytes_recv
 	response.Status_Message = status_message.c_str();
 	if (status_code != 200 && recv_buffer.size() == 0) {
 		consume_recv_buffer();
-		AsyncTask(ENamedThreads::GameThread, [&, response, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
@@ -203,7 +195,7 @@ void UHttpClient::read_headers(const asio::error_code& error, FHttpResponse& res
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		consume_recv_buffer();
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
@@ -221,21 +213,13 @@ void UHttpClient::read_headers(const asio::error_code& error, FHttpResponse& res
 	}
 
 	consume_recv_buffer();
-	AsyncTask(ENamedThreads::GameThread, [&, response, response_cb]() {
+	AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
 		response_cb.ExecuteIfBound(FErrorCode(), response);
 	});
 }
 
 bool UHttpClientSsl::IsOpen() {
 	return net.ssl_socket.next_layer().is_open();
-}
-
-void UHttpClientSsl::SetTimeout(uint8 Value) {
-	idle_timeout_seconds = Value;
-}
-
-uint8 UHttpClientSsl::GetTimeout() {
-	return idle_timeout_seconds;
 }
 
 void UHttpClientSsl::SetHost(const FClientBindOptions& BindOpts) {
@@ -246,21 +230,21 @@ void UHttpClientSsl::Request(const FHttpRequest& Request, const FDelegateHttpCli
 	if (!net.ssl_socket.next_layer().is_open()) {
 		net.resolver.async_resolve(bind_options.Protocol == EProtocolType::V4 ? tcp::v4() : tcp::v6(),
 								   TCHAR_TO_UTF8(*bind_options.Address), TCHAR_TO_UTF8(*bind_options.Port),
-								   [&, Request, Callback](const asio::error_code &ec,
+								   [this, Request, Callback](const asio::error_code &ec,
 														 const tcp::resolver::results_type &results) {
 									   resolve(ec, results, Request, Callback);
 								   });
-		asio::post(thread_pool(), [&] { run_context_thread(); });
+		asio::post(thread_pool(), [this] { run_context_thread(); });
 		return;
 	}
 
 	FString payload = prepare_request(Request, net.ssl_socket.next_layer().remote_endpoint().address().to_string().c_str(),
 										  net.ssl_socket.next_layer().remote_endpoint().port());
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		reset_idle_timer();
 	asio::async_write(net.ssl_socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_cb(ec, bytes_sent, Callback);
 					  });
 }
@@ -282,11 +266,11 @@ void UHttpClientSsl::Close() {
 }
 
 void UHttpClientSsl::start_idle_timer() {
-	if (idle_timeout_seconds == 0)
+	if (IdleTimeoutSeconds == 0)
 		return;
 
-	idle_timer->expires_after(std::chrono::seconds(idle_timeout_seconds));
-	idle_timer->async_wait([&](const asio::error_code &ec) {
+	idle_timer->expires_after(std::chrono::seconds(IdleTimeoutSeconds));
+	idle_timer->async_wait([this](const asio::error_code &ec) {
 		if (ec == asio::error::operation_aborted)
 			return;
 
@@ -298,7 +282,7 @@ void UHttpClientSsl::start_idle_timer() {
 }
 
 void UHttpClientSsl::reset_idle_timer() {
-	if (is_closing.Load() || idle_timeout_seconds == 0)
+	if (is_closing.Load() || IdleTimeoutSeconds == 0)
 		return;
 
 	idle_timer->cancel();
@@ -315,7 +299,7 @@ void UHttpClientSsl::run_context_thread() {
 void UHttpClientSsl::resolve(const asio::error_code& error, const tcp::resolver::results_type& results,
 	const FHttpRequest& req, const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
@@ -324,7 +308,7 @@ void UHttpClientSsl::resolve(const asio::error_code& error, const tcp::resolver:
 	net.endpoint = results.begin()->endpoint();
 	asio::async_connect(net.ssl_socket.lowest_layer(),
 						results,
-						[&, req, response_cb](const asio::error_code &ec, const tcp::endpoint &ep) {
+						[this, req, response_cb](const asio::error_code &ec, const tcp::endpoint &ep) {
 							conn(ec, req, response_cb);
 						});
 }
@@ -332,14 +316,14 @@ void UHttpClientSsl::resolve(const asio::error_code& error, const tcp::resolver:
 void UHttpClientSsl::conn(const asio::error_code& error, const FHttpRequest& req,
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
 
 	net.ssl_socket.async_handshake(asio::ssl::stream_base::client,
-								   [&, req, response_cb](const asio::error_code &ec) {
+								   [this, req, response_cb](const asio::error_code &ec) {
 									   ssl_handshake(ec, req, response_cb);
 								   });
 }
@@ -347,7 +331,7 @@ void UHttpClientSsl::conn(const asio::error_code& error, const FHttpRequest& req
 void UHttpClientSsl::ssl_handshake(const asio::error_code& error, const FHttpRequest& req,
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
@@ -355,11 +339,11 @@ void UHttpClientSsl::ssl_handshake(const asio::error_code& error, const FHttpReq
 
 	FString payload = prepare_request(req, net.ssl_socket.next_layer().remote_endpoint().address().to_string().c_str(),
 										  net.ssl_socket.next_layer().remote_endpoint().port());
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		start_idle_timer();
 	asio::async_write(net.ssl_socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&, response_cb](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this, response_cb](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_cb(ec, bytes_sent, response_cb);
 					  });
 }
@@ -367,18 +351,18 @@ void UHttpClientSsl::ssl_handshake(const asio::error_code& error, const FHttpReq
 void UHttpClientSsl::write_cb(const asio::error_code& error, const size_t bytes_sent,
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
 	
 	consume_recv_buffer();
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		reset_idle_timer();
 	asio::async_read_until(net.ssl_socket,
 						   recv_buffer, "\r\n",
-						   [&, response_cb](const asio::error_code &ec, const size_t bytes_received) {
+						   [this, response_cb](const asio::error_code &ec, const size_t bytes_received) {
 							   read_cb(ec, bytes_received, response_cb);
 						   });
 }
@@ -393,12 +377,12 @@ void UHttpClientSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		consume_recv_buffer();
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
-	if (idle_timeout_seconds > 0)
+	if (IdleTimeoutSeconds > 0)
 		reset_idle_timer();
 
 	FHttpResponse response;
@@ -413,7 +397,7 @@ void UHttpClientSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 		consume_recv_buffer();
 		response.Status_Code = 505;
 		response.Status_Message = "HTTP Version Not Supported";
-		AsyncTask(ENamedThreads::GameThread, [&, response, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
@@ -422,7 +406,7 @@ void UHttpClientSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 	response.Status_Message = status_message.c_str();
 	if (status_code != 200 && recv_buffer.size() == 0) {
 		consume_recv_buffer();
-		AsyncTask(ENamedThreads::GameThread, [&, response, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
@@ -440,7 +424,7 @@ void UHttpClientSsl::read_headers(const asio::error_code& error, FHttpResponse& 
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		consume_recv_buffer();
-		AsyncTask(ENamedThreads::GameThread, [&, error, response_cb]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
 			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
@@ -458,7 +442,7 @@ void UHttpClientSsl::read_headers(const asio::error_code& error, FHttpResponse& 
 	}
 
 	consume_recv_buffer();
-	AsyncTask(ENamedThreads::GameThread, [&, response, response_cb]() {
+	AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
 		response_cb.ExecuteIfBound(FErrorCode(), response);
 	});
 }

@@ -38,14 +38,11 @@ public:
 		consume_recv_buffer();
 	}
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	uint8 IdleTimeoutSeconds = 0;
+
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP")
-	void SetTimeout(uint8 Value);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
-	uint8 GetTimeout();
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP")
 	void SetHost(const FClientBindOptions& BindOpts);
@@ -60,7 +57,6 @@ private:
 	FCriticalSection mutex_io;
 	TAtomic<bool> is_closing = false;
 	TUniquePtr<asio::steady_timer> idle_timer;
-	uint8 idle_timeout_seconds = 0;
 	FClientBindOptions bind_options;
 	http_client_t net;
 	asio::streambuf recv_buffer;
@@ -155,14 +151,11 @@ public:
 		net.ssl_socket = asio::ssl::stream<tcp::socket>(net.context, net.ssl_context);
 	}
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	uint8 IdleTimeoutSeconds = 0;
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
-
-	UFUNCTION(BlueprintCallable, Category = "IP|HTTP")
-	void SetTimeout(uint8 Value);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
-	uint8 GetTimeout();
 
 	UFUNCTION(BlueprintCallable, Category = "IP|HTTP")
 	void SetHost(const FClientBindOptions& BindOpts);
@@ -177,7 +170,6 @@ private:
 	FCriticalSection mutex_io;
 	TAtomic<bool> is_closing = false;
 	TUniquePtr<asio::steady_timer> idle_timer;
-	uint8 idle_timeout_seconds = 0;
 	FClientBindOptions bind_options;
 	http_client_ssl_t net;
 	asio::streambuf recv_buffer;

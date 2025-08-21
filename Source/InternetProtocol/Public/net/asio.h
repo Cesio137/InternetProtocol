@@ -11,9 +11,17 @@ struct FErrorCode {
 	GENERATED_BODY()
 	FErrorCode() = default;
 	explicit FErrorCode(const asio::error_code& error_code) {
-		Value = error_code.value();
-		Message = error_code.message().c_str();
+		if (error_code) {
+			Value = error_code.value();
+			Message = error_code.message().c_str();	
+		}
 	}
+	explicit FErrorCode(asio::error_code& error_code) {
+		if (error_code) {
+			Value = error_code.value();
+			Message = error_code.message().c_str();	
+		}
+    }
 
 	UPROPERTY(BlueprintReadWrite, Category = "IP|ErrorCode")
 	FString Message;

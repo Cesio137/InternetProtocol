@@ -45,8 +45,8 @@ bool UTCPRemote::Write(const FString& Message, const FDelegateTcpRemoteMessageSe
 
 	asio::async_write(*socket,
 					  asio::buffer(TCHAR_TO_UTF8(*Message), Message.Len()),
-					  [&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-					  		AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
+					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
 								Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 					  });
@@ -59,8 +59,8 @@ bool UTCPRemote::WriteBuffer(const TArray<uint8>& Buffer, const FDelegateTcpRemo
 
 	asio::async_write(*socket,
 						asio::buffer(Buffer.GetData(), Buffer.Num()),
-						[&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
+						[this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+							AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
 								Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 						});
@@ -71,7 +71,7 @@ void UTCPRemote::connect() {
 	asio::async_read(*socket,
 						recv_buffer,
 						asio::transfer_at_least(1),
-						[&](const asio::error_code &ec, const size_t bytes_received) {
+						[this](const asio::error_code &ec, const size_t bytes_received) {
 							read_cb(ec, bytes_received);
 						});
 }
@@ -81,12 +81,12 @@ void UTCPRemote::Close() {
 		FScopeLock lock(&mutex_error);
 		socket->shutdown(tcp::socket::shutdown_both, error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 		socket->close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -100,7 +100,7 @@ void UTCPRemote::consume_recv_buffer() {
 
 void UTCPRemote::read_cb(const asio::error_code& error, std::size_t bytes_recvd) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
 			OnError.Broadcast(FErrorCode(error));
 			OnClose.Broadcast();
 			if (on_close) on_close();
@@ -111,7 +111,7 @@ void UTCPRemote::read_cb(const asio::error_code& error, std::size_t bytes_recvd)
 	TArray<uint8> buffer;
 	buffer.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(buffer.GetData(), bytes_recvd), recv_buffer.data());
-	AsyncTask(ENamedThreads::GameThread, [&, buffer, bytes_recvd]() {
+	AsyncTask(ENamedThreads::GameThread, [this, buffer, bytes_recvd]() {
 		OnMessage.Broadcast(buffer, bytes_recvd);
 	});
 
@@ -119,7 +119,7 @@ void UTCPRemote::read_cb(const asio::error_code& error, std::size_t bytes_recvd)
 	asio::async_read(*socket,
 					 recv_buffer,
 					 asio::transfer_at_least(1),
-					 [&](const asio::error_code &ec, const size_t bytes_received) {
+					 [this](const asio::error_code &ec, const size_t bytes_received) {
 						 read_cb(ec, bytes_received);
 					 });
 }
@@ -165,8 +165,8 @@ bool UTCPRemoteSsl::Write(const FString& Message, const FDelegateTcpRemoteMessag
 
 	asio::async_write(*ssl_socket,
 						asio::buffer(TCHAR_TO_UTF8(*Message), Message.Len()),
-						[&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
+						[this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+							AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
 								Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 						});
@@ -179,8 +179,8 @@ bool UTCPRemoteSsl::WriteBuffer(const TArray<uint8>& Buffer, const FDelegateTcpR
 
 	asio::async_write(*ssl_socket,
 						asio::buffer(Buffer.GetData(), Buffer.Num()),
-						[&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
+						[this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+							AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
 								Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 						});
@@ -189,7 +189,7 @@ bool UTCPRemoteSsl::WriteBuffer(const TArray<uint8>& Buffer, const FDelegateTcpR
 
 void UTCPRemoteSsl::connect() {
 	ssl_socket->async_handshake(asio::ssl::stream_base::server,
-									[&](const asio::error_code &ec) {
+									[this](const asio::error_code &ec) {
 										ssl_handshake(ec);
 									});
 }
@@ -199,23 +199,23 @@ void UTCPRemoteSsl::Close() {
 		FScopeLock lock(&mutex_error);
 		ssl_socket->lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->lowest_layer().close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 
 		ssl_socket->shutdown(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->next_layer().close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -225,10 +225,10 @@ void UTCPRemoteSsl::ssl_handshake(const asio::error_code& error) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
 			OnError.Broadcast(FErrorCode(error));
 		});
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -239,7 +239,7 @@ void UTCPRemoteSsl::ssl_handshake(const asio::error_code& error) {
 	asio::async_read(*ssl_socket,
 					 recv_buffer,
 					 asio::transfer_at_least(1),
-					 [&](const asio::error_code &ec, const size_t bytes_received) {
+					 [this](const asio::error_code &ec, const size_t bytes_received) {
 						 read_cb(ec, bytes_received);
 					 });
 }
@@ -252,7 +252,7 @@ void UTCPRemoteSsl::consume_recv_buffer() {
 
 void UTCPRemoteSsl::read_cb(const asio::error_code& error, std::size_t bytes_recvd) {
 	if (error) {
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
 			OnError.Broadcast(FErrorCode(error));
 			OnClose.Broadcast();
 			if (on_close) on_close();
@@ -263,7 +263,7 @@ void UTCPRemoteSsl::read_cb(const asio::error_code& error, std::size_t bytes_rec
 	TArray<uint8> buffer;
 	buffer.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(buffer.GetData(), bytes_recvd), recv_buffer.data());
-	AsyncTask(ENamedThreads::GameThread, [&, buffer, bytes_recvd]() {
+	AsyncTask(ENamedThreads::GameThread, [this, buffer, bytes_recvd]() {
 		OnMessage.Broadcast(buffer, bytes_recvd);
 	});
 
@@ -271,7 +271,7 @@ void UTCPRemoteSsl::read_cb(const asio::error_code& error, std::size_t bytes_rec
 	asio::async_read(*ssl_socket,
 					 recv_buffer,
 					 asio::transfer_at_least(1),
-					 [&](const asio::error_code &ec, const size_t bytes_received) {
+					 [this](const asio::error_code &ec, const size_t bytes_received) {
 						 read_cb(ec, bytes_received);
 					 });
 }

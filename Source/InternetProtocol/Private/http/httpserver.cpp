@@ -21,22 +21,6 @@ FErrorCode UHttpServer::GetErrorCode() {
 	return FErrorCode(error_code);
 }
 
-void UHttpServer::SetMaxConnections(int Val) {
-	max_connections = Val < 0 ? 0 : Val;
-}
-
-int UHttpServer::GetMaxConnections() {
-	return max_connections;
-}
-
-void UHttpServer::SetIdleTimeout(uint8 Val) {
-	iddle_timeout = Val;
-}
-
-uint8 UHttpServer::GetIdleTimeout() {
-	return iddle_timeout;
-}
-
 void UHttpServer::All(const FString& Path, const FDelegateHttpServerRequest& Callback) {
 	all_cb.Add(Path, Callback);
 }
@@ -107,7 +91,7 @@ bool UHttpServer::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	net.acceptor.listen(max_connections, error_code);
+	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
 		if (error_code)
@@ -115,7 +99,7 @@ bool UHttpServer::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	asio::post(thread_pool(), [&]{ run_context_thread(); });
+	asio::post(thread_pool(), [this]{ run_context_thread(); });
 	return true;
 }
 
@@ -125,7 +109,7 @@ void UHttpServer::Close() {
 		FScopeLock lock(&mutex_error);
 		net.acceptor.close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -141,7 +125,7 @@ void UHttpServer::Close() {
 	net.context.stop();
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this]() {
 		OnClose.Broadcast();
 	});
 	is_closing.Store(false);
@@ -171,23 +155,17 @@ void UHttpServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>&
 		}
 		return;
 	}
-	if (net.clients.Num() < max_connections) {
-		UHttpRemote *client = NewObject<UHttpRemote>();
-		client->Construct(net.context, socket, iddle_timeout);
-		client->on_request = [&, client](const FHttpRequest &request) {
-			read_cb(request, client);
-		};
-		client->on_close = [&, client]() {
-			net.clients.Remove(client);
-			client->Destroy();
-		};
-		client->connect();
-		net.clients.Add(client);
-	} else {
-		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			if (socket) socket->close(error_code);
-	}
+	UHttpRemote *client = NewObject<UHttpRemote>();
+	client->Construct(net.context, socket, IdleTimeoutSeconds);
+	client->on_request = [this, client](const FHttpRequest &request) {
+		read_cb(request, client);
+	};
+	client->on_close = [this, client]() {
+		net.clients.Remove(client);
+		client->Destroy();
+	};
+	client->connect();
+	net.clients.Add(client);
 	if (net.acceptor.is_open()) {
 		TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
 		net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
@@ -253,22 +231,6 @@ TSet<UHttpRemoteSsl*>& UHttpServerSsl::Clients() {
 
 FErrorCode UHttpServerSsl::GetErrorCode() {
 	return FErrorCode(error_code);
-}
-
-void UHttpServerSsl::SetMaxConnections(int Val) {
-	max_connections = Val < 0 ? 0 : Val;
-}
-
-int UHttpServerSsl::GetMaxConnections() {
-	return max_connections;
-}
-
-void UHttpServerSsl::SetIdleTimeout(uint8 Val) {
-	iddle_timeout = Val;
-}
-
-uint8 UHttpServerSsl::GetIdleTimeout() {
-	return iddle_timeout;
 }
 
 void UHttpServerSsl::All(const FString& Path, const FDelegateHttpServerRequestSsl& Callback) {
@@ -341,7 +303,7 @@ bool UHttpServerSsl::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	net.acceptor.listen(max_connections, error_code);
+	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
 		if (error_code)
@@ -349,7 +311,7 @@ bool UHttpServerSsl::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	asio::post(thread_pool(), [&]{ run_context_thread(); });
+	asio::post(thread_pool(), [this]{ run_context_thread(); });
 	return true;
 }
 
@@ -359,7 +321,7 @@ void UHttpServerSsl::Close() {
 		FScopeLock lock(&mutex_error);
 		net.acceptor.close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -375,7 +337,7 @@ void UHttpServerSsl::Close() {
 	net.context.stop();
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this]() {
 		OnClose.Broadcast();
 	});
 	is_closing.Store(false);
@@ -405,23 +367,17 @@ void UHttpServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl:
 		}
 		return;
 	}
-	if (net.ssl_clients.Num() < max_connections) {
-		UHttpRemoteSsl *client = NewObject<UHttpRemoteSsl>();
-		client->Construct(socket, net.context, iddle_timeout);
-		client->on_request = [&, client](const FHttpRequest &request) {
-			read_cb(request, client);
-		};
-		client->on_close = [&, client]() {
-			net.ssl_clients.Remove(client);
-			client->Destroy();
-		};
-		client->connect();
-		net.ssl_clients.Add(client);
-	} else {
-		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			if (socket) socket->next_layer().close(error_code);
-	}
+	UHttpRemoteSsl *client = NewObject<UHttpRemoteSsl>();
+	client->Construct(socket, net.context, IdleTimeoutSeconds);
+	client->on_request = [this, client](const FHttpRequest &request) {
+		read_cb(request, client);
+	};
+	client->on_close = [this, client]() {
+		net.ssl_clients.Remove(client);
+		client->Destroy();
+	};
+	client->connect();
+	net.ssl_clients.Add(client);
 	if (net.acceptor.is_open()) {
 		TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
 		net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));

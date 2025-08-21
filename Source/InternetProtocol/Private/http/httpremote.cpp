@@ -57,7 +57,7 @@ bool UHttpRemote::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 	FString payload = prepare_response(response);
 	asio::async_write(*socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_cb(ec, bytes_sent, Callback);
 					  });
 	return true;
@@ -71,7 +71,7 @@ bool UHttpRemote::write() {
 	FString payload = prepare_response(response);
 	asio::async_write(*socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_error_cb(ec, bytes_sent);
 					  });
 	return true;
@@ -80,7 +80,7 @@ bool UHttpRemote::write() {
 void UHttpRemote::connect() {
 	start_idle_timer();
 	asio::async_read_until(*socket, recv_buffer, "\r\n",
-						   [&](const asio::error_code &ec, const size_t bytes_received) {
+						   [this](const asio::error_code &ec, const size_t bytes_received) {
 							   read_cb(ec, bytes_received);
 						   });
 }
@@ -91,12 +91,12 @@ void UHttpRemote::Close() {
 		FScopeLock lock(&mutex_error);
 		socket->shutdown(tcp::socket::shutdown_both, error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 		socket->close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -108,7 +108,7 @@ void UHttpRemote::start_idle_timer() {
 		return;
 
 	idle_timer->expires_after(std::chrono::seconds(idle_timeout_seconds));
-	idle_timer->async_wait([&](const asio::error_code &ec) {
+	idle_timer->async_wait([this](const asio::error_code &ec) {
 		if (ec == asio::error::operation_aborted)
 			return;
 
@@ -116,7 +116,7 @@ void UHttpRemote::start_idle_timer() {
 			return;
 
 		Close();
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -135,14 +135,14 @@ void UHttpRemote::write_cb(const asio::error_code& error, const size_t bytes_sen
 	const FDelegateHttpRemoteMessageSent& callback) {
 	if (!will_close)
 		reset_idle_timer();
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this, error, bytes_sent, callback]() {
 		callback.ExecuteIfBound(FErrorCode(error), bytes_sent);
 	});
 	if (will_close) {
 		if (idle_timeout_seconds != 0)
 			idle_timer->cancel();
 		Close();
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -152,14 +152,14 @@ void UHttpRemote::write_cb(const asio::error_code& error, const size_t bytes_sen
 void UHttpRemote::write_error_cb(const asio::error_code& error, const size_t bytes_sent) {
 	if (!will_close)
 		reset_idle_timer();
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this, error]() {
 		OnError.Broadcast(FErrorCode(error));
 	});
 	if (will_close) {
 		if (idle_timeout_seconds != 0)
 			idle_timer->cancel();
 		Close();
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -176,7 +176,7 @@ void UHttpRemote::read_cb(const asio::error_code& error, const size_t bytes_recv
 	if (error) {
 		consume_recv_buffer();
 		if (error != asio::error::eof)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this, error]() {
 				OnError.Broadcast(FErrorCode(error));
 			});
 		if (!is_closing.Load()) {
@@ -184,7 +184,7 @@ void UHttpRemote::read_cb(const asio::error_code& error, const size_t bytes_recv
 				idle_timer->cancel();
 			Close();
 		}
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -228,7 +228,7 @@ void UHttpRemote::read_cb(const asio::error_code& error, const size_t bytes_recv
 	recv_buffer.consume(2);
 	asio::async_read_until(*socket,
 						   recv_buffer, "\r\n\r\n",
-						   [&, path, version](const asio::error_code &ec, const size_t bytes_received) {
+						   [this, path, version](const asio::error_code &ec, const size_t bytes_received) {
 							   read_headers(ec, path, version);
 						   });
 }
@@ -237,14 +237,14 @@ void UHttpRemote::read_headers(const asio::error_code& error, const std::string&
 	if (error) {
 		consume_recv_buffer();
 		if (error != asio::error::eof)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this, error]() {
 				OnError.Broadcast(FErrorCode(error));
 			});
 		if (!is_closing.Load()) {
 			idle_timer->cancel();
 			Close();
 		}
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -331,7 +331,7 @@ bool UHttpRemoteSsl::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 	FString payload = prepare_response(response);
 	asio::async_write(*ssl_socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&, Callback](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_cb(ec, bytes_sent, Callback);
 					  });
 	return true;
@@ -345,7 +345,7 @@ bool UHttpRemoteSsl::write() {
 	FString payload = prepare_response(response);
 	asio::async_write(*ssl_socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
-					  [&](const asio::error_code &ec, const size_t bytes_sent) {
+					  [this](const asio::error_code &ec, const size_t bytes_sent) {
 						  write_error_cb(ec, bytes_sent);
 					  });
 	return true;
@@ -354,7 +354,7 @@ bool UHttpRemoteSsl::write() {
 void UHttpRemoteSsl::connect() {
 	start_idle_timer();
 	ssl_socket->async_handshake(asio::ssl::stream_base::server,
-								 [&](const asio::error_code &ec) {
+								 [this](const asio::error_code &ec) {
 									 ssl_handshake(ec);
 								 });
 }
@@ -365,23 +365,23 @@ void UHttpRemoteSsl::Close() {
 		FScopeLock lock(&mutex_error);
 		ssl_socket->lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->lowest_layer().close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 
 		ssl_socket->shutdown(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->next_layer().close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -393,7 +393,7 @@ void UHttpRemoteSsl::start_idle_timer() {
 		return;
 
 	idle_timer->expires_after(std::chrono::seconds(idle_timeout_seconds));
-	idle_timer->async_wait([&](const asio::error_code &ec) {
+	idle_timer->async_wait([this](const asio::error_code &ec) {
 		if (ec == asio::error::operation_aborted)
 			return;
 
@@ -401,7 +401,7 @@ void UHttpRemoteSsl::start_idle_timer() {
 			return;
 
 		Close();
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -420,7 +420,7 @@ void UHttpRemoteSsl::ssl_handshake(const asio::error_code& error) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
 			OnError.Broadcast(FErrorCode(error));
 			OnClose.Broadcast();
 			if (on_close) on_close();
@@ -429,7 +429,7 @@ void UHttpRemoteSsl::ssl_handshake(const asio::error_code& error) {
 	}
 
 	asio::async_read_until(*ssl_socket, recv_buffer, "\r\n",
-						   [&](const asio::error_code &ec, const size_t bytes_received) {
+						   [this](const asio::error_code &ec, const size_t bytes_received) {
 							   read_cb(ec, bytes_received);
 						   });
 }
@@ -438,14 +438,14 @@ void UHttpRemoteSsl::write_cb(const asio::error_code& error, const size_t bytes_
 	const FDelegateHttpRemoteMessageSent& callback) {
 	if (!will_close)
 		reset_idle_timer();
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this, error, bytes_sent, callback]() {
 		callback.ExecuteIfBound(FErrorCode(error), bytes_sent);
 	});
 	if (will_close) {
 		if (idle_timeout_seconds != 0)
 			idle_timer->cancel();
 		Close();
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -455,14 +455,14 @@ void UHttpRemoteSsl::write_cb(const asio::error_code& error, const size_t bytes_
 void UHttpRemoteSsl::write_error_cb(const asio::error_code& error, const size_t bytes_sent) {
 	if (!will_close)
 		reset_idle_timer();
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this, error]() {
 		OnError.Broadcast(FErrorCode(error));
 	});
 	if (will_close) {
 		if (idle_timeout_seconds != 0)
 			idle_timer->cancel();
 		Close();
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -479,7 +479,7 @@ void UHttpRemoteSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 	if (error) {
 		consume_recv_buffer();
 		if (error != asio::error::eof)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this, error]() {
 				OnError.Broadcast(FErrorCode(error));
 			});
 		if (!is_closing.Load()) {
@@ -487,7 +487,7 @@ void UHttpRemoteSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 				idle_timer->cancel();
 			Close();
 		}
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});
@@ -531,7 +531,7 @@ void UHttpRemoteSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 	recv_buffer.consume(2);
 	asio::async_read_until(*ssl_socket,
 						   recv_buffer, "\r\n\r\n",
-						   [&, path, version](const asio::error_code &ec, const size_t bytes_received) {
+						   [this, path, version](const asio::error_code &ec, const size_t bytes_received) {
 							   read_headers(ec, path, version);
 						   });
 }
@@ -540,14 +540,14 @@ void UHttpRemoteSsl::read_headers(const asio::error_code& error, const std::stri
 	if (error) {
 		consume_recv_buffer();
 		if (error != asio::error::eof)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this, error]() {
 				OnError.Broadcast(FErrorCode(error));
 			});
 		if (!is_closing.Load()) {
 			idle_timer->cancel();
 			Close();
 		}
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnClose.Broadcast();
 			if (on_close) on_close();
 		});

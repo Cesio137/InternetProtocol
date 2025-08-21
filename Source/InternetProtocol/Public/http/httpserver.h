@@ -37,6 +37,12 @@ public:
 			Close();
 	}
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	int Backlog = 2147483647;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	uint8 IdleTimeoutSeconds = 0;
+
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
 
@@ -48,18 +54,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	FErrorCode GetErrorCode();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void SetMaxConnections(int Val);
-
-	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
-	int GetMaxConnections();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void SetIdleTimeout(uint8 Val);
-
-	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
-	uint8 GetIdleTimeout();
 
 	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
 	void All(const FString &Path, const FDelegateHttpServerRequest &Callback);
@@ -103,8 +97,6 @@ private:
 	TAtomic<bool> is_closing = false;
 	http_server_t net;
 	asio::error_code error_code;
-	int max_connections = 2147483647;
-	uint8 iddle_timeout = 0;
 
 	TMap<FString, FDelegateHttpServerRequest> all_cb;
 	TMap<FString, FDelegateHttpServerRequest> get_cb;
@@ -185,6 +177,12 @@ public:
 		}
 	}
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	int Backlog = 2147483647;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	uint8 IdleTimeoutSeconds = 0;
+
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
 
@@ -196,18 +194,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	FErrorCode GetErrorCode();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void SetMaxConnections(int Val);
-
-	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
-	int GetMaxConnections();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void SetIdleTimeout(uint8 Val);
-
-	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
-	uint8 GetIdleTimeout();
 
 	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
 	void All(const FString &Path, const FDelegateHttpServerRequestSsl &Callback);
@@ -251,8 +237,6 @@ private:
 	TAtomic<bool> is_closing = false;
 	http_server_ssl_t net;
 	asio::error_code error_code;
-	int max_connections = 2147483647;
-	uint8 iddle_timeout = 0;
 
 	TMap<FString, FDelegateHttpServerRequestSsl> all_cb;
 	TMap<FString, FDelegateHttpServerRequestSsl> get_cb;

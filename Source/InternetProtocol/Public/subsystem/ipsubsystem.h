@@ -11,6 +11,7 @@
 #include "tcp/tcpclient.h"
 #include "http/httpclient.h"
 #include "http/httpserver.h"
+#include "websocket/wsclient.h"
 #include "Subsystems/WorldSubsystem.h"
 
 #include "ipsubsystem.generated.h"
@@ -53,6 +54,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UHttpClientSsl* CreateHttpClientSsl(const FSecurityContextOpts& SecOpts);
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UWSClient* CreateWSClient();
 private:
 	
 };

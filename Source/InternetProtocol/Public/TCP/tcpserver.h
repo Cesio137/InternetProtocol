@@ -32,6 +32,8 @@ class INTERNETPROTOCOL_API UTCPServer : public UObject
 {
 	GENERATED_BODY()
 public:
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|TCP")
+	int Backlog = 2147483647;
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsOpen();
@@ -44,12 +46,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	FErrorCode GetErrorCode();
-
-	UFUNCTION(blueprintcallable, Category = "IP|TCP")
-	void SetMaxConnections(int Val);
-
-	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
-	int GetMaxConnections();
 
 	UFUNCTION(blueprintcallable, Category = "IP|TCP")
 	bool Open(const FServerBindOptions &BindOpts);
@@ -75,7 +71,6 @@ private:
 	TAtomic<bool> is_closing = false;
 	tcp_server_t net;
 	asio::error_code error_code;
-	int max_connections = 2147483647;
 
 	void run_context_thread();
 	void accept(const asio::error_code &error, TSharedPtr<tcp::socket>& socket);
@@ -146,6 +141,9 @@ public:
 		}
 	}
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|TCP")
+	int Backlog = 2147483647;
+
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsOpen();
 
@@ -157,12 +155,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	FErrorCode GetErrorCode();
-
-	UFUNCTION(blueprintcallable, Category = "IP|TCP")
-	void SetMaxConnections(int Val);
-
-	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
-	int GetMaxConnections();
 
 	UFUNCTION(blueprintcallable, Category = "IP|TCP")
 	bool Open(const FServerBindOptions &BindOpts);
@@ -188,7 +180,6 @@ private:
 	TAtomic<bool> is_closing = false;
 	tcp_server_ssl_t net;
 	asio::error_code error_code;
-	int max_connections = 2147483647;
 
 	void run_context_thread();
 	void accept(const asio::error_code &error, TSharedPtr<asio::ssl::stream<tcp::socket>>& socket);

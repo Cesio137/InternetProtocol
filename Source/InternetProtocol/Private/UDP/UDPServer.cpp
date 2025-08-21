@@ -37,8 +37,8 @@ bool UUDPServer::SendTo(const FString& Message, const FUdpEndpoint& Endpoint,
 
 	net.socket.async_send_to(asio::buffer(TCHAR_TO_UTF8(*Message),  Message.Len()),
 								Endpoint.Endpoint,
-								[&, Callback](const asio::error_code &ec, size_t bytes_sent) {
-									AsyncTask(ENamedThreads::GameThread, [&, Callback]() {
+								[this, Callback](const asio::error_code &ec, size_t bytes_sent) {
+									AsyncTask(ENamedThreads::GameThread, [this, ec, Callback, bytes_sent]() {
 										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
@@ -52,8 +52,8 @@ bool UUDPServer::SendBufferTo(const TArray<uint8>& Buffer, const FUdpEndpoint& E
 
 	net.socket.async_send_to(asio::buffer(Buffer.GetData(),  Buffer.Num() * sizeof(Buffer.GetTypeSize())),
 								Endpoint.Endpoint,
-								[&, Callback](const asio::error_code &ec, size_t bytes_sent) {
-									AsyncTask(ENamedThreads::GameThread, [&, Callback, ec, bytes_sent]() {
+								[this, Callback](const asio::error_code &ec, size_t bytes_sent) {
+									AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
 										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
@@ -88,7 +88,7 @@ bool UUDPServer::Bind(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	asio::post(thread_pool(), [&]{ run_context_thread(); });
+	asio::post(thread_pool(), [this]{ run_context_thread(); });
 	return true;
 }
 
@@ -98,18 +98,18 @@ void UUDPServer::Close() {
 		FScopeLock lock(&mutex_error);
 		net.socket.shutdown(udp::socket::shutdown_both, error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 		net.socket.close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	net.context.stop();
 	net.context.restart();
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this]() {
 		OnClose.Broadcast();
 	});
 	is_closing.Store(false);
@@ -121,7 +121,7 @@ void UUDPServer::run_context_thread() {
 	consume_receive_buffer();
 	net.socket.async_receive_from(asio::buffer(recv_buffer.GetData(), recv_buffer.Num() * sizeof(recv_buffer.GetTypeSize())),
 								  net.remote_endpoint,
-								  [&](const asio::error_code &ec, const size_t bytes_recvd) {
+								  [this](const asio::error_code &ec, const size_t bytes_recvd) {
 									  receive_from_cb(ec, bytes_recvd);
 								  });
 	net.context.run();
@@ -143,7 +143,7 @@ void UUDPServer::receive_from_cb(const asio::error_code& error, const size_t byt
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [&]() {
+		AsyncTask(ENamedThreads::GameThread, [this]() {
 			OnError.Broadcast(FErrorCode(error_code));
 		});
 		return;
@@ -154,7 +154,7 @@ void UUDPServer::receive_from_cb(const asio::error_code& error, const size_t byt
 	consume_receive_buffer();
 	net.socket.async_receive_from(asio::buffer(recv_buffer.GetData(), recv_buffer.Num() * sizeof(recv_buffer.GetTypeSize())),
 									net.remote_endpoint,
-									[&](const asio::error_code &ec, const size_t bytes_recvd) {
+									[this](const asio::error_code &ec, const size_t bytes_recvd) {
 										receive_from_cb(ec, bytes_recvd);
 									});
 }

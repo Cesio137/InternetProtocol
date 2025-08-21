@@ -58,3 +58,8 @@ UHttpClientSsl* UInternetProtocolSubsystem::CreateHttpClientSsl(const FSecurityC
 	client->Construct(SecOpts);
 	return client;
 }
+
+UWSClient* UInternetProtocolSubsystem::CreateWSClient() {
+	UWSClient* client = NewObject<UWSClient>();
+	return client;
+}

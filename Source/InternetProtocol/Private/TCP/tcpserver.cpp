@@ -22,14 +22,6 @@ FErrorCode UTCPServer::GetErrorCode() {
 	return FErrorCode(error_code);
 }
 
-void UTCPServer::SetMaxConnections(int Val) {
-	max_connections = Val < 0 ? 0 : Val;
-}
-
-int UTCPServer::GetMaxConnections() {
-	return max_connections;
-}
-
 bool UTCPServer::Open(const FServerBindOptions& BindOpts) {
 	if (net.acceptor.is_open())
 		return false;
@@ -68,7 +60,7 @@ bool UTCPServer::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	net.acceptor.listen(max_connections, error_code);
+	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
 		if (error_code)
@@ -76,7 +68,7 @@ bool UTCPServer::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	asio::post(thread_pool(), [&]{ run_context_thread(); });
+	asio::post(thread_pool(), [this]{ run_context_thread(); });
 	return true;
 }
 
@@ -86,7 +78,7 @@ void UTCPServer::Close() {
 		FScopeLock lock(&mutex_error);
 		net.acceptor.close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -102,7 +94,7 @@ void UTCPServer::Close() {
 	net.context.stop();
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this]() {
 		OnClose.Broadcast();
 	});
 	is_closing.Store(false);
@@ -132,21 +124,17 @@ void UTCPServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>& 
 		}
 		return;
 	}
-	if (net.clients.Num() < max_connections) {
-		UTCPRemote *client = NewObject<UTCPRemote>();
-		client->Construct(socket);
-		client->connect();
-		net.clients.Add(client);
-		client->on_close = [&, client]() {
-			net.clients.Remove(client);
-			client->Destroy();
-		};
+	UTCPRemote *client = NewObject<UTCPRemote>();
+	client->Construct(socket);
+	client->connect();
+	net.clients.Add(client);
+	client->on_close = [this, client]() {
+		net.clients.Remove(client);
+		client->Destroy();
+	};
+	AsyncTask(ENamedThreads::GameThread, [this, client]() {
 		OnClientAccepted.Broadcast(client);
-	} else {
-		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			if (socket) socket->close(error_code);
-	}
+	});	
 	if (net.acceptor.is_open()) {
 		TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
 		net.acceptor.async_accept(*socket_ptr, std::bind(&UTCPServer::accept, this, asio::placeholders::error, socket_ptr));
@@ -168,14 +156,6 @@ const TSet<UTCPRemoteSsl*>& UTCPServerSsl::Clients() {
 
 FErrorCode UTCPServerSsl::GetErrorCode() {
 	return FErrorCode(error_code);
-}
-
-void UTCPServerSsl::SetMaxConnections(int Val) {
-	max_connections = Val < 0 ? 0 : Val;
-}
-
-int UTCPServerSsl::GetMaxConnections() {
-	return max_connections;
 }
 
 bool UTCPServerSsl::Open(const FServerBindOptions& BindOpts) {
@@ -214,14 +194,14 @@ bool UTCPServerSsl::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
-	net.acceptor.listen(max_connections, error_code);
+	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
 		OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
-	asio::post(thread_pool(), [&]{ run_context_thread(); });
+	asio::post(thread_pool(), [this]{ run_context_thread(); });
 	return true;
 }
 
@@ -231,7 +211,7 @@ void UTCPServerSsl::Close() {
 		FScopeLock lock(&mutex_error);
 		net.acceptor.close(error_code);
 		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [&]() {
+			AsyncTask(ENamedThreads::GameThread, [this]() {
 				OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
@@ -247,7 +227,7 @@ void UTCPServerSsl::Close() {
 	net.context.stop();
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
-	AsyncTask(ENamedThreads::GameThread, [&]() {
+	AsyncTask(ENamedThreads::GameThread, [this]() {
 		OnClose.Broadcast();
 	});
 	is_closing.Store(false);
@@ -277,23 +257,17 @@ void UTCPServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl::
 		}
 		return;
 	}
-	if (net.ssl_clients.Num() < max_connections) {
-		UTCPRemoteSsl* client = NewObject<UTCPRemoteSsl>();
-		client->Construct(socket);
-		client->connect();
-		net.ssl_clients.Add(client);
-		client->on_close = [&, client]() {
-			net.ssl_clients.Remove(client);
-			client->Destroy();
-		};
-		AsyncTask(ENamedThreads::GameThread, [&]() {
-			OnClientAccepted.Broadcast(client);
-		});		
-	} else {
-		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			socket->next_layer().close(error_code);
-	}
+	UTCPRemoteSsl* client = NewObject<UTCPRemoteSsl>();
+	client->Construct(socket);
+	client->connect();
+	net.ssl_clients.Add(client);
+	client->on_close = [this, client]() {
+		net.ssl_clients.Remove(client);
+		client->Destroy();
+	};
+	AsyncTask(ENamedThreads::GameThread, [this, client]() {
+		OnClientAccepted.Broadcast(client);
+	});
 	if (net.acceptor.is_open()) {
 		TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
 		net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, socket_ptr));
