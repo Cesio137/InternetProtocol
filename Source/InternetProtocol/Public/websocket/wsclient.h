@@ -19,16 +19,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsClientMessage, const TAr
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateWsClientClose, int, Code, const FString&, Reason);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateWsClientError, const FErrorCode&, ErrorCode);
 
-struct ws_client_t {
-	ws_client_t() : socket(context), resolver(context) {
-	}
-
-	asio::io_context context;
-	tcp::socket socket;
-	tcp::endpoint endpoint;
-	tcp::resolver resolver;
-};
-
 UCLASS(Blueprintable, BlueprintType, Category = "IP|Websocket")
 class INTERNETPROTOCOL_API UWSClient : public UObject
 {
@@ -42,11 +32,21 @@ public:
 		Handshake.Headers.Add("Sec-WebSocket-Version", "13");
 		Handshake.Headers.Add("Upgrade", "websocket");
 	}
-	~UWSClient() {
-		UE_LOG(LogTemp, Warning, TEXT("UWSClient::~UWSClient()"));
-		if (net.socket.is_open())
-			Close(1000, "Shutdown");
-	}
+	~UWSClient() {}
+
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void MarkPendingKill();
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|Websocket")
 	FHttpRequest Handshake;
@@ -110,12 +110,13 @@ public:
 	FDelegateWsClientError OnError;
 	
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<ECloseState> close_state = ECloseState::CLOSED;
 	TAtomic<bool> wait_close_frame_response = true;
 	TUniquePtr<asio::steady_timer> idle_timer;
-	ws_client_t net;
+	tcp_client_t net;
 	asio::error_code error_code;
 	asio::streambuf recv_buffer;
 

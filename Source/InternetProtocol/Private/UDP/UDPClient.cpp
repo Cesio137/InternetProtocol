@@ -4,6 +4,30 @@
 
 #include "udp/udpclient.h"
 
+void UUDPClient::BeginDestroy() {
+	is_being_destroyed = true;
+	net.resolver.cancel();
+	if (net.socket.is_open())
+		Close();
+	UObject::BeginDestroy();
+}
+
+void UUDPClient::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UUDPClient::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UUDPClient::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UUDPClient::MarkPendingKill() {
+	Super::MarkPendingKill();
+}
+
 bool UUDPClient::IsOpen() {
 	return net.socket.is_open();
 }
@@ -38,7 +62,8 @@ bool UUDPClient::Send(const FString& Message, const FDelegateUdpClientMessageSen
 								net.endpoint,
 								[this, Callback](const asio::error_code& ec, std::size_t bytes_sent) {
 									AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
-										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+										if (!is_being_destroyed)
+											Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
 	return true;
@@ -52,7 +77,8 @@ bool UUDPClient::SendBuffer(const TArray<uint8>& Buffer, const FDelegateUdpClien
 								net.endpoint,
 								[this, Callback](const asio::error_code& ec, std::size_t bytes_sent) {
 									AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
-										Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+										if (!is_being_destroyed)
+											Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 									});
 								});
 	return true;
@@ -81,18 +107,21 @@ void UUDPClient::Close() {
 		net.socket.shutdown(udp::socket::shutdown_both, error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		net.socket.close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	net.context.stop();
 	net.context.restart();
 	AsyncTask(ENamedThreads::GameThread, [this]() {
-		OnClose.Broadcast();
+		if (!is_being_destroyed)
+			OnClose.Broadcast();
 	});
 	is_closing.Store(false);
 }
@@ -109,8 +138,9 @@ void UUDPClient::resolve(const asio::error_code& error, const udp::resolver::res
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnError.Broadcast(FErrorCode(error_code));
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
 		});
 		return;
 	}
@@ -125,13 +155,17 @@ void UUDPClient::conn(const asio::error_code& error) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnError.Broadcast(FErrorCode(error_code));
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
 		});
 		return;
 	}
 
-	OnConnected.Broadcast();
+	AsyncTask(ENamedThreads::GameThread, [this]() {
+		if (!is_being_destroyed)
+			OnConnected.Broadcast();
+	});
 
 	consume_recv_buffer();
 	net.socket.async_receive_from(asio::buffer(recv_buffer.GetData(), recv_buffer.Num()),
@@ -155,14 +189,16 @@ void UUDPClient::receive_from_cb(const asio::error_code& error, const size_t byt
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnError.Broadcast(FErrorCode(error_code));
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
 		});
 		return;
 	}
 
 	AsyncTask(ENamedThreads::GameThread, [this, bytes_recvd]() {
-		OnMessage.Broadcast(recv_buffer, bytes_recvd);
+		if (!is_being_destroyed)
+			OnMessage.Broadcast(recv_buffer, bytes_recvd);
 	});
 	
 	consume_recv_buffer();

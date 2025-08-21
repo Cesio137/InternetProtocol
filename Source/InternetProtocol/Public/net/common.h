@@ -298,6 +298,39 @@ struct FClientBindOptions {
 	EProtocolType Protocol = EProtocolType::V4;
 };
 
+struct udp_client_t {
+	udp_client_t(): socket(context), resolver(context) {
+	}
+
+	asio::io_context context;
+	udp::socket socket;
+	udp::endpoint endpoint;
+	udp::resolver resolver;
+};
+
+struct tcp_client_t {
+	tcp_client_t(): socket(context), resolver(context) {
+	}
+
+	asio::io_context context;
+	tcp::socket socket;
+	tcp::endpoint endpoint;
+	tcp::resolver resolver;
+};
+
+struct tcp_client_ssl_t {
+	tcp_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
+						ssl_socket(context, ssl_context),
+						resolver(context) {
+	}
+
+	asio::io_context context;
+	asio::ssl::context ssl_context;
+	tcp::resolver resolver;
+	tcp::endpoint endpoint;
+	asio::ssl::stream<tcp::socket> ssl_socket;
+};
+
 // Server side
 USTRUCT(BlueprintType, Category="IP|STRUCT|Common")
 struct FServerBindOptions {
@@ -306,4 +339,34 @@ struct FServerBindOptions {
 	int Port = 8080;
 	EProtocolType Protocol = EProtocolType::V4;
 	bool bReuse_Address = true;
+};
+
+struct udp_server_t {
+	udp_server_t(): socket(context) {
+	}
+
+	asio::io_context context;
+	udp::socket socket;
+	udp::endpoint remote_endpoint;
+};
+
+template <typename T>
+struct tcp_server_t {
+	tcp_server_t(): acceptor(context) {
+	}
+
+	asio::io_context context;
+	tcp::acceptor acceptor;
+	TSet<T*> clients;
+};
+
+template <typename T>
+struct tcp_server_ssl_t {
+	tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
+	}
+
+	asio::io_context context;
+	asio::ssl::context ssl_context;
+	tcp::acceptor acceptor;
+	TSet<T*> ssl_clients;
 };

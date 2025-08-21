@@ -5,6 +5,29 @@
 
 #include "tcp/tcpserver.h"
 
+void UTCPServer::BeginDestroy() {
+	is_being_destroyed = true;
+	if (net.acceptor.is_open())
+		Close();
+	UObject::BeginDestroy();
+}
+
+void UTCPServer::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UTCPServer::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UTCPServer::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UTCPServer::MarkPendingKill() {
+	Super::MarkPendingKill();
+}
+
 bool UTCPServer::IsOpen() {
 	return net.acceptor.is_open();
 }
@@ -33,14 +56,15 @@ bool UTCPServer::Open(const FServerBindOptions& BindOpts) {
 
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		OnError.Broadcast(FErrorCode(error_code));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
 	net.acceptor.set_option(asio::socket_base::reuse_address(BindOpts.bReuse_Address), error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -55,7 +79,7 @@ bool UTCPServer::Open(const FServerBindOptions& BindOpts) {
 	net.acceptor.bind(endpoint, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -63,7 +87,7 @@ bool UTCPServer::Open(const FServerBindOptions& BindOpts) {
 	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -79,7 +103,8 @@ void UTCPServer::Close() {
 		net.acceptor.close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	if (net.clients.Num()) {
@@ -95,7 +120,8 @@ void UTCPServer::Close() {
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
 	AsyncTask(ENamedThreads::GameThread, [this]() {
-		OnClose.Broadcast();
+		if (!is_being_destroyed)
+			OnClose.Broadcast();
 	});
 	is_closing.Store(false);
 }
@@ -105,9 +131,7 @@ void UTCPServer::run_context_thread() {
 	error_code.clear();
 	TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
 	net.acceptor.async_accept(*socket_ptr, std::bind(&UTCPServer::accept, this, asio::placeholders::error, socket_ptr));
-	if (!IsRooted()) AddToRoot();
 	net.context.run();
-	if (IsRooted()) RemoveFromRoot();
 	if (!is_closing.Load())
 		Close();
 }
@@ -133,12 +157,36 @@ void UTCPServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>& 
 		client->Destroy();
 	};
 	AsyncTask(ENamedThreads::GameThread, [this, client]() {
-		OnClientAccepted.Broadcast(client);
+		if (!is_being_destroyed)
+			OnClientAccepted.Broadcast(client);
 	});	
 	if (net.acceptor.is_open()) {
 		TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
 		net.acceptor.async_accept(*socket_ptr, std::bind(&UTCPServer::accept, this, asio::placeholders::error, socket_ptr));
 	}
+}
+
+void UTCPServerSsl::BeginDestroy() {
+	is_being_destroyed = true;
+	if (net.acceptor.is_open())
+		Close();
+	UObject::BeginDestroy();
+}
+
+void UTCPServerSsl::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UTCPServerSsl::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UTCPServerSsl::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UTCPServerSsl::MarkPendingKill() {
+	Super::MarkPendingKill();
 }
 
 bool UTCPServerSsl::IsOpen() {
@@ -169,14 +217,16 @@ bool UTCPServerSsl::Open(const FServerBindOptions& BindOpts) {
 
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		OnError.Broadcast(FErrorCode(error_code));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
 	net.acceptor.set_option(asio::socket_base::reuse_address(BindOpts.bReuse_Address), error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		OnError.Broadcast(FErrorCode(error_code));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
@@ -190,14 +240,16 @@ bool UTCPServerSsl::Open(const FServerBindOptions& BindOpts) {
 	net.acceptor.bind(endpoint, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		OnError.Broadcast(FErrorCode(error_code));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
 	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		OnError.Broadcast(FErrorCode(error_code));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
@@ -212,7 +264,8 @@ void UTCPServerSsl::Close() {
 		net.acceptor.close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	if (net.ssl_clients.Num()) {
@@ -228,7 +281,8 @@ void UTCPServerSsl::Close() {
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
 	AsyncTask(ENamedThreads::GameThread, [this]() {
-		OnClose.Broadcast();
+		if (!is_being_destroyed)
+			OnClose.Broadcast();
 	});
 	is_closing.Store(false);
 }
@@ -238,9 +292,7 @@ void UTCPServerSsl::run_context_thread() {
 	error_code.clear();
 	TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
 	net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, socket_ptr));
-	if (!IsRooted()) AddToRoot();
 	net.context.run();
-	if (IsRooted()) RemoveFromRoot();
 	if (!is_closing.Load())
 		Close();
 }
@@ -266,7 +318,8 @@ void UTCPServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl::
 		client->Destroy();
 	};
 	AsyncTask(ENamedThreads::GameThread, [this, client]() {
-		OnClientAccepted.Broadcast(client);
+		if (!is_being_destroyed)
+			OnClientAccepted.Broadcast(client);
 	});
 	if (net.acceptor.is_open()) {
 		TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);

@@ -8,6 +8,29 @@
 #include "utils/handshake.h"
 #include "utils/net.h"
 
+void UWSClient::BeginDestroy() {
+	is_being_destroyed = true;
+	if (net.socket.is_open())
+		Close(1000, "Shutdown");
+	UObject::BeginDestroy();
+}
+
+void UWSClient::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UWSClient::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UWSClient::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UWSClient::MarkPendingKill() {
+	Super::MarkPendingKill();
+}
+
 bool UWSClient::IsOpen() {
 	return net.socket.is_open() && close_state.Load() == ECloseState::OPEN;
 }
@@ -36,7 +59,8 @@ bool UWSClient::Write(const FString& Message, const FDataframe& Dataframe, const
 	asio::async_write(net.socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-						  Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+							if (!is_being_destroyed)
+								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 					  });
 	return true;
 }
@@ -52,7 +76,8 @@ bool UWSClient::WriteBuffer(const TArray<uint8>& Buffer, const FDataframe& Dataf
 	asio::async_write(net.socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-						  Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		if (!is_being_destroyed)
+								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 					  });
 	return true;
 }
@@ -66,7 +91,8 @@ bool UWSClient::Ping(const FDelegateWsClientMessageSent& Callback) {
 	asio::async_write(net.socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-						  Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		if (!is_being_destroyed)
+								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 					  });
 	return true;
 }
@@ -82,7 +108,8 @@ bool UWSClient::ping() {
 					  [this](const asio::error_code &ec, const size_t bytes_sent) {
 					  	if (ec)
 					  		AsyncTask(ENamedThreads::GameThread, [this, ec]() {
-								OnError.Broadcast(FErrorCode(ec));
+					  			if (!is_being_destroyed)
+									OnError.Broadcast(FErrorCode(ec));
 							});
 					  });
 	return true;
@@ -97,7 +124,8 @@ bool UWSClient::Pong(const FDelegateWsClientMessageSent& Callback) {
 	asio::async_write(net.socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-						  Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		if (!is_being_destroyed)
+								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
 					  });
 	return true;
 }
@@ -113,7 +141,8 @@ bool UWSClient::pong() {
 					  [this](const asio::error_code &ec, const size_t bytes_sent) {
 					  	if (ec)
 					  		AsyncTask(ENamedThreads::GameThread, [this, ec]() {
-								OnError.Broadcast(FErrorCode(ec));
+					  			if (!is_being_destroyed)
+									OnError.Broadcast(FErrorCode(ec));
 							});
 					  });
 	return true;
@@ -162,14 +191,16 @@ void UWSClient::Close(int code, const FString& reason) {
 		net.socket.shutdown(tcp::socket::shutdown_both, error_code);
 		if (error_code) {
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		}
 			
 		net.socket.close(error_code);
 		if (error_code) {
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		}
 		if (is_locked)
@@ -180,7 +211,8 @@ void UWSClient::Close(int code, const FString& reason) {
 	net.endpoint = tcp::endpoint();
 
 	AsyncTask(ENamedThreads::GameThread, [this, code, reason]() {
-		OnClose.Broadcast(code, reason);
+		if (!is_being_destroyed)
+			OnClose.Broadcast(code, reason);
 	});
 }
 
@@ -237,7 +269,8 @@ void UWSClient::close_frame_sent_cb(const asio::error_code& error, const size_t 
 		error_code = error;
 		if (error)
 			AsyncTask(ENamedThreads::GameThread, [this, error]() {
-				OnError.Broadcast(FErrorCode(error));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error));
 			});
 		Close(code, reason);
 	}
@@ -269,10 +302,10 @@ void UWSClient::resolve(const asio::error_code& error, const tcp::resolver::resu
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
-			});
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
+		});
 		return;
 	}
 	net.endpoint = results.begin()->endpoint();
@@ -287,10 +320,10 @@ void UWSClient::conn(const asio::error_code& error) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
-			});
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
+		});
 		return;
 	}
 
@@ -307,10 +340,10 @@ void UWSClient::write_handshake_cb(const asio::error_code& error, const size_t b
 	if (error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
-		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
-			});
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
+		});
 		Close(1006, "Abnormal closure");
 		return;
 	}
@@ -327,10 +360,10 @@ void UWSClient::read_handshake_cb(const asio::error_code& error, const size_t by
 		FScopeLock lock(&mutex_error);
 		consume_recv_buffer();
 		error_code = error;
-		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
-			});
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
+		});
 		return;
 	}
 
@@ -347,7 +380,8 @@ void UWSClient::read_handshake_cb(const asio::error_code& error, const size_t by
 		response.Status_Code = 505;
 		response.Status_Message = "HTTP Version Not Supported";
 		AsyncTask(ENamedThreads::GameThread, [this, response]() {
-			OnUnexpectedHandshake.Broadcast(response);
+			if (!is_being_destroyed)
+				OnUnexpectedHandshake.Broadcast(response);
 			Close(1002, "Protocol error");
 		});		
 		return;
@@ -357,7 +391,8 @@ void UWSClient::read_handshake_cb(const asio::error_code& error, const size_t by
 	if (status_code != 101 && recv_buffer.size() == 0) {
 		consume_recv_buffer();
 		AsyncTask(ENamedThreads::GameThread, [this, response]() {
-			OnUnexpectedHandshake.Broadcast(response);
+			if (!is_being_destroyed)
+				OnUnexpectedHandshake.Broadcast(response);
 			Close(1002, "Protocol error");
 		});
 		return;
@@ -373,10 +408,10 @@ void UWSClient::read_headers(const asio::error_code& error, FHttpResponse& respo
 		FScopeLock lock(&mutex_error);
 		consume_recv_buffer();
 		error_code = error;
-		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
-			});
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
+		});
 		return;
 	}
 	std::istream response_stream(&recv_buffer);
@@ -389,14 +424,16 @@ void UWSClient::read_headers(const asio::error_code& error, FHttpResponse& respo
 
 	if (!validate_handshake_response(Handshake, response)) {
 		AsyncTask(ENamedThreads::GameThread, [this, response]() {
-			OnUnexpectedHandshake.Broadcast(response);
+			if (!is_being_destroyed)
+				OnUnexpectedHandshake.Broadcast(response);
 			Close(1002, "Protocol error");
 		});
 		return;
 	}
 
 	AsyncTask(ENamedThreads::GameThread, [this, response]() {
-		OnConnected.Broadcast(response);
+		if (!is_being_destroyed)
+			OnConnected.Broadcast(response);
 	});
 
 	asio::async_read(net.socket,
@@ -418,11 +455,11 @@ void UWSClient::read_cb(const asio::error_code& error, const size_t bytes_recvd)
 		FScopeLock lock(&mutex_error);
 		consume_recv_buffer();
 		error_code = error;
-		if (error_code)
-			AsyncTask(ENamedThreads::GameThread, [this]() {
-				if (OnError.IsBound())
-					OnError.Broadcast(FErrorCode(error_code));
-			});
+		AsyncTask(ENamedThreads::GameThread, [this, error]() {
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
+		});
+		return;
 	}
 
     TArray<uint8> buffer;
@@ -441,23 +478,27 @@ void UWSClient::read_cb(const asio::error_code& error, const size_t bytes_recvd)
         switch (dataframe.Opcode) {
         case EOpcode::TEXT_FRAME:
         	AsyncTask(ENamedThreads::GameThread, [this, payload]() {
-				OnMessage.Broadcast(payload, false);
+        		if (!is_being_destroyed)
+					OnMessage.Broadcast(payload, false);
 			});
             break;
         case EOpcode::BINARY_FRAME:
         	AsyncTask(ENamedThreads::GameThread, [this, payload]() {
-				OnMessage.Broadcast(payload, true);
+        		if (!is_being_destroyed)
+					OnMessage.Broadcast(payload, true);
 			});
             break;
         case EOpcode::PING:
         	AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnPing.Broadcast();
+        		if (!is_being_destroyed)
+					OnPing.Broadcast();
 			});
             pong();
             break;
         case EOpcode::PONG:
             AsyncTask(ENamedThreads::GameThread, [this, payload]() {
-				OnMessage.Broadcast(payload, true);
+            	if (!is_being_destroyed)
+					OnMessage.Broadcast(payload, true);
 			});
             break;
         case EOpcode::CLOSE_FRAME:

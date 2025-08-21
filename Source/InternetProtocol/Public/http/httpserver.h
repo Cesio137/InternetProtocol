@@ -17,25 +17,27 @@ DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegateHttpServerRequest, const FHttpReques
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegateHttpServerRequestSsl, const FHttpRequest&, Request, UHttpRemoteSsl*, Response);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateHttpServerError, const FErrorCode &, ErrorCode);
 
-struct http_server_t {
-	http_server_t(): acceptor(context) {
-	}
-
-	asio::io_context context;
-	tcp::acceptor acceptor;
-	TSet<UHttpRemote*> clients;
-};
-
 UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpServer : public UObject
 {
 	GENERATED_BODY()
 public:
 	UHttpServer() {}
-	~UHttpServer() {
-		if (net.acceptor.is_open())
-			Close();
-	}
+	~UHttpServer() {}
+
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void MarkPendingKill();
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	int Backlog = 2147483647;
@@ -92,10 +94,11 @@ public:
 	FDelegateHttpServerError OnError;
 	
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	http_server_t net;
+	tcp_server_t<UHttpRemote> net;
 	asio::error_code error_code;
 
 	TMap<FString, FDelegateHttpServerRequest> all_cb;
@@ -112,26 +115,13 @@ private:
 	void read_cb(const FHttpRequest &request, UHttpRemote* client);
 };
 
-struct http_server_ssl_t {
-	http_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
-	}
-
-	asio::io_context context;
-	asio::ssl::context ssl_context;
-	tcp::acceptor acceptor;
-	TSet<UHttpRemoteSsl*> ssl_clients;
-};
-
 UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpServerSsl : public UObject
 {
 	GENERATED_BODY()
 public:
 	UHttpServerSsl() {}
-	~UHttpServerSsl() {
-		if (net.acceptor.is_open())
-			Close();
-	}
+	~UHttpServerSsl() {}
 
 	void Construct(const FSecurityContextOpts &SecOpts) {
 		file_format_e file_format = SecOpts.File_Format == EFileFormat::asn1 ? file_format_e::asn1 : file_format_e::pem;
@@ -176,6 +166,20 @@ public:
 			break;
 		}
 	}
+
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void MarkPendingKill();
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	int Backlog = 2147483647;
@@ -232,10 +236,11 @@ public:
 	FDelegateHttpServerError OnError;
 	
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	http_server_ssl_t net;
+	tcp_server_ssl_t<UHttpRemoteSsl> net;
 	asio::error_code error_code;
 
 	TMap<FString, FDelegateHttpServerRequestSsl> all_cb;

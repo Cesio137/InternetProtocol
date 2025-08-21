@@ -18,20 +18,28 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpServerClientConnect, UTC
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpServerClientSslConnect, UTCPRemoteSsl*, Client);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpServerError, const FErrorCode &, ErrorCode);
 
-struct tcp_server_t {
-	tcp_server_t(): acceptor(context) {
-	}
-
-	asio::io_context context;
-	tcp::acceptor acceptor;
-	TSet<UTCPRemote*> clients;
-};
-
 UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
 class INTERNETPROTOCOL_API UTCPServer : public UObject
 {
 	GENERATED_BODY()
 public:
+	UTCPServer() {}
+	~UTCPServer() {}
+	
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void MarkPendingKill();
+	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|TCP")
 	int Backlog = 2147483647;
 
@@ -66,24 +74,15 @@ public:
 	FDelegateTcpServerError OnError;
 
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	tcp_server_t net;
+	tcp_server_t<UTCPRemote> net;
 	asio::error_code error_code;
 
 	void run_context_thread();
 	void accept(const asio::error_code &error, TSharedPtr<tcp::socket>& socket);
-};
-
-struct tcp_server_ssl_t {
-	tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
-	}
-
-	asio::io_context context;
-	asio::ssl::context ssl_context;
-	tcp::acceptor acceptor;
-	TSet<UTCPRemoteSsl*> ssl_clients;
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
@@ -92,10 +91,7 @@ class INTERNETPROTOCOL_API UTCPServerSsl : public UObject
 	GENERATED_BODY()
 public:
 	UTCPServerSsl() {}
-	~UTCPServerSsl() {
-		if (net.acceptor.is_open())
-			Close();
-	}
+	~UTCPServerSsl() {}
 
 	void Construct(const FSecurityContextOpts &SecOpts) {
 		file_format_e file_format = SecOpts.File_Format == EFileFormat::asn1 ? file_format_e::asn1 : file_format_e::pem;
@@ -141,6 +137,20 @@ public:
 		}
 	}
 
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|TCP")
+	void MarkPendingKill();
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|TCP")
 	int Backlog = 2147483647;
 
@@ -175,10 +185,11 @@ public:
 	FDelegateTcpServerError OnError;
 
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	tcp_server_ssl_t net;
+	tcp_server_ssl_t<UTCPRemoteSsl> net;
 	asio::error_code error_code;
 
 	void run_context_thread();

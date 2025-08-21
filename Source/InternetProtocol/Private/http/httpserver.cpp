@@ -4,6 +4,29 @@
 
 #include "http/httpserver.h"
 
+void UHttpServer::BeginDestroy() {
+	is_being_destroyed = true;
+	if (net.acceptor.is_open())
+		Close();
+	UObject::BeginDestroy();
+}
+
+void UHttpServer::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UHttpServer::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UHttpServer::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UHttpServer::MarkPendingKill() {
+	Super::MarkPendingKill();
+}
+
 bool UHttpServer::IsOpen() {
 	return net.acceptor.is_open();
 }
@@ -64,14 +87,15 @@ bool UHttpServer::Open(const FServerBindOptions& BindOpts) {
 
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		OnError.Broadcast(FErrorCode(error_code));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
 	net.acceptor.set_option(asio::socket_base::reuse_address(BindOpts.bReuse_Address), error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -86,7 +110,7 @@ bool UHttpServer::Open(const FServerBindOptions& BindOpts) {
 	net.acceptor.bind(endpoint, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -94,7 +118,7 @@ bool UHttpServer::Open(const FServerBindOptions& BindOpts) {
 	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -110,7 +134,8 @@ void UHttpServer::Close() {
 		net.acceptor.close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	if (net.clients.Num()) {
@@ -126,7 +151,8 @@ void UHttpServer::Close() {
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
 	AsyncTask(ENamedThreads::GameThread, [this]() {
-		OnClose.Broadcast();
+		if (!is_being_destroyed)
+			OnClose.Broadcast();
 	});
 	is_closing.Store(false);
 }
@@ -136,9 +162,7 @@ void UHttpServer::run_context_thread() {
 	error_code.clear();
 	TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
 	net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
-	if (!IsRooted()) AddToRoot();
 	net.context.run();
-	if (IsRooted()) RemoveFromRoot();
 	if (!is_closing.Load())
 		Close();
 }
@@ -173,12 +197,13 @@ void UHttpServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>&
 }
 
 void UHttpServer::read_cb(const FHttpRequest& request, UHttpRemote* client) {
+	if (is_being_destroyed) return;
 	if (all_cb.Contains(request.Path)) {
 		all_cb[request.Path].ExecuteIfBound(request, client);
 	}
 	switch (request.Method) {
 	case ERequestMethod::DEL:
-    	if (del_cb.Contains(request.Path)) {
+    	if (del_cb.Contains(request.Path) && !is_being_destroyed) {
     		del_cb[request.Path].ExecuteIfBound(request, client);
     	}
     	break;
@@ -214,6 +239,29 @@ void UHttpServer::read_cb(const FHttpRequest& request, UHttpRemote* client) {
         break;
     default: break;
 	}
+}
+
+void UHttpServerSsl::BeginDestroy() {
+	is_being_destroyed = true;
+	if (net.acceptor.is_open())
+		Close();
+	UObject::BeginDestroy();
+}
+
+void UHttpServerSsl::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UHttpServerSsl::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UHttpServerSsl::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UHttpServerSsl::MarkPendingKill() {
+	Super::MarkPendingKill();
 }
 
 bool UHttpServerSsl::IsOpen() {
@@ -276,14 +324,15 @@ bool UHttpServerSsl::Open(const FServerBindOptions& BindOpts) {
 
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		OnError.Broadcast(FErrorCode(error_code));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
 
 	net.acceptor.set_option(asio::socket_base::reuse_address(BindOpts.bReuse_Address), error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -298,7 +347,7 @@ bool UHttpServerSsl::Open(const FServerBindOptions& BindOpts) {
 	net.acceptor.bind(endpoint, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -306,7 +355,7 @@ bool UHttpServerSsl::Open(const FServerBindOptions& BindOpts) {
 	net.acceptor.listen(Backlog, error_code);
 	if (error_code) {
 		FScopeLock lock(&mutex_error);
-		if (error_code)
+		if (!is_being_destroyed)
 			OnError.Broadcast(FErrorCode(error_code));
 		return false;
 	}
@@ -322,7 +371,8 @@ void UHttpServerSsl::Close() {
 		net.acceptor.close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	if (net.ssl_clients.Num()) {
@@ -338,7 +388,8 @@ void UHttpServerSsl::Close() {
 	net.context.restart();
 	net.acceptor = tcp::acceptor(net.context);
 	AsyncTask(ENamedThreads::GameThread, [this]() {
-		OnClose.Broadcast();
+		if (!is_being_destroyed)
+			OnClose.Broadcast();
 	});
 	is_closing.Store(false);
 }
@@ -347,10 +398,8 @@ void UHttpServerSsl::run_context_thread() {
 	FScopeLock lock(&mutex_io);
 	error_code.clear();
 	TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
-	net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));
-	if (!IsRooted()) AddToRoot();
+	net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));;
 	net.context.run();
-	if (IsRooted()) RemoveFromRoot();
 	if (!is_closing.Load())
 		Close();
 }
@@ -385,6 +434,7 @@ void UHttpServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl:
 }
 
 void UHttpServerSsl::read_cb(const FHttpRequest& request, UHttpRemoteSsl* client) {
+	if (is_being_destroyed) return;
 	if (all_cb.Contains(request.Path)) {
 		all_cb[request.Path].ExecuteIfBound(request, client);
 	}

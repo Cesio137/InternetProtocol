@@ -14,16 +14,6 @@
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegateHttpClientResponse, const FErrorCode &, ErrorCode, const FHttpResponse&, Response);
 
-struct http_client_t {
-	http_client_t(): socket(context), resolver(context) {
-	}
-
-	asio::io_context context;
-	tcp::socket socket;
-	tcp::endpoint endpoint;
-	tcp::resolver resolver;
-};
-
 UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpClient : public UObject
 {
@@ -32,12 +22,22 @@ public:
 	UHttpClient() {
 		idle_timer = MakeUnique<asio::steady_timer>(net.context);
 	}
-	~UHttpClient() {
-		if (net.socket.is_open())
-			Close();
-		consume_recv_buffer();
-	}
+	~UHttpClient() {}
 
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void MarkPendingKill();
+	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	uint8 IdleTimeoutSeconds = 0;
 
@@ -54,11 +54,12 @@ public:
 	void Close();
 
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	TAtomic<bool> is_closing = false;
 	TUniquePtr<asio::steady_timer> idle_timer;
 	FClientBindOptions bind_options;
-	http_client_t net;
+	tcp_client_t net;
 	asio::streambuf recv_buffer;
 
 	void start_idle_timer();
@@ -78,19 +79,6 @@ private:
 						  const FDelegateHttpClientResponse& response_cb);
 };
 
-struct http_client_ssl_t {
-	http_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
-						ssl_socket(context, ssl_context),
-						resolver(context) {
-	}
-
-	asio::io_context context;
-	asio::ssl::context ssl_context;
-	tcp::resolver resolver;
-	tcp::endpoint endpoint;
-	asio::ssl::stream<tcp::socket> ssl_socket;
-};
-
 UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
 class INTERNETPROTOCOL_API UHttpClientSsl : public UObject
 {
@@ -99,11 +87,7 @@ public:
 	UHttpClientSsl() {
 		idle_timer = MakeUnique<asio::steady_timer>(net.context);
 	}
-	~UHttpClientSsl() {
-		if (net.ssl_socket.next_layer().is_open())
-			Close();
-		consume_recv_buffer();
-	}
+	~UHttpClientSsl() {}
 
 	void Construct(const FSecurityContextOpts &SecOpts) {
 		file_format_e file_format = SecOpts.File_Format == EFileFormat::asn1 ? file_format_e::asn1 : file_format_e::pem;
@@ -151,6 +135,20 @@ public:
 		net.ssl_socket = asio::ssl::stream<tcp::socket>(net.context, net.ssl_context);
 	}
 
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	void MarkPendingKill();
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	uint8 IdleTimeoutSeconds = 0;
 	
@@ -167,11 +165,12 @@ public:
 	void Close();
 
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	TAtomic<bool> is_closing = false;
 	TUniquePtr<asio::steady_timer> idle_timer;
 	FClientBindOptions bind_options;
-	http_client_ssl_t net;
+	tcp_client_ssl_t net;
 	asio::streambuf recv_buffer;
 
 	void start_idle_timer();

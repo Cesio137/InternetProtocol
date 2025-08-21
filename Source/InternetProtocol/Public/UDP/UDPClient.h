@@ -19,16 +19,6 @@ DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegateUdpClientMessageSent, const FErrorCo
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateUdpClientMessage, const TArray<uint8> &, Buffer, int,  BytesRecv);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateUdpClientError, const FErrorCode &, ErrorCode);
 
-struct udp_client_t {
-	udp_client_t(): socket(context), resolver(context) {
-	}
-
-	asio::io_context context;
-	udp::socket socket;
-	udp::endpoint endpoint;
-	udp::resolver resolver;
-};
-
 UCLASS(Blueprintable, BlueprintType, Category = "IP|UDP")
 class INTERNETPROTOCOL_API UUDPClient: public UObject
 {
@@ -37,10 +27,21 @@ public:
 	UUDPClient() {
 		recv_buffer.SetNumUninitialized(recv_buffer_size);
 	};
-	~UUDPClient() {
-		net.resolver.cancel();
-		if (net.socket.is_open()) Close();
-	};
+	~UUDPClient() {}
+
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|UDP")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|UDP")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|UDP")
+	void MarkPendingKill();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
 	bool IsOpen();
@@ -85,6 +86,7 @@ public:
 	FDelegateUdpClientError OnError;
 
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_io;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;

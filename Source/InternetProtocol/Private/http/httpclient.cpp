@@ -6,6 +6,30 @@
 #include "http/httpclient.h"
 #include "utils/net.h"
 
+void UHttpClient::BeginDestroy() {
+	is_being_destroyed = true;
+	if (net.socket.is_open())
+		Close();
+	consume_recv_buffer();
+	UObject::BeginDestroy();
+}
+
+void UHttpClient::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UHttpClient::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UHttpClient::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UHttpClient::MarkPendingKill() {
+	Super::MarkPendingKill();
+}
+
 bool UHttpClient::IsOpen() {
 	bool is_open = net.socket.is_open();
 	return is_open;
@@ -86,7 +110,8 @@ void UHttpClient::resolve(const asio::error_code& error, const tcp::resolver::re
 	const FHttpRequest& req, const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -103,7 +128,8 @@ void UHttpClient::conn(const asio::error_code& error, const FHttpRequest& req,
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -123,7 +149,8 @@ void UHttpClient::write_cb(const asio::error_code& error, const size_t bytes_sen
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -149,7 +176,8 @@ void UHttpClient::read_cb(const asio::error_code& error, const size_t bytes_recv
 	if (error) {
 		consume_recv_buffer();
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -169,7 +197,8 @@ void UHttpClient::read_cb(const asio::error_code& error, const size_t bytes_recv
 		response.Status_Code = 505;
 		response.Status_Message = "HTTP Version Not Supported";
 		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(), response);
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
 	}
@@ -178,7 +207,8 @@ void UHttpClient::read_cb(const asio::error_code& error, const size_t bytes_recv
 	if (status_code != 200 && recv_buffer.size() == 0) {
 		consume_recv_buffer();
 		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(), response);
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
 	}
@@ -196,7 +226,8 @@ void UHttpClient::read_headers(const asio::error_code& error, FHttpResponse& res
 	if (error) {
 		consume_recv_buffer();
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -214,8 +245,33 @@ void UHttpClient::read_headers(const asio::error_code& error, FHttpResponse& res
 
 	consume_recv_buffer();
 	AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
-		response_cb.ExecuteIfBound(FErrorCode(), response);
+		if (!is_being_destroyed)
+			response_cb.ExecuteIfBound(FErrorCode(), response);
 	});
+}
+
+void UHttpClientSsl::BeginDestroy() {
+	is_being_destroyed = true;
+	if (net.ssl_socket.next_layer().is_open())
+		Close();
+	consume_recv_buffer();
+	UObject::BeginDestroy();
+}
+
+void UHttpClientSsl::AddToRoot() {
+	Super::AddToRoot();
+}
+
+void UHttpClientSsl::RemoveFromRoot() {
+	Super::RemoveFromRoot();
+}
+
+bool UHttpClientSsl::IsRooted() {
+	return Super::IsRooted();
+}
+
+void UHttpClientSsl::MarkPendingKill() {
+	Super::MarkPendingKill();
 }
 
 bool UHttpClientSsl::IsOpen() {
@@ -300,7 +356,8 @@ void UHttpClientSsl::resolve(const asio::error_code& error, const tcp::resolver:
 	const FHttpRequest& req, const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -317,7 +374,8 @@ void UHttpClientSsl::conn(const asio::error_code& error, const FHttpRequest& req
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -332,7 +390,8 @@ void UHttpClientSsl::ssl_handshake(const asio::error_code& error, const FHttpReq
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -352,7 +411,8 @@ void UHttpClientSsl::write_cb(const asio::error_code& error, const size_t bytes_
 	const FDelegateHttpClientResponse& response_cb) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -378,7 +438,8 @@ void UHttpClientSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 	if (error) {
 		consume_recv_buffer();
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -398,7 +459,8 @@ void UHttpClientSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 		response.Status_Code = 505;
 		response.Status_Message = "HTTP Version Not Supported";
 		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(), response);
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
 	}
@@ -407,7 +469,8 @@ void UHttpClientSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 	if (status_code != 200 && recv_buffer.size() == 0) {
 		consume_recv_buffer();
 		AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(), response);
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(), response);
 		});
 		return;
 	}
@@ -425,7 +488,8 @@ void UHttpClientSsl::read_headers(const asio::error_code& error, FHttpResponse& 
 	if (error) {
 		consume_recv_buffer();
 		AsyncTask(ENamedThreads::GameThread, [this, error, response_cb]() {
-			response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
+			if (!is_being_destroyed)
+				response_cb.ExecuteIfBound(FErrorCode(error), FHttpResponse());
 		});
 		return;
 	}
@@ -443,6 +507,7 @@ void UHttpClientSsl::read_headers(const asio::error_code& error, FHttpResponse& 
 
 	consume_recv_buffer();
 	AsyncTask(ENamedThreads::GameThread, [this, response, response_cb]() {
-		response_cb.ExecuteIfBound(FErrorCode(), response);
+		if (!is_being_destroyed)
+			response_cb.ExecuteIfBound(FErrorCode(), response);
 	});
 }
