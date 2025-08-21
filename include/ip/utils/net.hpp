@@ -112,6 +112,14 @@ namespace internetprotocol {
             std::string key = trim_whitespace(headerline.substr(0, pos));
             string_to_lower(key);
             std::string value = headerline.substr(pos + 1);
+            if (!value.empty()) {
+                if (value.front() == ' ') {
+                    value = value.erase(0, 1);
+                }
+                if (value.back() == '\r') {
+                    value.pop_back();
+                }
+            }
             /*
             std::vector<std::string> values = split_string(value, ';');
             std::transform(
@@ -128,6 +136,14 @@ namespace internetprotocol {
             std::string key = trim_whitespace(headerline.substr(0, pos));
             string_to_lower(key);
             std::string value = headerline.substr(pos + 1);
+            if (!value.empty()) {
+                if (value.front() == ' ') {
+                    value = value.erase(0, 1);
+                }
+                if (value.back() == '\r') {
+                    value.pop_back();
+                }
+            }
             /*
             std::vector<std::string> values = split_string(value, ';');
             std::transform(

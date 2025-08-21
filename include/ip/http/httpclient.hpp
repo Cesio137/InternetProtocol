@@ -31,6 +31,19 @@ namespace internetprotocol {
         }
 
         /**
+         * Set/Get timeout value in seconds
+         *
+         * Timeout is always reseted when socket send or receive data
+         *
+         * @par Example
+         * @code
+         * http_client_c client;
+         * client.idle_timeout_seconds = 5;
+         * @endcode
+         */
+        uint16_t idle_timeout_seconds = 0;
+
+        /**
          * Return true if socket is open.
          *
          * @par Example
@@ -40,30 +53,6 @@ namespace internetprotocol {
          * @endcode
          */
         bool is_open() const { return net.socket.is_open(); }
-
-        /**
-         * Set timeout value in seconds
-         *
-         * Timeout is always reseted when socket send or receive data
-         *
-         * @par Example
-         * @code
-         * http_client_c client;
-         * client.set_timeout(5);
-         * @endcode
-         */
-         void set_timeout(uint16_t value) { idle_timeout_seconds = value; }
-
-        /**
-         * Get timeout value in seconds
-         *
-         * @par Example
-         * @code
-         * http_client_c client;
-         * client.set_timeout(5);
-         * @endcode
-         */
-        uint16_t get_timeout() const { return idle_timeout_seconds; }
 
         /**
          * Set address and port to resolve. Must be called before use 'request()' function.
@@ -155,7 +144,6 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::atomic<bool> is_closing = false;
         asio::steady_timer idle_timer;
-        uint16_t idle_timeout_seconds = 0;
         client_bind_options_t bind_options;
         http_client_t net;
         asio::streambuf recv_buffer;
@@ -378,6 +366,19 @@ namespace internetprotocol {
         }
 
         /**
+         * Set/Get timeout value in seconds
+         *
+         * Timeout is always reseted when socket send or receive data
+         *
+         * @par Example
+         * @code
+         * http_client_ssl_c client({});
+         * client.idle_timeout_seconds = 5;
+         * @endcode
+         */
+        uint16_t idle_timeout_seconds = 0;
+
+        /**
          * Return true if socket is open.
          *
          * @par Example
@@ -387,30 +388,6 @@ namespace internetprotocol {
          * @endcode
          */
         bool is_open() const { return net.ssl_socket.next_layer().is_open(); }
-
-        /**
-         * Set timeout value in seconds
-         *
-         * Timeout is always reseted when socket send or receive data
-         *
-         * @par Example
-         * @code
-         * http_client_c client;
-         * client.set_timeout(5);
-         * @endcode
-         */
-        void set_timeout(uint16_t value) { idle_timeout_seconds = value; }
-
-        /**
-         * Get timeout value in seconds
-         *
-         * @par Example
-         * @code
-         * http_client_c client;
-         * client.set_timeout(5);
-         * @endcode
-         */
-        uint16_t get_timeout() const { return idle_timeout_seconds; }
 
         /**
          * Set address and port to resolve. Must be called before use 'request()' function.
@@ -506,7 +483,6 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::atomic<bool> is_closing = false;
         asio::steady_timer idle_timer;
-        uint16_t idle_timeout_seconds = 0;
         client_bind_options_t bind_options;
         tcp_client_ssl_t net;
         asio::streambuf recv_buffer;

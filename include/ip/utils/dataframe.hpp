@@ -23,7 +23,19 @@ namespace internetprotocol {
 
     inline std::string encode_string_payload(const std::string &payload, const dataframe_t &dataframe) {
         std::string string_buffer;
+
         uint64_t payload_length = payload.size();
+        uint64_t header_size = 2;
+        if (payload_length > 125 && payload_length <= 65535) {
+            header_size += 2;
+        } else if (payload_length > 65535) {
+            header_size += 8;
+        }
+        if (dataframe.mask) {
+            header_size += 4;
+        }
+
+        string_buffer.reserve(header_size + payload_length);
 
         // FIN, RSV, Opcode
         uint8_t byte1 = dataframe.fin ? 0x80 : 0x00;
@@ -67,13 +79,28 @@ namespace internetprotocol {
             }
         }
 
+        if (string_buffer.capacity() > string_buffer.size())
+            string_buffer.shrink_to_fit();
+
         return string_buffer;
     }
 
     inline std::vector<uint8_t>
     encode_buffer_payload(const std::vector<uint8_t> &payload, const dataframe_t &dataframe) {
         std::vector<uint8_t> buffer;
+
         uint64_t payload_length = payload.size();
+        uint64_t header_size = 2;
+        if (payload_length > 125 && payload_length <= 65535) {
+            header_size += 2;
+        } else if (payload_length > 65535) {
+            header_size += 8;
+        }
+        if (dataframe.mask) {
+            header_size += 4;
+        }
+
+        buffer.reserve(header_size + payload_length);
 
         // FIN, RSV, Opcode
         uint8_t byte1 = uint8_t(dataframe.fin ? 0x80 : 0x00);
@@ -119,6 +146,9 @@ namespace internetprotocol {
                 }
             }
         }
+
+        if (buffer.capacity() > buffer.size())
+            buffer.shrink_to_fit();
 
         return buffer;
     }

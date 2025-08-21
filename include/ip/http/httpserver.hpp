@@ -27,6 +27,40 @@ namespace internetprotocol {
         }
 
         /**
+         * Set/Get the idle timeout for the connection in seconds.
+         * A value of 0 disables the idle timeout.
+         *
+         * @param timeout The idle timeout duration in seconds. Default is 0.
+         *
+         * @par
+         * @code
+         * http_server_c server;
+         * // Set idle timeout seconds
+         * server.idle_timeout = 5;
+         * @endcode
+         */
+        uint16_t iddle_timeout = 0;
+
+        /**
+         * Set/Get the maximum number of simultaneous client connections the server will accept in queue.
+         *
+         * This method configures the maximum number of concurrent client connections
+         * that the server will maintain in queue. When this limit is reached, any new connection
+         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
+         *
+         * @param max_connections The maximum number of concurrent connections to allow.
+         *                        Must be a positive integer.
+         *
+         * @par Example
+         * @code
+         * http_server_c server;
+         * // Limit the server to handle at most 100 concurrent clients
+         * server.backlog = 100;
+         * @endcode
+         */
+        int backlog = 2147483647;
+
+        /**
          * Return true if socket is open.
          *
          * @par Example
@@ -87,78 +121,6 @@ namespace internetprotocol {
          * @endcode
          */
         const asio::error_code &get_error_code() const { return error_code; }
-
-        /**
-         * Sets the maximum number of simultaneous client connections the server will accept.
-         *
-         * This method configures the maximum number of concurrent client connections
-         * that the server will maintain. When this limit is reached, any new connection
-         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
-         *
-         * @param max_connections The maximum number of concurrent connections to allow.
-         *                        Must be a positive integer.
-         *
-         * @par Example
-         * @code
-         * http_server_c server;
-         * // Limit the server to handle at most 100 concurrent clients
-         * server.set_max_connections(100);
-         * @endcode
-         */
-        void set_max_connections(const int max_connections) {
-            this->max_connections = max_connections;
-        }
-
-        /**
-         * Gets the current maximum connection limit for this server.
-         *
-         * Returns the maximum number of simultaneous client connections
-         * that this server is configured to accept.
-         *
-         * @return The current maximum connection limit as an integer.
-         *
-         * @par Example
-         * @code
-         * http_server_c server;
-         * // Get the current connection limit
-         * int max_conn = server.get_max_connections();
-         * @endcode
-         */
-        int get_max_connections() const { return max_connections; }
-
-        /**
-         * Set the idle timeout for the connection in seconds.
-         * A value of 0 disables the idle timeout.
-         *
-         * @param timeout The idle timeout duration in seconds. Default is 0.
-         *
-         * @par
-         * @code
-         * http_server_c server;
-         * // Set idle timeout seconds
-         * server.set_idle_timeout(5);
-         * @endcode
-         */
-        void set_idle_timeout(const uint16_t timeout = 0) {
-            iddle_timeout = timeout;
-        }
-
-        /**
-         * Gets the current maximum connection limit for this server.
-         *
-         * Returns the maximum number of simultaneous client connections
-         * that this server is configured to accept.
-         *
-         * @return The current maximum connection limit as an integer.
-         *
-         * @par Example
-         * @code
-         * http_server_c server;
-         * // Get idle timeout in seconds
-         * int timeout = server.get_idle_timeout();
-         * @endcode
-         */
-        uint16_t get_idle_timeout() const { return iddle_timeout; }
 
         /**
          * Create a callback to receive requests of any methods for a specific path.
@@ -364,7 +326,7 @@ namespace internetprotocol {
                 on_error(error_code);
                 return false;
             }
-/**/
+
             const tcp::endpoint endpoint = bind_opts.address.empty() ?
                                         tcp::endpoint(bind_opts.protocol == v4
                                                         ? tcp::v4()
@@ -379,7 +341,7 @@ namespace internetprotocol {
                 return false;
             }
 
-            net.acceptor.listen(max_connections, error_code);
+            net.acceptor.listen(backlog, error_code);
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
                 on_error(error_code);
@@ -457,8 +419,6 @@ namespace internetprotocol {
         std::atomic<bool> is_closing = false;
         http_server_t net;
         asio::error_code error_code;
-        int max_connections = 2147483647;
-        uint16_t iddle_timeout = 0;
 
         std::map<std::string, std::function<void(const http_request_t &, const std::shared_ptr<http_remote_c> &)>> all_cb;
         std::map<std::string, std::function<void(const http_request_t &, const std::shared_ptr<http_remote_c> &)>> get_cb;
@@ -498,18 +458,12 @@ namespace internetprotocol {
                 }
                 return;
             }
-            if (net.clients.size() < max_connections) {
-                client->on_request = [&, client](const http_request_t &request) {
-                    read_cb(request, client);
-                };
-                client->on_close = [&, client]() { net.clients.erase(client); };
-                client->connect();
-                net.clients.insert(client);
-            } else {
-                std::lock_guard guard(mutex_error);
-                if (!is_closing)
-                    client->close();
-            }
+            client->on_request = [&, client](const http_request_t &request) {
+                read_cb(request, client);
+            };
+            client->on_close = [&, client]() { net.clients.erase(client); };
+            client->connect();
+            net.clients.insert(client);
             if (net.acceptor.is_open()) {
                 std::shared_ptr<http_remote_c> client_socket = std::make_shared<http_remote_c>(net.context, iddle_timeout);
                 net.acceptor.async_accept(client_socket->get_socket(),
@@ -637,12 +591,46 @@ namespace internetprotocol {
         }
 
         /**
+         * Set/Get the idle timeout for the connection in seconds.
+         * A value of 0 disables the idle timeout.
+         *
+         * @param timeout The idle timeout duration in seconds. Default is 0.
+         *
+         * @par
+         * @code
+         * http_server_ssl_c server({});
+         * // Set idle timeout seconds
+         * server.idle_timeout = 5;
+         * @endcode
+         */
+        uint16_t iddle_timeout = 0;
+
+        /**
+         * Set/Get the maximum number of simultaneous client connections the server will accept in queue.
+         *
+         * This method configures the maximum number of concurrent client connections
+         * that the server will maintain in queue. When this limit is reached, any new connection
+         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
+         *
+         * @param max_connections The maximum number of concurrent connections to allow.
+         *                        Must be a positive integer.
+         *
+         * @par Example
+         * @code
+         * http_server_ssl_c server({});
+         * // Limit the server to handle at most 100 concurrent clients
+         * server.backlog = 100;
+         * @endcode
+         */
+        int backlog = 2147483647;
+
+        /**
          * Return true if socket is open.
          *
          * @par Example
          * @code
-         * http_server_ssl_c client;
-         * bool is_open = client.is_open();
+         * http_server_ssl_c server;
+         * bool is_open = server.is_open();
          * @endcode
          */
         bool is_open() const { return net.acceptor.is_open(); }
@@ -697,78 +685,6 @@ namespace internetprotocol {
          * @endcode
          */
         const asio::error_code &get_error_code() const { return error_code; }
-
-        /**
-         * Sets the maximum number of simultaneous client connections the server will accept.
-         *
-         * This method configures the maximum number of concurrent client connections
-         * that the server will maintain. When this limit is reached, any new connection
-         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
-         *
-         * @param max_connections The maximum number of concurrent connections to allow.
-         *                        Must be a positive integer.
-         *
-         * @par Example
-         * @code
-         * http_server_ssl_c server;
-         * // Limit the server to handle at most 100 concurrent clients
-         * server.set_max_connections(100);
-         * @endcode
-         */
-        void set_max_connections(const int max_connections) {
-            this->max_connections = max_connections;
-        }
-
-        /**
-         * Gets the current maximum connection limit for this server.
-         *
-         * Returns the maximum number of simultaneous client connections
-         * that this server is configured to accept.
-         *
-         * @return The current maximum connection limit as an integer.
-         *
-         * @par Example
-         * @code
-         * http_server_ssl_c server;
-         * // Get the current connection limit
-         * int max_conn = server.get_max_connections();
-         * @endcode
-         */
-        int get_max_connections() const { return max_connections; }
-
-        /**
-         * Set the idle timeout for the connection in seconds.
-         * A value of 0 disables the idle timeout.
-         *
-         * @param timeout The idle timeout duration in seconds. Default is 0.
-         *
-         * @par
-         * @code
-         * http_server_ssl_c server;
-         * // Set idle timeout seconds
-         * server.set_idle_timeout(5);
-         * @endcode
-         */
-        void set_idle_timeout(const uint16_t timeout = 0) {
-            iddle_timeout = timeout;
-        }
-
-        /**
-         * Gets the current maximum connection limit for this server.
-         *
-         * Returns the maximum number of simultaneous client connections
-         * that this server is configured to accept.
-         *
-         * @return The current maximum connection limit as an integer.
-         *
-         * @par Example
-         * @code
-         * http_server_ssl_c server;
-         * // Get idle timeout in seconds
-         * int timeout = server.get_idle_timeout();
-         * @endcode
-         */
-        uint16_t get_idle_timeout() const { return iddle_timeout; }
 
         /**
          * Create a callback to receive requests of any methods for a specific path.
@@ -974,7 +890,7 @@ namespace internetprotocol {
                 on_error(error_code);
                 return false;
             }
-/**/
+
             const tcp::endpoint endpoint = bind_opts.address.empty() ?
                                         tcp::endpoint(bind_opts.protocol == v4
                                                         ? tcp::v4()
@@ -989,7 +905,7 @@ namespace internetprotocol {
                 return false;
             }
 
-            net.acceptor.listen(max_connections, error_code);
+            net.acceptor.listen(backlog, error_code);
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
                 on_error(error_code);
@@ -1068,8 +984,6 @@ namespace internetprotocol {
         std::atomic<bool> is_closing = false;
         http_server_ssl_t net;
         asio::error_code error_code;
-        int max_connections = 2147483647;
-        uint16_t iddle_timeout = 0;
 
         std::map<std::string, std::function<void(const http_request_t &, const std::shared_ptr<http_remote_ssl_c> &)>> all_cb;
         std::map<std::string, std::function<void(const http_request_t &, const std::shared_ptr<http_remote_ssl_c> &)>> get_cb;
@@ -1109,18 +1023,12 @@ namespace internetprotocol {
                 }
                 return;
             }
-            if (net.ssl_clients.size() < max_connections) {
-                client->on_request = [&, client](const http_request_t &request) {
-                    read_cb(request, client);
-                };
-                client->on_close = [&, client]() { net.ssl_clients.erase(client); };
-                client->connect();
-                net.ssl_clients.insert(client);
-            } else {
-                std::lock_guard guard(mutex_error);
-                if (!is_closing)
-                    client->close();
-            }
+            client->on_request = [&, client](const http_request_t &request) {
+                read_cb(request, client);
+            };
+            client->on_close = [&, client]() { net.ssl_clients.erase(client); };
+            client->connect();
+            net.ssl_clients.insert(client);
             if (net.acceptor.is_open()) {
                 std::shared_ptr<http_remote_ssl_c> client_socket = std::make_shared<http_remote_ssl_c>(net.context, net.ssl_context, iddle_timeout);
                 net.acceptor.async_accept(client_socket->get_socket().lowest_layer(),

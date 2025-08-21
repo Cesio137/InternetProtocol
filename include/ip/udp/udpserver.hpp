@@ -10,15 +10,6 @@
 using namespace asio::ip;
 
 namespace internetprotocol {
-    struct udp_server_t {
-        udp_server_t(): socket(context) {
-        }
-
-        asio::io_context context;
-        udp::socket socket;
-        udp::endpoint remote_endpoint;
-    };
-
     class udp_server_c {
     public:
         udp_server_c() { recv_buffer.reserve(recv_buffer_size); }

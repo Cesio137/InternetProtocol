@@ -38,6 +38,17 @@ namespace internetprotocol {
         }
 
         /**
+         * Set/Get handshake headers.
+         *
+         * @par Example
+         * @code
+         * ws_client_c client;
+         * std::map<std::string, std::string> &headers = client.handshake;
+         * @endcode
+         */
+        http_request_t handshake;
+
+        /**
          * Return true if socket is open.
          *
          * @par Example
@@ -80,17 +91,6 @@ namespace internetprotocol {
          * @endcode
          */
         const asio::error_code &get_error_code() const { return error_code; }
-
-        /**
-         * Return a ref of handshake headers.
-         *
-         * @par Example
-         * @code
-         * ws_client_c client;
-         * std::map<std::string, std::string> &headers = client.handshake_headers();
-         * @endcode
-         */
-        std::map<std::string, std::string> &handshake_headers() { return handshake.headers; }
 
         /**
          * Sends string data on the socket.
@@ -156,7 +156,7 @@ namespace internetprotocol {
             std::vector<uint8_t> payload = encode_buffer_payload(buffer, frame);
             asio::async_write(net.socket,
                               asio::buffer(payload.data(), payload.size()),
-                              [&](const asio::error_code &ec, const size_t bytes_sent) {
+                              [&, callback](const asio::error_code &ec, const size_t bytes_sent) {
                                   if (callback) callback(ec, bytes_sent);
                               });
             return true;
@@ -226,14 +226,13 @@ namespace internetprotocol {
          * client.connect("localhost", 8080, v4, true);
          * @endcode
          */
-        bool connect(const std::string &address = "localhost", const std::string &port = "8080",
-                     const protocol_type_e protocol = v4) {
+        bool connect(const client_bind_options_t &bind_opts = {}) {
             if (net.socket.is_open())
                 return false;
 
             close_state.store(OPEN);
-            net.resolver.async_resolve(protocol == v4 ? tcp::v4() : tcp::v6(),
-                                       address, port,
+            net.resolver.async_resolve(bind_opts.protocol == v4 ? tcp::v4() : tcp::v6(),
+                                       bind_opts.address, bind_opts.port,
                                        [&](const asio::error_code &ec, const tcp::resolver::results_type &results) {
                                            resolve(ec, results);
                                        });
@@ -385,7 +384,7 @@ namespace internetprotocol {
          *
          * @par Example
          * @code
-         * tcp_client_c client();
+         * ws_client_c client();
          * client.on_close = [&](const uint16_t code, const std::string &reason) {
          *      // your code...
          * };
@@ -416,7 +415,6 @@ namespace internetprotocol {
         ws_client_t net;
         asio::error_code error_code;
         asio::streambuf recv_buffer;
-        http_request_t handshake;
 
         void start_idle_timer() {
             idle_timer.expires_after(std::chrono::seconds(5));
@@ -427,7 +425,7 @@ namespace internetprotocol {
                 if (close_state.load() == CLOSED)
                     return;
 
-                close(1000, "");
+                close(1000, "Timeout");
             });
         }
 
@@ -442,6 +440,7 @@ namespace internetprotocol {
             dataframe.opcode = CLOSE_FRAME;
 
             std::vector<uint8_t> close_payload;
+            close_payload.reserve(2 + reason.size());
             // status code
             close_payload.push_back(static_cast<uint8_t>(code >> 8));
             close_payload.push_back(static_cast<uint8_t>(code & 0xFF));
@@ -450,6 +449,9 @@ namespace internetprotocol {
             if (!reason.empty()) {
                 close_payload.insert(close_payload.end(), reason.begin(), reason.end());
             }
+
+            if (close_payload.capacity() > close_payload.size())
+                close_payload.shrink_to_fit();
 
             std::vector<uint8_t> encoded_payload = encode_buffer_payload(close_payload, dataframe);
             asio::async_write(net.socket,
@@ -750,6 +752,17 @@ namespace internetprotocol {
 
         ~ws_client_ssl_c() {
         }
+        
+        /**
+         * Return a ref of handshake headers.
+         *
+         * @par Example
+         * @code
+         * ws_client_ssl_c client({});
+         * std::map<std::string, std::string> &headers = client.handshake;
+         * @endcode
+         */
+        http_request_t handshake;
 
         /**
          * Return true if socket is open.
@@ -794,17 +807,6 @@ namespace internetprotocol {
          * @endcode
          */
         const asio::error_code &get_error_code() const { return error_code; }
-
-        /**
-         * Return a ref of handshake headers.
-         *
-         * @par Example
-         * @code
-         * ws_client_ssl_c client({});
-         * std::map<std::string, std::string> &headers = client.handshake_headers();
-         * @endcode
-         */
-        std::map<std::string, std::string> &handshake_headers() { return handshake.headers; }
 
         /**
          * Sends buffer data on the socket.
@@ -938,14 +940,13 @@ namespace internetprotocol {
          * client.connect("localhost", 8080, v4, true);
          * @endcode
          */
-        bool connect(const std::string &address = "localhost", const std::string &port = "8080",
-                     const protocol_type_e protocol = v4) {
+        bool connect(const client_bind_options_t &bind_opts = {}) {
             if (net.ssl_socket.next_layer().is_open())
                 return false;
 
             close_state.store(OPEN);
-            net.resolver.async_resolve(protocol == v4 ? tcp::v4() : tcp::v6(),
-                                       address, port,
+            net.resolver.async_resolve(bind_opts.protocol == v4 ? tcp::v4() : tcp::v6(),
+                                       bind_opts.address, bind_opts.port,
                                        [&](const asio::error_code &ec, const tcp::resolver::results_type &results) {
                                            resolve(ec, results);
                                        });
@@ -1147,7 +1148,6 @@ namespace internetprotocol {
         ws_client_ssl_t net;
         asio::error_code error_code;
         asio::streambuf recv_buffer;
-        http_request_t handshake;
 
         void start_idle_timer() {
             idle_timer.expires_after(std::chrono::seconds(5));
@@ -1173,6 +1173,7 @@ namespace internetprotocol {
             dataframe.opcode = CLOSE_FRAME;
 
             std::vector<uint8_t> close_payload;
+            close_payload.reserve(2 + reason.size());
             // status code
             close_payload.push_back(static_cast<uint8_t>(code >> 8));
             close_payload.push_back(static_cast<uint8_t>(code & 0xFF));
@@ -1181,6 +1182,9 @@ namespace internetprotocol {
             if (!reason.empty()) {
                 close_payload.insert(close_payload.end(), reason.begin(), reason.end());
             }
+
+            if (close_payload.capacity() > close_payload.size())
+                close_payload.shrink_to_fit();
 
             std::vector<uint8_t> encoded_payload = encode_buffer_payload(close_payload, dataframe);
             asio::async_write(net.ssl_socket,

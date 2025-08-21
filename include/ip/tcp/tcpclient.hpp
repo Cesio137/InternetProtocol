@@ -8,16 +8,6 @@
 #include "ip/net/common.hpp"
 
 namespace internetprotocol {
-    struct tcp_client_t {
-        tcp_client_t(): socket(context), resolver(context) {
-        }
-
-        asio::io_context context;
-        tcp::socket socket;
-        tcp::endpoint endpoint;
-        tcp::resolver resolver;
-    };
-
     class tcp_client_c {
     public:
         tcp_client_c() {}
@@ -331,19 +321,6 @@ namespace internetprotocol {
     };
 
 #ifdef ENABLE_SSL
-    struct tcp_client_ssl_t {
-        tcp_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
-                            ssl_socket(context, ssl_context),
-                            resolver(context) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::resolver resolver;
-        tcp::endpoint endpoint;
-        asio::ssl::stream<tcp::socket> ssl_socket;
-    };
-
     class tcp_client_ssl_c {
     public:
         tcp_client_ssl_c(const security_context_opts &sec_opts = {}) {

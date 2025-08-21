@@ -9,24 +9,35 @@
 #include "ip/tcp/tcpremote.hpp"
 
 namespace internetprotocol {
-    struct tcp_server_t {
-        tcp_server_t(): acceptor(context) {
-        }
-
-        asio::io_context context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<tcp_remote_c> > clients;
-    };
-
     class tcp_server_c {
     public:
         tcp_server_c() {}
 
         ~tcp_server_c() {
-            if (net.acceptor.is_open() || net.clients.size() > 0) {
+            if (net.acceptor.is_open()) {
                 close();
             }
         }
+
+        /**
+         * Set/Get the maximum number of simultaneous client connections the server will accept in queue.
+         *
+         * This method configures the maximum number of concurrent client connections
+         * that the server will maintain in queue. When this limit is reached, any new connection
+         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
+         *
+         * @param max_connections The maximum number of concurrent connections to allow.
+         *                        Must be a positive integer.
+         *
+         * @par Example
+         * @code
+         * tcp_server_c server;
+         * // Limit the server to handle at most 100 concurrent clients
+         * server.backlog = 100;
+         * server.open({"", 8080});
+         * @endcode
+         */
+        int backlog = 2147483647;
 
         /**
          * Return true if socket is open.
@@ -88,45 +99,6 @@ namespace internetprotocol {
         const asio::error_code &get_error_code() const { return error_code; }
 
         /**
-         * Sets the maximum number of simultaneous client connections the server will accept.
-         *
-         * This method configures the maximum number of concurrent client connections
-         * that the server will maintain. When this limit is reached, any new connection
-         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
-         *
-         * @param max_connections The maximum number of concurrent connections to allow.
-         *                        Must be a positive integer.
-         *
-         * @par Example
-         * @code
-         * tcp_server_c server;
-         * // Limit the server to handle at most 100 concurrent clients
-         * server.set_max_connections(100);
-         * server.open({"", 8080});
-         * @endcode
-         */
-        void set_max_connections(const int max_connections) {
-            this->max_connections = max_connections;
-        }
-
-        /**
-         * Gets the current maximum connection limit for this server.
-         *
-         * Returns the maximum number of simultaneous client connections
-         * that this server is configured to accept.
-         *
-         * @return The current maximum connection limit as an integer.
-         *
-         * @par Example
-         * @code
-         * tcp_server_c server;
-         * // Get the current connection limit
-         * int max_conn = server.get_max_connections();
-         * @endcode
-         */
-        int get_max_connections() const { return max_connections; }
-
-        /**
          * Opens the TCP server and starts listening for incoming connections.
          *
          * This method initializes the server socket, binds it to the specified address and port,
@@ -185,7 +157,7 @@ namespace internetprotocol {
                 return false;
             }
 
-            net.acceptor.listen(max_connections, error_code);
+            net.acceptor.listen(backlog, error_code);
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
                 on_error(error_code);
@@ -288,9 +260,8 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::mutex mutex_error;
         std::atomic<bool> is_closing = false;
-        tcp_server_t net;
+        tcp_server_t<tcp_remote_c> net;
         asio::error_code error_code;
-        int max_connections = 2147483647;
 
         void run_context_thread() {
             std::lock_guard guard(mutex_io);
@@ -320,7 +291,7 @@ namespace internetprotocol {
                 }
                 return;
             }
-            if (net.clients.size() < max_connections) {
+            if (net.clients.size() < backlog) {
                 client->connect();
                 net.clients.insert(client);
                 client->on_close = [&, client]() { net.clients.erase(client); };
@@ -342,16 +313,6 @@ namespace internetprotocol {
         }
     };
 #ifdef ENABLE_SSL
-    struct tcp_server_ssl_t {
-        tcp_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<tcp_remote_ssl_c> > ssl_clients;
-    };
-
     class tcp_server_ssl_c {
     public:
         tcp_server_ssl_c(const security_context_opts sec_opts = {}) {
@@ -394,7 +355,30 @@ namespace internetprotocol {
             }
         }
 
-        ~tcp_server_ssl_c() {}
+        ~tcp_server_ssl_c() {
+            if (net.acceptor.is_open())
+                close();
+        }
+
+        /**
+         * Set/Get the maximum number of simultaneous client connections the server will accept in queue.
+         *
+         * This method configures the maximum number of concurrent client connections
+         * that the server will maintain in queue. When this limit is reached, any new connection
+         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
+         *
+         * @param max_connections The maximum number of concurrent connections to allow.
+         *                        Must be a positive integer.
+         *
+         * @par Example
+         * @code
+         * tcp_server_ssl_c server({});
+         * // Limit the server to handle at most 100 concurrent clients
+         * server.backlog = 100;
+         * server.open({"", 8080});
+         * @endcode
+         */
+        int backlog = 2147483647;
 
         /**
          * Return true if socket is open.
@@ -456,45 +440,6 @@ namespace internetprotocol {
         const asio::error_code &get_error_code() const { return error_code; }
 
         /**
-         * Sets the maximum number of simultaneous client connections the server will accept.
-         *
-         * This method configures the maximum number of concurrent client connections
-         * that the server will maintain. When this limit is reached, any new connection
-         * attempts will be rejected automatically. The default value is INT_MAX (2147483647).
-         *
-         * @param max_connections The maximum number of concurrent connections to allow.
-         *                        Must be a positive integer.
-         *
-         * @par Example
-         * @code
-         * tcp_server_ssl_c server({});
-         * // Limit the server to handle at most 100 concurrent clients
-         * server.set_max_connections(100);
-         * server.open({"", 8080});
-         * @endcode
-         */
-        void set_max_connections(const int max_connections) {
-            this->max_connections = max_connections;
-        }
-
-        /**
-         * Gets the current maximum connection limit for this server.
-         *
-         * Returns the maximum number of simultaneous client connections
-         * that this server is configured to accept.
-         *
-         * @return The current maximum connection limit as an integer.
-         *
-         * @par Example
-         * @code
-         * tcp_server_ssl_c server({});
-         * // Get the current connection limit
-         * int max_conn = server.get_max_connections();
-         * @endcode
-         */
-        int get_max_connections() const { return max_connections; }
-
-        /**
          * Opens the TCP server and starts listening for incoming connections.
          *
          * This method initializes the server socket, binds it to the specified address and port,
@@ -554,7 +499,7 @@ namespace internetprotocol {
                 return false;
             }
 
-            net.acceptor.listen(max_connections, error_code);
+            net.acceptor.listen(backlog, error_code);
             if (error_code && on_error) {
                 std::lock_guard guard(mutex_error);
                 on_error(error_code);
@@ -659,9 +604,8 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::mutex mutex_error;
         std::atomic<bool> is_closing = false;
-        tcp_server_ssl_t net;
+        tcp_server_ssl_t<tcp_remote_ssl_c> net;
         asio::error_code error_code;
-        int max_connections = 2147483647;
 
         void run_context_thread() {
             std::lock_guard guard(mutex_io);
@@ -691,18 +635,12 @@ namespace internetprotocol {
                 }
                 return;
             }
-            if (net.ssl_clients.size() < max_connections) {
-                client->connect();
-                net.ssl_clients.insert(client);
-                client->on_close = [&, client]() { net.ssl_clients.erase(client); };
+            client->connect();
+            net.ssl_clients.insert(client);
+            client->on_close = [&, client]() { net.ssl_clients.erase(client); };
 
-                if (on_client_accepted)
-                    on_client_accepted(client);
-            } else {
-                std::lock_guard guard(mutex_error);
-                if (!is_closing)
-                    client->close();
-            }
+            if (on_client_accepted)
+                on_client_accepted(client);
             if (net.acceptor.is_open()) {
                 std::shared_ptr<tcp_remote_ssl_c> client_socket = std::make_shared<tcp_remote_ssl_c>(net.context, net.ssl_context);
                 net.acceptor.async_accept(client_socket->get_socket().lowest_layer(),
