@@ -11,6 +11,7 @@
 #include "tcp/tcpclient.h"
 #include "http/httpclient.h"
 #include "http/httpserver.h"
+#include "json/json.h"
 #include "websocket/wsclient.h"
 #include "Subsystems/WorldSubsystem.h"
 
@@ -60,6 +61,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UWSClientSsl* CreateWSClientSsl(const FSecurityContextOpts& SecOpts);
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UJavaScriptObjectNotation* CreateJson();
 private:
 	
 };

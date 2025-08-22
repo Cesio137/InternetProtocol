@@ -69,3 +69,8 @@ UWSClientSsl* UInternetProtocolSubsystem::CreateWSClientSsl(const FSecurityConte
 	client->Construct(SecOpts);
 	return client;
 }
+
+UJavaScriptObjectNotation* UInternetProtocolSubsystem::CreateJson() {
+	UJavaScriptObjectNotation* json = NewObject<UJavaScriptObjectNotation>();
+	return json;
+}
