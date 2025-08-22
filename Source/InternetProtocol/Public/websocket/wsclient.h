@@ -36,16 +36,16 @@ public:
 
 	virtual void BeginDestroy() override;
 
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
 	void AddToRoot();
 
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
 	void RemoveFromRoot();
 
-	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|Websocket")
 	bool IsRooted();
 
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
+	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
 	void MarkPendingKill();
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|Websocket")
@@ -126,6 +126,121 @@ private:
 	void run_context_thread();
 	void resolve(const asio::error_code &error, const tcp::resolver::results_type &results);
 	void conn(const asio::error_code &error);
+	void write_handshake_cb(const asio::error_code &error, const size_t bytes_sent);
+	void read_handshake_cb(const asio::error_code &error, const size_t bytes_recvd);
+	void read_headers(const asio::error_code &error, FHttpResponse &response);
+	void consume_recv_buffer();
+	void read_cb(const asio::error_code &error, const size_t bytes_recvd);
+};
+
+UCLASS(Blueprintable, BlueprintType, Category = "IP|Websocket")
+class INTERNETPROTOCOL_API UWSClientSsl : public UObject
+{
+	GENERATED_BODY()
+public:
+	UWSClientSsl() {
+		idle_timer = MakeUnique<asio::steady_timer>(net.context);
+		Handshake.Path = "/chat";
+		Handshake.Headers.Add("Connection", "Upgrade");
+		Handshake.Headers.Add("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==");
+		Handshake.Headers.Add("Sec-WebSocket-Version", "13");
+		Handshake.Headers.Add("Upgrade", "websocket");
+	}
+	~UWSClientSsl() {}
+
+	virtual void BeginDestroy() override;
+
+	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
+	void AddToRoot();
+
+	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
+	void RemoveFromRoot();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|Websocket")
+	bool IsRooted();
+
+	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
+	void MarkPendingKill();
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|Websocket")
+	FHttpRequest Handshake;
+
+	UFUNCTION(bLueprintCallable, BlueprintPure, Category = "IP|Websocket")
+	bool IsOpen();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|Websocket")
+	FTcpEndpoint LocalEndpoint();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|Websocket")
+	FTcpEndpoint RemoteEndpoint();
+
+	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|Websocket")
+	FErrorCode GetErrorCode();
+
+	UFUNCTION(BlueprintCallable, Category = "IP|Websocket")
+	bool Write(const FString &Message, const FDataframe &Dataframe, const FDelegateWsClientMessageSent &Callback);
+
+	UFUNCTION(BlueprintCallable, Category = "IP|Websocket")
+	bool WriteBuffer(const TArray<uint8> &Buffer, const FDataframe &Dataframe, const FDelegateWsClientMessageSent &Callback);
+
+	UFUNCTION(BlueprintCallable, Category = "IP|Websocket")
+	bool Ping(const FDelegateWsClientMessageSent &Callback);
+
+	bool ping();
+
+	UFUNCTION(BlueprintCallable, Category = "IP|Websocket")
+	bool Pong(const FDelegateWsClientMessageSent &Callback);
+
+	bool pong();
+
+	UFUNCTION(BlueprintCallable, Category = "IP|Websocket")
+	bool Connect(const FClientBindOptions &BindOpts);
+
+	UFUNCTION(BlueprintCallable, Category = "IP|Websocket")
+	void End(int code, const FString &reason);
+
+	UFUNCTION(BlueprintCallable, Category = "IP|Websocket")
+	void Close(int code, const FString &reason);
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
+	FDelegateWsClientHandshake OnConnected;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
+	FDelegateWsClientHandshake OnUnexpectedHandshake;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
+	FDelegateWsClientMessage OnMessage;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
+	FDelegateWsClient OnPing;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
+	FDelegateWsClient OnPong;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
+	FDelegateWsClientClose OnClose;
+
+	UPROPERTY(BlueprintCallable, BlueprintAssignable, Category = "IP|Websocket|Events")
+	FDelegateWsClientError OnError;
+	
+private:
+	bool is_being_destroyed = false;
+	FCriticalSection mutex_io;
+	FCriticalSection mutex_error;
+	TAtomic<ECloseState> close_state = ECloseState::CLOSED;
+	TAtomic<bool> wait_close_frame_response = true;
+	TUniquePtr<asio::steady_timer> idle_timer;
+	tcp_client_ssl_t net;
+	asio::error_code error_code;
+	asio::streambuf recv_buffer;
+
+	void start_idle_timer();
+	void send_close_frame(const uint16_t code, const FString &reason, bool wait_server = false);
+	void close_frame_sent_cb(const asio::error_code& error, const size_t bytes_sent, const uint16_t code, const FString& reason);
+	void run_context_thread();
+	void resolve(const asio::error_code &error, const tcp::resolver::results_type &results);
+	void conn(const asio::error_code &error);
+	void ssl_handshake(const asio::error_code &error);
 	void write_handshake_cb(const asio::error_code &error, const size_t bytes_sent);
 	void read_handshake_cb(const asio::error_code &error, const size_t bytes_recvd);
 	void read_headers(const asio::error_code &error, FHttpResponse &response);
