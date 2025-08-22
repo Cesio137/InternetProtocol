@@ -57,6 +57,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UWSClient* CreateWSClient();
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UWSClientSsl* CreateWSClientSsl(const FSecurityContextOpts& SecOpts);
 private:
 	
 };

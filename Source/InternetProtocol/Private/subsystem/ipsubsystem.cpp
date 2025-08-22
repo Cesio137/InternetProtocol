@@ -63,3 +63,9 @@ UWSClient* UInternetProtocolSubsystem::CreateWSClient() {
 	UWSClient* client = NewObject<UWSClient>();
 	return client;
 }
+
+UWSClientSsl* UInternetProtocolSubsystem::CreateWSClientSsl(const FSecurityContextOpts& SecOpts) {
+	UWSClientSsl* client = NewObject<UWSClientSsl>();
+	client->Construct(SecOpts);
+	return client;
+}
