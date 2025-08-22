@@ -5,8 +5,16 @@
 #include "http/httpremote.h"
 #include "utils/net.h"
 
+void UHttpRemote::BeginDestroy() {
+	is_being_destroyed = true;
+	if (socket.IsValid()) {
+		if (socket->is_open())
+			Close();
+	}
+	Super::BeginDestroy();
+}
+
 void UHttpRemote::Construct(asio::io_context &io_context, TSharedPtr<tcp::socket>& sock, const uint8 timeout) {
-	if (!IsRooted()) AddToRoot();
 	if (timeout > 0) {
 		idle_timeout_seconds = timeout;
 		idle_timer = MakeUnique<asio::steady_timer>(io_context, asio::steady_timer::duration(timeout));
@@ -18,20 +26,23 @@ void UHttpRemote::Destroy() {
 	if (IsRooted()) {
 		RemoveFromRoot();
 	}
-    
+    socket.Reset();
 	MarkPendingKill();
 }
 
 bool UHttpRemote::IsOpen() {
+	if (!socket.IsValid()) return false;
 	return socket->is_open();
 }
 
 FTcpEndpoint UHttpRemote::LocalEndpoint() {
+	if (!socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = socket->local_endpoint();
 	return FTcpEndpoint(ep);
 }
 
 FTcpEndpoint UHttpRemote::RemoteEndpoint() {
+	if (!socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = socket->remote_endpoint();
 	return FTcpEndpoint(ep);
 }
@@ -49,6 +60,7 @@ void UHttpRemote::Headers(const FHttpResponse& Response) {
 }
 
 bool UHttpRemote::Write(const FDelegateHttpRemoteMessageSent& Callback) {
+	if (!socket.IsValid()) return false;
 	if (!socket->is_open())
 		return false;
 
@@ -64,6 +76,7 @@ bool UHttpRemote::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 }
 
 bool UHttpRemote::write() {
+	if (!socket.IsValid()) return false;
 	if (!socket->is_open())
 		return false;
 
@@ -86,18 +99,21 @@ void UHttpRemote::connect() {
 }
 
 void UHttpRemote::Close() {
+	if (!socket.IsValid()) return;
 	is_closing.Store(true);
 	if (socket->is_open()) {
 		FScopeLock lock(&mutex_error);
 		socket->shutdown(tcp::socket::shutdown_both, error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		socket->close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	is_closing.Store(false);
@@ -117,7 +133,8 @@ void UHttpRemote::start_idle_timer() {
 
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 	});
@@ -136,14 +153,16 @@ void UHttpRemote::write_cb(const asio::error_code& error, const size_t bytes_sen
 	if (!will_close)
 		reset_idle_timer();
 	AsyncTask(ENamedThreads::GameThread, [this, error, bytes_sent, callback]() {
-		callback.ExecuteIfBound(FErrorCode(error), bytes_sent);
+		if (!is_being_destroyed)
+			callback.ExecuteIfBound(FErrorCode(error), bytes_sent);
 	});
 	if (will_close) {
 		if (idle_timeout_seconds != 0)
 			idle_timer->cancel();
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 	}
@@ -153,14 +172,16 @@ void UHttpRemote::write_error_cb(const asio::error_code& error, const size_t byt
 	if (!will_close)
 		reset_idle_timer();
 	AsyncTask(ENamedThreads::GameThread, [this, error]() {
-		OnError.Broadcast(FErrorCode(error));
+		if (!is_being_destroyed)
+			OnError.Broadcast(FErrorCode(error));
 	});
 	if (will_close) {
 		if (idle_timeout_seconds != 0)
 			idle_timer->cancel();
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 	}
@@ -177,7 +198,8 @@ void UHttpRemote::read_cb(const asio::error_code& error, const size_t bytes_recv
 		consume_recv_buffer();
 		if (error != asio::error::eof)
 			AsyncTask(ENamedThreads::GameThread, [this, error]() {
-				OnError.Broadcast(FErrorCode(error));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error));
 			});
 		if (!is_closing.Load()) {
 			if (idle_timeout_seconds != 0)
@@ -185,7 +207,8 @@ void UHttpRemote::read_cb(const asio::error_code& error, const size_t bytes_recv
 			Close();
 		}
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 		return;
@@ -245,7 +268,8 @@ void UHttpRemote::read_headers(const asio::error_code& error, const std::string&
 			Close();
 		}
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 		return;
@@ -279,6 +303,15 @@ void UHttpRemote::read_headers(const asio::error_code& error, const std::string&
 	if (on_request) on_request(req);
 }
 
+void UHttpRemoteSsl::BeginDestroy() {
+	is_being_destroyed = true;
+	if (ssl_socket.IsValid()) {
+		if (ssl_socket->next_layer().is_open())
+			Close();
+	}
+	Super::BeginDestroy();
+}
+
 void UHttpRemoteSsl::Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr, asio::io_context &io_context, const uint8 timeout) {
 	if (!IsRooted()) AddToRoot();
 	if (timeout > 0) {
@@ -292,20 +325,23 @@ void UHttpRemoteSsl::Destroy() {
 	if (IsRooted()) {
 		RemoveFromRoot();
 	}
-    
+	ssl_socket.Reset();
 	MarkPendingKill();
 }
 
 bool UHttpRemoteSsl::IsOpen() {
+	if (!ssl_socket.IsValid()) return false;
 	return ssl_socket->next_layer().is_open();
 }
 
 FTcpEndpoint UHttpRemoteSsl::LocalEndpoint() {
+	if (!ssl_socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = ssl_socket->next_layer().local_endpoint();
 	return FTcpEndpoint(ep);
 }
 
 FTcpEndpoint UHttpRemoteSsl::RemoteEndpoint() {
+	if (!ssl_socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = ssl_socket->next_layer().remote_endpoint();
 	return FTcpEndpoint(ep);
 }
@@ -323,6 +359,7 @@ void UHttpRemoteSsl::Headers(const FHttpResponse& Response) {
 }
 
 bool UHttpRemoteSsl::Write(const FDelegateHttpRemoteMessageSent& Callback) {
+	if (!ssl_socket.IsValid()) return false;
 	if (!ssl_socket->next_layer().is_open())
 		return false;
 
@@ -338,6 +375,7 @@ bool UHttpRemoteSsl::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 }
 
 bool UHttpRemoteSsl::write() {
+	if (!ssl_socket.IsValid()) return false;
 	if (!ssl_socket->next_layer().is_open())
 		return false;
 
@@ -360,29 +398,34 @@ void UHttpRemoteSsl::connect() {
 }
 
 void UHttpRemoteSsl::Close() {
+	if (!ssl_socket.IsValid()) return;
 	is_closing.Store(true);
 	if (ssl_socket->next_layer().is_open()) {
 		FScopeLock lock(&mutex_error);
 		ssl_socket->lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->lowest_layer().close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 
 		ssl_socket->shutdown(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->next_layer().close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 	is_closing.Store(false);
@@ -402,7 +445,8 @@ void UHttpRemoteSsl::start_idle_timer() {
 
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 	});
@@ -421,8 +465,10 @@ void UHttpRemoteSsl::ssl_handshake(const asio::error_code& error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
 		AsyncTask(ENamedThreads::GameThread, [this, error]() {
-			OnError.Broadcast(FErrorCode(error));
-			OnClose.Broadcast();
+			if (!is_being_destroyed) {
+				OnError.Broadcast(FErrorCode(error));
+				OnClose.Broadcast();
+			}
 			if (on_close) on_close();
 		});
 		return;
@@ -446,7 +492,8 @@ void UHttpRemoteSsl::write_cb(const asio::error_code& error, const size_t bytes_
 			idle_timer->cancel();
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 	}
@@ -463,7 +510,8 @@ void UHttpRemoteSsl::write_error_cb(const asio::error_code& error, const size_t 
 			idle_timer->cancel();
 		Close();
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 	}
@@ -480,7 +528,8 @@ void UHttpRemoteSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 		consume_recv_buffer();
 		if (error != asio::error::eof)
 			AsyncTask(ENamedThreads::GameThread, [this, error]() {
-				OnError.Broadcast(FErrorCode(error));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error));
 			});
 		if (!is_closing.Load()) {
 			if (idle_timeout_seconds != 0)
@@ -488,7 +537,8 @@ void UHttpRemoteSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 			Close();
 		}
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 		return;
@@ -541,14 +591,16 @@ void UHttpRemoteSsl::read_headers(const asio::error_code& error, const std::stri
 		consume_recv_buffer();
 		if (error != asio::error::eof)
 			AsyncTask(ENamedThreads::GameThread, [this, error]() {
-				OnError.Broadcast(FErrorCode(error));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error));
 			});
 		if (!is_closing.Load()) {
 			idle_timer->cancel();
 			Close();
 		}
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 		return;

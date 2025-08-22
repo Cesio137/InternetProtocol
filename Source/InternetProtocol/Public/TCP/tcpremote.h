@@ -23,11 +23,9 @@ class INTERNETPROTOCOL_API UTCPRemote : public UObject
 	GENERATED_BODY()
 public:
 	UTCPRemote() {}
-	~UTCPRemote() {
-		if (!socket.IsValid()) return;
-		if (socket->is_open())
-			Close();
-	}
+	~UTCPRemote() {}
+	
+	virtual void BeginDestroy() override;
 
 	void Construct(TSharedPtr<tcp::socket>& socket_ptr);
 
@@ -73,6 +71,7 @@ public:
 	std::function<void()> on_close;
 
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
 	TSharedPtr<tcp::socket> socket;
 	asio::error_code error_code;
@@ -88,11 +87,8 @@ class INTERNETPROTOCOL_API UTCPRemoteSsl : public UObject
 	GENERATED_BODY()
 public:
 	UTCPRemoteSsl() {}
-	~UTCPRemoteSsl() {
-		if (!ssl_socket.IsValid()) return;
-		if (ssl_socket->next_layer().is_open())
-			Close();
-	}
+
+	virtual void BeginDestroy() override;
 
 	void Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr);
 
@@ -138,6 +134,7 @@ public:
 	std::function<void()> on_close;
 
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
 	TSharedPtr<asio::ssl::stream<tcp::socket>> ssl_socket;
 	asio::error_code error_code;

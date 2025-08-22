@@ -22,11 +22,9 @@ class INTERNETPROTOCOL_API UHttpRemote : public UObject
 	GENERATED_BODY()
 public:
 	UHttpRemote() {}
-	~UHttpRemote() {
-		if (!socket.IsValid()) return;
-		if (socket->is_open())
-			Close();
-	}
+	~UHttpRemote() {}
+
+	virtual void BeginDestroy() override;
 
 	void Construct(asio::io_context &io_context, TSharedPtr<tcp::socket> &sock, const uint8 timeout = 0);
 
@@ -70,6 +68,7 @@ public:
 	FDelegateHttpRemoteError OnError;
 	
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
 	TSharedPtr<tcp::socket> socket;
@@ -96,11 +95,9 @@ class INTERNETPROTOCOL_API UHttpRemoteSsl : public UObject
 	GENERATED_BODY()
 public:
 	UHttpRemoteSsl() {}
-	~UHttpRemoteSsl() {
-		if (!ssl_socket.IsValid()) return;
-		if (ssl_socket->next_layer().is_open())
-			Close();
-	}
+	~UHttpRemoteSsl() {}
+
+	virtual void BeginDestroy() override;
 
 	void Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr, asio::io_context &io_context, const uint8 timeout = 0);
 
@@ -144,6 +141,7 @@ public:
 	FDelegateHttpRemoteError OnError;
 	
 private:
+	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
 	TSharedPtr<asio::ssl::stream<tcp::socket>> ssl_socket;

@@ -179,17 +179,19 @@ void UHttpServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>&
 		}
 		return;
 	}
-	UHttpRemote *client = NewObject<UHttpRemote>();
-	client->Construct(net.context, socket, IdleTimeoutSeconds);
-	client->on_request = [this, client](const FHttpRequest &request) {
-		read_cb(request, client);
-	};
-	client->on_close = [this, client]() {
-		net.clients.Remove(client);
-		client->Destroy();
-	};
-	client->connect();
-	net.clients.Add(client);
+	if (!IsGarbageCollecting()) {
+		UHttpRemote* client = NewObject<UHttpRemote>();
+		client->Construct(net.context, socket, IdleTimeoutSeconds);
+		client->on_request = [this, client](const FHttpRequest& request) {
+			read_cb(request, client);
+		};
+		client->on_close = [this, client]() {
+			net.clients.Remove(client);
+			client->Destroy();
+		};
+		client->connect();
+		net.clients.Add(client);
+	}
 	if (net.acceptor.is_open()) {
 		TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
 		net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
@@ -416,17 +418,19 @@ void UHttpServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl:
 		}
 		return;
 	}
-	UHttpRemoteSsl *client = NewObject<UHttpRemoteSsl>();
-	client->Construct(socket, net.context, IdleTimeoutSeconds);
-	client->on_request = [this, client](const FHttpRequest &request) {
-		read_cb(request, client);
-	};
-	client->on_close = [this, client]() {
-		net.ssl_clients.Remove(client);
-		client->Destroy();
-	};
-	client->connect();
-	net.ssl_clients.Add(client);
+	if (IsGarbageCollecting()) {
+		UHttpRemoteSsl* client = NewObject<UHttpRemoteSsl>();
+		client->Construct(socket, net.context, IdleTimeoutSeconds);
+		client->on_request = [this, client](const FHttpRequest& request) {
+			read_cb(request, client);
+		};
+		client->on_close = [this, client]() {
+			net.ssl_clients.Remove(client);
+			client->Destroy();
+		};
+		client->connect();
+		net.ssl_clients.Add(client);
+	}
 	if (net.acceptor.is_open()) {
 		TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
 		net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));

@@ -4,8 +4,16 @@
 
 #include "tcp/tcpremote.h"
 
+void UTCPRemote::BeginDestroy() {
+	is_being_destroyed = true;
+	if (socket.IsValid()) {
+		if (socket->is_open())
+			Close();
+	}
+	UObject::BeginDestroy();
+}
+
 void UTCPRemote::Construct(TSharedPtr<tcp::socket>& socket_ptr) {
-	if (!IsRooted()) AddToRoot();
 	socket = socket_ptr;
 }
 
@@ -13,20 +21,23 @@ void UTCPRemote::Destroy() {
 	if (IsRooted()) {
 		RemoveFromRoot();
 	}
-
-	MarkPendingKill();
+	socket.Reset();
+	//MarkPendingKill();
 }
 
 bool UTCPRemote::IsOpen() {
+	if (!socket.IsValid()) return false;
 	return socket->is_open();
 }
 
 FTcpEndpoint UTCPRemote::LocalEndpoint() {
+	if (!socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = socket->local_endpoint();
 	return FTcpEndpoint(ep);
 }
 
 FTcpEndpoint UTCPRemote::RemoteEndpoint() {
+	if (!socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = socket->remote_endpoint();
 	return FTcpEndpoint(ep);
 }
@@ -40,6 +51,7 @@ FErrorCode UTCPRemote::GetErrorCode() {
 }
 
 bool UTCPRemote::Write(const FString& Message, const FDelegateTcpRemoteMessageSent& Callback) {
+	if (!socket.IsValid()) return false;
 	if (!socket->is_open() || Message.IsEmpty())
 		return false;
 
@@ -47,13 +59,15 @@ bool UTCPRemote::Write(const FString& Message, const FDelegateTcpRemoteMessageSe
 					  asio::buffer(TCHAR_TO_UTF8(*Message), Message.Len()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
-								Callback.Execute(FErrorCode(ec), bytes_sent);
+					  			if (!is_being_destroyed)
+									Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 					  });
 	return true;
 }
 
 bool UTCPRemote::WriteBuffer(const TArray<uint8>& Buffer, const FDelegateTcpRemoteMessageSent& Callback) {
+	if (!socket.IsValid()) return false;
 	if (!socket->is_open() || !Buffer.Num())
 		return false;
 
@@ -61,7 +75,8 @@ bool UTCPRemote::WriteBuffer(const TArray<uint8>& Buffer, const FDelegateTcpRemo
 						asio::buffer(Buffer.GetData(), Buffer.Num()),
 						[this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 							AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
-								Callback.Execute(FErrorCode(ec), bytes_sent);
+								if (!is_being_destroyed)
+									Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 						});
 	return true;
@@ -77,17 +92,20 @@ void UTCPRemote::connect() {
 }
 
 void UTCPRemote::Close() {
+	if (!socket.IsValid()) return;
 	if (socket->is_open()) {
 		FScopeLock lock(&mutex_error);
 		socket->shutdown(tcp::socket::shutdown_both, error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		socket->close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 }
@@ -101,8 +119,10 @@ void UTCPRemote::consume_recv_buffer() {
 void UTCPRemote::read_cb(const asio::error_code& error, std::size_t bytes_recvd) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error]() {
-			OnError.Broadcast(FErrorCode(error));
-			OnClose.Broadcast();
+			if (!is_being_destroyed) {
+				OnError.Broadcast(FErrorCode(error));
+				OnClose.Broadcast();
+			}
 			if (on_close) on_close();
 		});
 		return;
@@ -112,7 +132,8 @@ void UTCPRemote::read_cb(const asio::error_code& error, std::size_t bytes_recvd)
 	buffer.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(buffer.GetData(), bytes_recvd), recv_buffer.data());
 	AsyncTask(ENamedThreads::GameThread, [this, buffer, bytes_recvd]() {
-		OnMessage.Broadcast(buffer, bytes_recvd);
+		if (!is_being_destroyed)
+			OnMessage.Broadcast(buffer, bytes_recvd);
 	});
 
 	consume_recv_buffer();
@@ -124,8 +145,16 @@ void UTCPRemote::read_cb(const asio::error_code& error, std::size_t bytes_recvd)
 					 });
 }
 
+void UTCPRemoteSsl::BeginDestroy() {
+	is_being_destroyed = true;
+	if (ssl_socket.IsValid()) {
+		if (ssl_socket->next_layer().is_open())
+			Close();
+	}
+	UObject::BeginDestroy();
+}
+
 void UTCPRemoteSsl::Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr) {
-	if (!IsRooted()) AddToRoot();
 	ssl_socket = socket_ptr;
 }
 
@@ -133,20 +162,23 @@ void UTCPRemoteSsl::Destroy() {
 	if (IsRooted()) {
 		RemoveFromRoot();
 	}
-
-	MarkPendingKill();
+	ssl_socket.Reset();
+	//MarkPendingKill();
 }
 
 bool UTCPRemoteSsl::IsOpen() {
+	if (!ssl_socket.IsValid()) return false;
 	return  ssl_socket->next_layer().is_open();
 }
 
 FTcpEndpoint UTCPRemoteSsl::LocalEndpoint() {
+	if (!ssl_socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = ssl_socket->next_layer().local_endpoint();
 	return FTcpEndpoint(ep);
 }
 
 FTcpEndpoint UTCPRemoteSsl::RemoteEndpoint() {
+	if (!ssl_socket.IsValid()) return FTcpEndpoint();
 	tcp::endpoint ep = ssl_socket->next_layer().remote_endpoint();
 	return FTcpEndpoint(ep);
 }
@@ -160,6 +192,7 @@ FErrorCode UTCPRemoteSsl::GetErrorCode() {
 }
 
 bool UTCPRemoteSsl::Write(const FString& Message, const FDelegateTcpRemoteMessageSent& Callback) {
+	if (!ssl_socket.IsValid()) return false;
 	if (!ssl_socket->next_layer().is_open() || Message.IsEmpty())
 		return false;
 
@@ -167,13 +200,15 @@ bool UTCPRemoteSsl::Write(const FString& Message, const FDelegateTcpRemoteMessag
 						asio::buffer(TCHAR_TO_UTF8(*Message), Message.Len()),
 						[this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 							AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
-								Callback.Execute(FErrorCode(ec), bytes_sent);
+								if (!is_being_destroyed)
+									Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 						});
 	return true;
 }
 
 bool UTCPRemoteSsl::WriteBuffer(const TArray<uint8>& Buffer, const FDelegateTcpRemoteMessageSent& Callback) {
+	if (!ssl_socket.IsValid()) return false;
 	if (!ssl_socket->next_layer().is_open() || !Buffer.Num())
 		return false;
 
@@ -181,7 +216,8 @@ bool UTCPRemoteSsl::WriteBuffer(const TArray<uint8>& Buffer, const FDelegateTcpR
 						asio::buffer(Buffer.GetData(), Buffer.Num()),
 						[this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 							AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
-								Callback.Execute(FErrorCode(ec), bytes_sent);
+								if (!is_being_destroyed)
+									Callback.Execute(FErrorCode(ec), bytes_sent);
 							});
 						});
 	return true;
@@ -195,28 +231,33 @@ void UTCPRemoteSsl::connect() {
 }
 
 void UTCPRemoteSsl::Close() {
+	if (!ssl_socket.IsValid()) return;
 	if (ssl_socket->next_layer().is_open()) {
 		FScopeLock lock(&mutex_error);
 		ssl_socket->lowest_layer().shutdown(asio::socket_base::shutdown_both, error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->lowest_layer().close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 
 		ssl_socket->shutdown(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 		ssl_socket->next_layer().close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
-				OnError.Broadcast(FErrorCode(error_code));
+				if (!is_being_destroyed)
+					OnError.Broadcast(FErrorCode(error_code));
 			});
 	}
 }
@@ -226,10 +267,12 @@ void UTCPRemoteSsl::ssl_handshake(const asio::error_code& error) {
 		FScopeLock lock(&mutex_error);
 		error_code = error;
 		AsyncTask(ENamedThreads::GameThread, [this, error]() {
-			OnError.Broadcast(FErrorCode(error));
+			if (!is_being_destroyed)
+				OnError.Broadcast(FErrorCode(error));
 		});
 		AsyncTask(ENamedThreads::GameThread, [this]() {
-			OnClose.Broadcast();
+			if (!is_being_destroyed)
+				OnClose.Broadcast();
 			if (on_close) on_close();
 		});
 		return;
@@ -253,8 +296,10 @@ void UTCPRemoteSsl::consume_recv_buffer() {
 void UTCPRemoteSsl::read_cb(const asio::error_code& error, std::size_t bytes_recvd) {
 	if (error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error]() {
-			OnError.Broadcast(FErrorCode(error));
-			OnClose.Broadcast();
+			if (!is_being_destroyed) {
+				OnError.Broadcast(FErrorCode(error));
+				OnClose.Broadcast();
+			}
 			if (on_close) on_close();
 		});
 		return;
@@ -264,7 +309,8 @@ void UTCPRemoteSsl::read_cb(const asio::error_code& error, std::size_t bytes_rec
 	buffer.SetNum(bytes_recvd);
 	asio::buffer_copy(asio::buffer(buffer.GetData(), bytes_recvd), recv_buffer.data());
 	AsyncTask(ENamedThreads::GameThread, [this, buffer, bytes_recvd]() {
-		OnMessage.Broadcast(buffer, bytes_recvd);
+		if (!is_being_destroyed)
+			OnMessage.Broadcast(buffer, bytes_recvd);
 	});
 
 	consume_recv_buffer();
