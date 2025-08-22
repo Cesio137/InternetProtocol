@@ -20,9 +20,9 @@ UTCPServer* UInternetProtocolSubsystem::CreateTCPServer() {
 	return server;
 }
 
-UTCPServerSsl* UInternetProtocolSubsystem::CreateTCPServerSsl(const FSecurityContextOpts &BindOpts) {
+UTCPServerSsl* UInternetProtocolSubsystem::CreateTCPServerSsl(const FSecurityContextOpts &SecOpts) {
 	UTCPServerSsl* server = NewObject<UTCPServerSsl>();
-	server->Construct(BindOpts);
+	server->Construct(SecOpts);
 	return server;
 }
 

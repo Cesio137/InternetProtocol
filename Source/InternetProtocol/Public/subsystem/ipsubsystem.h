@@ -35,13 +35,13 @@ public:
 	UTCPServer* CreateTCPServer();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
-	UTCPServerSsl* CreateTCPServerSsl(const FSecurityContextOpts &BindOpts);
+	UTCPServerSsl* CreateTCPServerSsl(const FSecurityContextOpts &SecOpts);
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UTCPClient* CreateTCPClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
-	UTCPClientSsl* CreateTCPClientSsl(const FSecurityContextOpts &BindOpts);
+	UTCPClientSsl* CreateTCPClientSsl(const FSecurityContextOpts &SecOpts);
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UHttpServer* CreateHttpServer();
