@@ -12,16 +12,6 @@
 using namespace asio::ip;
 
 namespace internetprotocol {
-    struct ws_client_t {
-        ws_client_t() : socket(context), resolver(context) {
-        }
-
-        asio::io_context context;
-        tcp::socket socket;
-        tcp::endpoint endpoint;
-        tcp::resolver resolver;
-    };
-
     class ws_client_c {
     public:
         ws_client_c() : idle_timer(net.context) {
@@ -412,7 +402,7 @@ namespace internetprotocol {
         std::atomic<close_state_e> close_state = CLOSED;
         std::atomic<bool> wait_close_frame_response = true;
         asio::steady_timer idle_timer;
-        ws_client_t net;
+        tcp_client_t net;
         asio::error_code error_code;
         asio::streambuf recv_buffer;
 
@@ -687,19 +677,6 @@ namespace internetprotocol {
     };
 
 #ifdef ENABLE_SSL
-    struct ws_client_ssl_t {
-        ws_client_ssl_t() : ssl_context(asio::ssl::context::tlsv13_client),
-                            ssl_socket(context, ssl_context),
-                            resolver(context) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::resolver resolver;
-        tcp::endpoint endpoint;
-        asio::ssl::stream<tcp::socket> ssl_socket;
-    };
-
     class ws_client_ssl_c {
     public:
         ws_client_ssl_c(const security_context_opts sec_opts = {}) : idle_timer(net.context) {
@@ -1145,7 +1122,7 @@ namespace internetprotocol {
         std::atomic<close_state_e> close_state = CLOSED;
         std::atomic<bool> wait_close_frame_response = true;
         asio::steady_timer idle_timer;
-        ws_client_ssl_t net;
+        tcp_client_ssl_t net;
         asio::error_code error_code;
         asio::streambuf recv_buffer;
 

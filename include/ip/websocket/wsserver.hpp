@@ -11,15 +11,6 @@
 using namespace asio::ip;
 
 namespace internetprotocol {
-    struct ws_server_t {
-        ws_server_t(): acceptor(context) {
-        }
-
-        asio::io_context context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<ws_remote_c> > clients;
-    };
-
     class ws_server_c {
     public:
         ws_server_c() {}
@@ -274,7 +265,7 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::mutex mutex_error;
         std::atomic<bool> is_closing = false;
-        ws_server_t net;
+        tcp_server_t<ws_remote_c> net;
         asio::error_code error_code;
 
         void run_context_thread() {
@@ -321,16 +312,6 @@ namespace internetprotocol {
         }
     };
 #ifdef ENABLE_SSL
-    struct ws_server_ssl_t {
-        ws_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<ws_remote_ssl_c> > ssl_clients;
-    };
-
     class ws_server_ssl_c {
     public:
         ws_server_ssl_c(const security_context_opts &sec_opts = {}) {
@@ -623,7 +604,7 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::mutex mutex_error;
         std::atomic<bool> is_closing = false;
-        ws_server_ssl_t net;
+        tcp_server_ssl_t<ws_remote_ssl_c> net;
         asio::error_code error_code;
 
         void run_context_thread() {
