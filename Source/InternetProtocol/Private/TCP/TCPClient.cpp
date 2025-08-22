@@ -207,6 +207,7 @@ void UTCPClient::read_cb(const asio::error_code& error, const size_t bytes_recvd
 }
 
 void UTCPClientSsl::BeginDestroy() {
+	is_being_destroyed = true;
 	if (net.ssl_socket.next_layer().is_open())
 		Close();
 	consume_recv_buffer();
