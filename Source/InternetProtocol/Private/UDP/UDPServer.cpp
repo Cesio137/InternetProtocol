@@ -180,9 +180,10 @@ void UUDPServer::receive_from_cb(const asio::error_code& error, const size_t byt
 		return;
 	}
 
-	AsyncTask(ENamedThreads::GameThread, [this, bytes_recvd]() {
+	const TArray<uint8> buffer(recv_buffer.GetData(), bytes_recvd);
+	AsyncTask(ENamedThreads::GameThread, [this, buffer, bytes_recvd]() {
 		if (!is_being_destroyed)
-			OnMessage.Broadcast(recv_buffer, bytes_recvd, FUdpEndpoint(net.remote_endpoint));
+			OnMessage.Broadcast(buffer, bytes_recvd, FUdpEndpoint(net.remote_endpoint));
 	});
 
 	consume_receive_buffer();
