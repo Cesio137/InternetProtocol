@@ -20,6 +20,18 @@ FString UUtilsFunctionLibrary::BufferToString(const TArray<uint8>& Value) {
 	return str;
 }
 
+TArray<uint8> UUtilsFunctionLibrary::StringToByteArray(const FString& Value) {
+	TArray<uint8> Result;
+	Result.SetNum(Value.Len());
+    
+	for (int32 i = 0; i < Value.Len(); ++i) {
+		Result[i] = static_cast<uint8>(Value[i] & 0xFF);
+	}
+    
+	return Result;
+
+}
+
 TArray<FString> UUtilsFunctionLibrary::SplitString(const FString& Str, const FString& Delimiter) {
 	TArray<FString> Tokens;
     

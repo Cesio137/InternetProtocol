@@ -4,6 +4,9 @@
 
 #include "websocket/wsclient.h"
 
+#include <ThirdParty/CryptoPP/5.6.5/include/config.h>
+
+#include "utils/utils.h"
 #include "utils/dataframe.h"
 #include "utils/handshake.h"
 #include "utils/net.h"
@@ -56,8 +59,9 @@ bool UWSClient::Write(const FString& Message, const FDataframe& Dataframe, const
 	frame.Opcode = EOpcode::TEXT_FRAME;
 	frame.bMask = true;
 	FString payload = encode_string_payload(Message, frame);
+	TArray<uint8> bytes = UUtilsFunctionLibrary::StringToByteArray(payload);
 	asio::async_write(net.socket,
-					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
+					  asio::buffer(bytes.GetData(), bytes.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
 							  if (!is_being_destroyed)
@@ -590,8 +594,9 @@ bool UWSClientSsl::Write(const FString& Message, const FDataframe& Dataframe,
 	frame.Opcode = EOpcode::TEXT_FRAME;
 	frame.bMask = true;
 	FString payload = encode_string_payload(Message, frame);
+	TArray<uint8> bytes = UUtilsFunctionLibrary::StringToByteArray(payload);
 	asio::async_write(net.ssl_socket,
-					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
+					  asio::buffer(bytes.GetData(), bytes.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
 					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
 								if (!is_being_destroyed)

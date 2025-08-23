@@ -6,7 +6,6 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "net/common.h"
 #include "utils.generated.h"
 
 /**
@@ -27,7 +26,10 @@ public:
 
 	/*Buffer functions*/
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP|Utils|Buffer")
-	static FString BufferToString(const TArray<uint8>& value);
+	static FString BufferToString(const TArray<uint8>& Value);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP|Utils|Buffer")
+	static TArray<uint8> StringToByteArray(const FString& Value);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category="IP|Utils|Buffer")
 	static TArray<FString> SplitString(const FString& Str, const FString& Delimiter);
