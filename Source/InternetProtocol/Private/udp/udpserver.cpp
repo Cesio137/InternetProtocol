@@ -111,6 +111,8 @@ bool UUDPServer::Bind(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
+	OnListening.Broadcast();
+	
 	asio::post(thread_pool(), [this]{ run_context_thread(); });
 	return true;
 }
