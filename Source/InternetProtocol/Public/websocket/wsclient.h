@@ -45,9 +45,6 @@ public:
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|Websocket")
 	bool IsRooted();
 
-	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
-	void MarkPendingKill();
-
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|Websocket")
 	FHttpRequest Handshake;
 
@@ -204,9 +201,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|Websocket")
 	bool IsRooted();
-
-	UFUNCTION(blueprintcallable, Category = "IP|Websocket")
-	void MarkPendingKill();
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|Websocket")
 	FHttpRequest Handshake;

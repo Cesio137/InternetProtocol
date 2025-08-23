@@ -26,10 +26,6 @@ bool UHttpClient::IsRooted() {
 	return Super::IsRooted();
 }
 
-void UHttpClient::MarkPendingKill() {
-	Super::MarkPendingKill();
-}
-
 bool UHttpClient::IsOpen() {
 	bool is_open = net.socket.is_open();
 	return is_open;
@@ -268,10 +264,6 @@ void UHttpClientSsl::RemoveFromRoot() {
 
 bool UHttpClientSsl::IsRooted() {
 	return Super::IsRooted();
-}
-
-void UHttpClientSsl::MarkPendingKill() {
-	Super::MarkPendingKill();
 }
 
 bool UHttpClientSsl::IsOpen() {

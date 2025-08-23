@@ -27,10 +27,6 @@ bool UWSClient::IsRooted() {
 	return Super::IsRooted();
 }
 
-void UWSClient::MarkPendingKill() {
-	Super::MarkPendingKill();
-}
-
 bool UWSClient::IsOpen() {
 	return net.socket.is_open() && close_state.Load() == ECloseState::OPEN;
 }
@@ -559,10 +555,6 @@ void UWSClientSsl::RemoveFromRoot() {
 
 bool UWSClientSsl::IsRooted() {
 	return Super::IsRooted();
-}
-
-void UWSClientSsl::MarkPendingKill() {
-	Super::MarkPendingKill();
 }
 
 bool UWSClientSsl::IsOpen() {

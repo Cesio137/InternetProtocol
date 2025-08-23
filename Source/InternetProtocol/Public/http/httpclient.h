@@ -34,9 +34,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsRooted();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void MarkPendingKill();
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	uint8 IdleTimeoutSeconds = 0;
@@ -145,9 +142,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsRooted();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void MarkPendingKill();
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	uint8 IdleTimeoutSeconds = 0;
