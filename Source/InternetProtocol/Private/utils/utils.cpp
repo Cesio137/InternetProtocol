@@ -29,7 +29,6 @@ TArray<uint8> UUtilsFunctionLibrary::StringToByteArray(const FString& Value) {
 	}
     
 	return Result;
-
 }
 
 TArray<FString> UUtilsFunctionLibrary::SplitString(const FString& Str, const FString& Delimiter) {

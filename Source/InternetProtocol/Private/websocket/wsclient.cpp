@@ -3,9 +3,6 @@
  */
 
 #include "websocket/wsclient.h"
-
-#include <ThirdParty/CryptoPP/5.6.5/include/config.h>
-
 #include "utils/utils.h"
 #include "utils/dataframe.h"
 #include "utils/handshake.h"
