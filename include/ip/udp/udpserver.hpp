@@ -194,6 +194,9 @@ namespace internetprotocol {
                 return false;
             }
 
+            if (on_listening)
+                on_listening();
+
             asio::post(thread_pool, [&]{ run_context_thread(); });
             return true;
         }
