@@ -152,6 +152,8 @@ namespace internetprotocol {
                 if (error_code && on_error)
                     on_error(error_code);
             }
+            if (on_close)
+                on_close();
         }
 
         /**
@@ -389,6 +391,8 @@ namespace internetprotocol {
                 if (error_code && on_error)
                     on_error(error_code);
             }
+            if (on_close)
+                on_close();
         }
 
         /**

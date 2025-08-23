@@ -164,6 +164,9 @@ namespace internetprotocol {
                 return false;
             }
 
+            if (on_listening)
+                on_listening();
+
             asio::post(thread_pool, [&]{ run_context_thread(); });
             return true;
         }
@@ -280,8 +283,7 @@ namespace internetprotocol {
             if (error) {
                 std::lock_guard guard(mutex_error);
                 error_code = error;
-                if (!is_closing.load())
-                    client->close();
+                client->close();
                 if (net.acceptor.is_open()) {
                     std::shared_ptr<tcp_remote_c> client_socket = std::make_shared<tcp_remote_c>(net.context);
                     net.acceptor.async_accept(client_socket->get_socket(),
@@ -291,18 +293,11 @@ namespace internetprotocol {
                 }
                 return;
             }
-            if (net.clients.size() < backlog) {
-                client->connect();
-                net.clients.insert(client);
-                client->on_close = [&, client]() { net.clients.erase(client); };
-
-                if (on_client_accepted)
-                    on_client_accepted(client);
-            } else {
-                std::lock_guard guard(mutex_error);
-                if (!is_closing.load())
-                    client->close();
-            }
+            net.clients.insert(client);
+            client->on_close = [&, client]() { net.clients.erase(client); };
+            client->connect();
+            if (on_client_accepted)
+                on_client_accepted(client);
             if (net.acceptor.is_open()) {
                 std::shared_ptr<tcp_remote_c> client_socket = std::make_shared<tcp_remote_c>(net.context);
                 net.acceptor.async_accept(client_socket->get_socket(),
@@ -506,6 +501,9 @@ namespace internetprotocol {
                 return false;
             }
 
+            if (on_listening)
+                on_listening();
+            
             asio::post(thread_pool, [&]{ run_context_thread(); });
             return true;
         }
@@ -624,8 +622,7 @@ namespace internetprotocol {
             if (error) {
                 std::lock_guard guard(mutex_error);
                 error_code = error;
-                if (!is_closing.load())
-                    client->close();
+                client->close();
                 if (net.acceptor.is_open()) {
                     std::shared_ptr<tcp_remote_ssl_c> client_socket = std::make_shared<tcp_remote_ssl_c>(net.context, net.ssl_context);
                     net.acceptor.async_accept(client_socket->get_socket().lowest_layer(),
@@ -635,10 +632,9 @@ namespace internetprotocol {
                 }
                 return;
             }
-            client->connect();
             net.ssl_clients.insert(client);
             client->on_close = [&, client]() { net.ssl_clients.erase(client); };
-
+            client->connect();
             if (on_client_accepted)
                 on_client_accepted(client);
             if (net.acceptor.is_open()) {

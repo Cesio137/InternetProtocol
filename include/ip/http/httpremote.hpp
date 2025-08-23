@@ -22,6 +22,17 @@ namespace internetprotocol {
         }
 
         /**
+         * Set/Get response headers.
+         *
+         * @par Example
+         * @code
+         * http_remote_c client;
+         * http_response_t &headers = client.headers;
+         * @endcode
+         */
+        http_response_t headers;
+
+        /**
          * Return true if socket is open.
          *
          * @par Example
@@ -58,17 +69,6 @@ namespace internetprotocol {
         tcp::socket &get_socket() { return socket; }
 
         /**
-         * Get a reference to response headers.
-         *
-         * @par Example
-         * @code
-         * http_remote_c client;
-         * http_response_t &headers = client.headers();
-         * @endcode
-         */
-        http_response_t &headers() { return response; }
-
-        /**
          * Send response to client. Return false if socket is closed.
          *
          * @param callback This callback is triggered when a response has been received.
@@ -87,7 +87,7 @@ namespace internetprotocol {
 
             reset_idle_timer();
 
-            std::string payload = prepare_response(response);
+            std::string payload = prepare_response(headers);
             asio::async_write(socket,
                               asio::buffer(payload.data(), payload.size()),
                               [&, callback](const asio::error_code &ec, const size_t bytes_sent) {
@@ -169,7 +169,6 @@ namespace internetprotocol {
         uint16_t idle_timeout_seconds;
         asio::error_code error_code;
         bool will_close = false;
-        http_response_t response;
         asio::streambuf recv_buffer;
 
         void start_idle_timer() {
@@ -240,23 +239,23 @@ namespace internetprotocol {
             request_stream >> version;
 
             if (version != "HTTP/1.0" && version != "HTTP/1.1" && version != "HTTP/2.0") {
-                response.status_code = 400;
-                response.status_message = "Bad Request";
-                response.body = "HTTP version not supported.";
-                response.headers.insert_or_assign("Content-Type", "text/plain");
-                response.headers.insert_or_assign("Content-Length", std::to_string(response.body.size()));
+                headers.status_code = 400;
+                headers.status_message = "Bad Request";
+                headers.body = "HTTP version not supported.";
+                headers.headers.insert_or_assign("Content-Type", "text/plain");
+                headers.headers.insert_or_assign("Content-Length", std::to_string(headers.body.size()));
                 will_close = true;
                 write();
                 return;
             }
 
             if (string_to_request_method(method) == UNKNOWN) {
-                response.body = "Method not supported.";
-                response.headers.insert_or_assign("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
-                response.headers.insert_or_assign("Content-Type", "text/plain");
-                response.headers.insert_or_assign("Content-Length", std::to_string(response.body.size()));
-                response.status_code = 400;
-                response.status_message = "Bad Request";
+                headers.body = "Method not supported.";
+                headers.headers.insert_or_assign("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+                headers.headers.insert_or_assign("Content-Type", "text/plain");
+                headers.headers.insert_or_assign("Content-Length", std::to_string(headers.body.size()));
+                headers.status_code = 400;
+                headers.status_message = "Bad Request";
                 will_close = true;
                 write();
                 return;
@@ -298,10 +297,10 @@ namespace internetprotocol {
                 req.body = body_buffer.str();
             }
 
-            response.status_code = 200;
-            response.status_message = "OK";
-            response.headers.insert_or_assign("Content-Type", "text/plain");
-            response.headers.insert_or_assign("X-Powered-By", "ASIO");
+            headers.status_code = 200;
+            headers.status_message = "OK";
+            headers.headers.insert_or_assign("Content-Type", "text/plain");
+            headers.headers.insert_or_assign("X-Powered-By", "ASIO");
 
             will_close = req.headers.find("Connection") != req.headers.end() ? req.headers.at("Connection") != "keep-alive" : true;
             if (!will_close)
@@ -322,6 +321,17 @@ namespace internetprotocol {
             if (ssl_socket.next_layer().is_open())
                 close();
         }
+
+        /**
+         * Set/Get response headers.
+         *
+         * @par Example
+         * @code
+         * http_remote_ssl_c client;
+         * http_response_t &headers = client.headers;
+         * @endcode
+         */
+        http_response_t response;
 
         /**
          * Return true if socket is open.
@@ -358,17 +368,6 @@ namespace internetprotocol {
 
         /// Just ignore this function
         asio::ssl::stream<tcp::socket> &get_socket() { return ssl_socket; }
-
-        /**
-         * Get a reference to response headers.
-         *
-         * @par Example
-         * @code
-         * http_remote_ssl_c client;
-         * http_response_t &headers = client.headers();
-         * @endcode
-         */
-        http_response_t &headers() { return response; }
 
         /**
          * Send response to client. Return false if socket is closed.
@@ -477,7 +476,6 @@ namespace internetprotocol {
         uint16_t idle_timeout_seconds = 0;
         asio::error_code error_code;
         bool will_close = false;
-        http_response_t response;
         asio::streambuf recv_buffer;
 
         void start_idle_timer() {
