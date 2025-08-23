@@ -23,10 +23,6 @@ bool UHttpServer::IsRooted() {
 	return Super::IsRooted();
 }
 
-void UHttpServer::MarkPendingKill() {
-	Super::MarkPendingKill();
-}
-
 bool UHttpServer::IsOpen() {
 	return net.acceptor.is_open();
 }
@@ -160,83 +156,85 @@ void UHttpServer::Close() {
 void UHttpServer::run_context_thread() {
 	FScopeLock lock(&mutex_io);
 	error_code.clear();
-	TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
-	net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
+	if (IsGarbageCollecting()) return;
+	UHttpRemote* remote_ptr = NewObject<UHttpRemote>();
+	remote_ptr->Construct(net.context, IdleTimeoutSeconds);
+	net.acceptor.async_accept(remote_ptr->get_socket(), std::bind(&UHttpServer::accept, this, asio::placeholders::error, remote_ptr));
 	net.context.run();
 	if (!is_closing.Load())
 		Close();
 }
 
-void UHttpServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>& socket) {
+void UHttpServer::accept(const asio::error_code& error, UHttpRemote* remote) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			if (socket) socket->close(error_code);
+		remote->Close();
+		remote->Destroy();
 		error_code = error;
-		if (net.acceptor.is_open()) {
-			TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
-			net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
+		if (net.acceptor.is_open() && !IsGarbageCollecting()) {
+			UHttpRemote* remote_ptr = NewObject<UHttpRemote>();
+			remote_ptr->Construct(net.context, IdleTimeoutSeconds);
+			net.acceptor.async_accept(remote_ptr->get_socket(), std::bind(&UHttpServer::accept, this, asio::placeholders::error, remote_ptr));
 		}
 		return;
 	}
 	if (!IsGarbageCollecting()) {
-		UHttpRemote* client = NewObject<UHttpRemote>();
-		client->Construct(net.context, socket, IdleTimeoutSeconds);
-		client->on_request = [this, client](const FHttpRequest& request) {
-			read_cb(request, client);
+		remote->on_request = [this, remote](const FHttpRequest& request) {
+			read_cb(request, remote);
 		};
-		client->on_close = [this, client]() {
-			net.clients.Remove(client);
-			client->Destroy();
+		remote->on_close = [this, remote]() {
+			net.clients.Remove(remote);
+			remote->Destroy();
 		};
-		client->connect();
-		net.clients.Add(client);
-	}
-	if (net.acceptor.is_open()) {
-		TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
-		net.acceptor.async_accept(*socket_ptr, std::bind(&UHttpServer::accept, this, asio::placeholders::error, socket_ptr));
+		remote->connect();
+		net.clients.Add(remote);
+		if (net.acceptor.is_open()) {
+			UHttpRemote* remote_ptr = NewObject<UHttpRemote>();
+			remote_ptr->Construct(net.context, IdleTimeoutSeconds);
+			net.acceptor.async_accept(remote_ptr->get_socket(), std::bind(&UHttpServer::accept, this, asio::placeholders::error, remote_ptr));
+		}
 	}
 }
 
-void UHttpServer::read_cb(const FHttpRequest& request, UHttpRemote* client) {
+void UHttpServer::read_cb(const FHttpRequest& request, UHttpRemote* remote) {
 	if (is_being_destroyed) return;
 	if (all_cb.Contains(request.Path)) {
-		all_cb[request.Path].ExecuteIfBound(request, client);
+		all_cb[request.Path].ExecuteIfBound(request, remote);
 	}
 	switch (request.Method) {
 	case ERequestMethod::DEL:
     	if (del_cb.Contains(request.Path) && !is_being_destroyed) {
-    		del_cb[request.Path].ExecuteIfBound(request, client);
+    		del_cb[request.Path].ExecuteIfBound(request, remote);
     	}
     	break;
     case ERequestMethod::GET:
         if (get_cb.Contains(request.Path)) {
-        	get_cb[request.Path].ExecuteIfBound(request, client);
+        	get_cb[request.Path].ExecuteIfBound(request, remote);
         }
         break;
     case ERequestMethod::HEAD:
         if (head_cb.Contains(request.Path)) {
-        	head_cb[request.Path].ExecuteIfBound(request, client);
+        	head_cb[request.Path].ExecuteIfBound(request, remote);
         }
         break;
     case ERequestMethod::OPTIONS:
         if (options_cb.Contains(request.Path)) {
-        	options_cb[request.Path].ExecuteIfBound(request, client);
+        	options_cb[request.Path].ExecuteIfBound(request, remote);
         }
         break;
     case ERequestMethod::POST:
         if (post_cb.Contains(request.Path)) {
-        	post_cb[request.Path].ExecuteIfBound(request, client);
+        	post_cb[request.Path].ExecuteIfBound(request, remote);
         }
         break;
     case ERequestMethod::PUT:
         if (put_cb.Contains(request.Path)) {
-        	put_cb[request.Path].ExecuteIfBound(request, client);
+        	put_cb[request.Path].ExecuteIfBound(request, remote);
         }
         break;
     case ERequestMethod::PATCH:
         if (patch_cb.Contains(request.Path)) {
-        	patch_cb[request.Path].ExecuteIfBound(request, client);
+        	patch_cb[request.Path].ExecuteIfBound(request, remote);
         }
         break;
     default: break;
@@ -260,10 +258,6 @@ void UHttpServerSsl::RemoveFromRoot() {
 
 bool UHttpServerSsl::IsRooted() {
 	return Super::IsRooted();
-}
-
-void UHttpServerSsl::MarkPendingKill() {
-	Super::MarkPendingKill();
 }
 
 bool UHttpServerSsl::IsOpen() {
@@ -399,83 +393,85 @@ void UHttpServerSsl::Close() {
 void UHttpServerSsl::run_context_thread() {
 	FScopeLock lock(&mutex_io);
 	error_code.clear();
-	TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
-	net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));;
+	if (IsGarbageCollecting()) return;
+	UHttpRemoteSsl* remote_ptr = NewObject<UHttpRemoteSsl>();
+	remote_ptr->Construct(net.context, net.ssl_context, IdleTimeoutSeconds);
+	net.acceptor.async_accept(remote_ptr->get_socket().lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, remote_ptr));
 	net.context.run();
 	if (!is_closing.Load())
 		Close();
 }
 
-void UHttpServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl::stream<tcp::socket>>& socket) {
+void UHttpServerSsl::accept(const asio::error_code& error, UHttpRemoteSsl* remote) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			if (socket) socket->next_layer().close(error_code);
+		remote->Close();
+		remote->Destroy();
 		error_code = error;
-		if (net.acceptor.is_open()) {
-			TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
-			net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+		if (net.acceptor.is_open() && !IsGarbageCollecting()) {
+			UHttpRemoteSsl* remote_ptr = NewObject<UHttpRemoteSsl>();
+			remote_ptr->Construct(net.context, net.ssl_context, IdleTimeoutSeconds);
+			net.acceptor.async_accept(remote_ptr->get_socket().lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, remote_ptr));
 		}
 		return;
 	}
-	if (IsGarbageCollecting()) {
-		UHttpRemoteSsl* client = NewObject<UHttpRemoteSsl>();
-		client->Construct(socket, net.context, IdleTimeoutSeconds);
-		client->on_request = [this, client](const FHttpRequest& request) {
-			read_cb(request, client);
+	if (!IsGarbageCollecting()) {
+		remote->on_request = [this, remote](const FHttpRequest& request) {
+			read_cb(request, remote);
 		};
-		client->on_close = [this, client]() {
-			net.ssl_clients.Remove(client);
-			client->Destroy();
+		remote->on_close = [this, remote]() {
+			net.ssl_clients.Remove(remote);
+			remote->Destroy();
 		};
-		client->connect();
-		net.ssl_clients.Add(client);
-	}
-	if (net.acceptor.is_open()) {
-		TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
-		net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+		remote->connect();
+		net.ssl_clients.Add(remote);
+		if (net.acceptor.is_open()) {
+			UHttpRemoteSsl* remote_ptr = NewObject<UHttpRemoteSsl>();
+			remote_ptr->Construct(net.context, net.ssl_context, IdleTimeoutSeconds);
+			net.acceptor.async_accept(remote_ptr->get_socket().lowest_layer(), std::bind(&UHttpServerSsl::accept, this, asio::placeholders::error, remote_ptr));
+		}
 	}
 }
 
-void UHttpServerSsl::read_cb(const FHttpRequest& request, UHttpRemoteSsl* client) {
+void UHttpServerSsl::read_cb(const FHttpRequest& request, UHttpRemoteSsl* remote) {
 	if (is_being_destroyed) return;
 	if (all_cb.Contains(request.Path)) {
-		all_cb[request.Path].ExecuteIfBound(request, client);
+		all_cb[request.Path].ExecuteIfBound(request, remote);
 	}
 	switch (request.Method) {
 	case ERequestMethod::DEL:
 		if (del_cb.Contains(request.Path)) {
-			del_cb[request.Path].ExecuteIfBound(request, client);
+			del_cb[request.Path].ExecuteIfBound(request, remote);
 		}
 		break;
 	case ERequestMethod::GET:
 		if (get_cb.Contains(request.Path)) {
-			get_cb[request.Path].ExecuteIfBound(request, client);
+			get_cb[request.Path].ExecuteIfBound(request, remote);
 		}
 		break;
 	case ERequestMethod::HEAD:
 		if (head_cb.Contains(request.Path)) {
-			head_cb[request.Path].ExecuteIfBound(request, client);
+			head_cb[request.Path].ExecuteIfBound(request, remote);
 		}
 		break;
 	case ERequestMethod::OPTIONS:
 		if (options_cb.Contains(request.Path)) {
-			options_cb[request.Path].ExecuteIfBound(request, client);
+			options_cb[request.Path].ExecuteIfBound(request, remote);
 		}
 		break;
 	case ERequestMethod::POST:
 		if (post_cb.Contains(request.Path)) {
-			post_cb[request.Path].ExecuteIfBound(request, client);
+			post_cb[request.Path].ExecuteIfBound(request, remote);
 		}
 		break;
 	case ERequestMethod::PUT:
 		if (put_cb.Contains(request.Path)) {
-			put_cb[request.Path].ExecuteIfBound(request, client);
+			put_cb[request.Path].ExecuteIfBound(request, remote);
 		}
 		break;
 	case ERequestMethod::PATCH:
 		if (patch_cb.Contains(request.Path)) {
-			patch_cb[request.Path].ExecuteIfBound(request, client);
+			patch_cb[request.Path].ExecuteIfBound(request, remote);
 		}
 		break;
 	default: break;

@@ -24,10 +24,6 @@ bool UTCPServer::IsRooted() {
 	return Super::IsRooted();
 }
 
-void UTCPServer::MarkPendingKill() {
-	Super::MarkPendingKill();
-}
-
 bool UTCPServer::IsOpen() {
 	return net.acceptor.is_open();
 }
@@ -92,6 +88,8 @@ bool UTCPServer::Open(const FServerBindOptions& BindOpts) {
 		return false;
 	}
 
+	OnListening.Broadcast();
+	
 	asio::post(thread_pool(), [this]{ run_context_thread(); });
 	return true;
 }
@@ -129,42 +127,44 @@ void UTCPServer::Close() {
 void UTCPServer::run_context_thread() {
 	FScopeLock lock(&mutex_io);
 	error_code.clear();
-	TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
-	net.acceptor.async_accept(*socket_ptr, std::bind(&UTCPServer::accept, this, asio::placeholders::error, socket_ptr));
+	if (IsGarbageCollecting()) return;
+	UTCPRemote* remote_ptr = NewObject<UTCPRemote>();
+	remote_ptr->Construct(net.context);
+	net.acceptor.async_accept(remote_ptr->get_socket(), std::bind(&UTCPServer::accept, this, asio::placeholders::error, remote_ptr));
 	net.context.run();
 	if (!is_closing.Load())
 		Close();
 }
 
-void UTCPServer::accept(const asio::error_code& error, TSharedPtr<tcp::socket>& socket) {
+void UTCPServer::accept(const asio::error_code& error, UTCPRemote* remote) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			socket->close(error_code);
+		remote->Close();
+		remote->Destroy();
 		error_code = error;
-		if (net.acceptor.is_open()) {
-			TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
-			net.acceptor.async_accept(*socket_ptr, std::bind(&UTCPServer::accept, this, asio::placeholders::error, socket_ptr));
+		if (net.acceptor.is_open() && !IsGarbageCollecting()) {
+			UTCPRemote* remote_ptr = NewObject<UTCPRemote>();
+			remote_ptr->Construct(net.context);
+			net.acceptor.async_accept(remote_ptr->get_socket(), std::bind(&UTCPServer::accept, this, asio::placeholders::error, remote_ptr));
 		}
 		return;
 	}
 	if (!IsGarbageCollecting()) {
-		UTCPRemote* client = NewObject<UTCPRemote>();
-		client->Construct(socket);
-		client->connect();
-		net.clients.Add(client);
-		client->on_close = [this, client]() {
-			net.clients.Remove(client);
-			client->Destroy();
+		net.clients.Add(remote);
+		remote->on_close = [this, remote]() {
+			net.clients.Remove(remote);
+			remote->Destroy();
 		};
-		AsyncTask(ENamedThreads::GameThread, [this, client]() {
+		remote->connect();
+		AsyncTask(ENamedThreads::GameThread, [this, remote]() {
 			if (!is_being_destroyed)
-				OnClientAccepted.Broadcast(client);
+				OnClientAccepted.Broadcast(remote);
 		});
-	}
-	if (net.acceptor.is_open()) {
-		TSharedPtr<tcp::socket> socket_ptr = MakeShared<tcp::socket>(net.context);
-		net.acceptor.async_accept(*socket_ptr, std::bind(&UTCPServer::accept, this, asio::placeholders::error, socket_ptr));
+		if (net.acceptor.is_open()) {
+			UTCPRemote* remote_ptr = NewObject<UTCPRemote>();
+			remote_ptr->Construct(net.context);
+			net.acceptor.async_accept(remote_ptr->get_socket(), std::bind(&UTCPServer::accept, this, asio::placeholders::error, remote_ptr));
+		}
 	}
 }
 
@@ -185,10 +185,6 @@ void UTCPServerSsl::RemoveFromRoot() {
 
 bool UTCPServerSsl::IsRooted() {
 	return Super::IsRooted();
-}
-
-void UTCPServerSsl::MarkPendingKill() {
-	Super::MarkPendingKill();
 }
 
 bool UTCPServerSsl::IsOpen() {
@@ -292,41 +288,43 @@ void UTCPServerSsl::Close() {
 void UTCPServerSsl::run_context_thread() {
 	FScopeLock lock(&mutex_io);
 	error_code.clear();
-	TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
-	net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+	if (IsGarbageCollecting()) return;
+	UTCPRemoteSsl* remote_ptr = NewObject<UTCPRemoteSsl>();
+	remote_ptr->Construct(net.context, net.ssl_context);
+	net.acceptor.async_accept(remote_ptr->get_socket().lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, remote_ptr));
 	net.context.run();
 	if (!is_closing.Load())
 		Close();
 }
 
-void UTCPServerSsl::accept(const asio::error_code& error, TSharedPtr<asio::ssl::stream<tcp::socket>>& socket) {
+void UTCPServerSsl::accept(const asio::error_code& error, UTCPRemoteSsl* remote) {
 	if (error) {
 		FScopeLock lock(&mutex_error);
-		if (!is_closing.Load())
-			socket->next_layer().close(error_code);
+		remote->Close();
+		remote->Destroy();
 		error_code = error;
-		if (net.acceptor.is_open()) {
-			TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
-			net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+		if (net.acceptor.is_open() && !IsGarbageCollecting()) {
+			UTCPRemoteSsl* remote_ptr = NewObject<UTCPRemoteSsl>();
+			remote_ptr->Construct(net.context, net.ssl_context);
+			net.acceptor.async_accept(remote_ptr->get_socket().lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, remote_ptr));
 		}
 		return;
 	}
 	if (!IsGarbageCollecting()) {
-		UTCPRemoteSsl* client = NewObject<UTCPRemoteSsl>();
-		client->Construct(socket);
-		client->connect();
-		net.ssl_clients.Add(client);
-		client->on_close = [this, client]() {
-			net.ssl_clients.Remove(client);
-			client->Destroy();
+		net.ssl_clients.Add(remote);
+		remote->on_close = [this, remote]() {
+			net.ssl_clients.Remove(remote);
+			remote->Destroy();
 		};
-		AsyncTask(ENamedThreads::GameThread, [this, client]() {
+		remote->connect();
+		AsyncTask(ENamedThreads::GameThread, [this, remote]() {
 			if (!is_being_destroyed)
-				OnClientAccepted.Broadcast(client);
+				OnClientAccepted.Broadcast(remote);
 		});
-	}
-	if (net.acceptor.is_open()) {
-		TSharedPtr<asio::ssl::stream<tcp::socket>> socket_ptr = MakeShared<asio::ssl::stream<tcp::socket>>(net.context, net.ssl_context);
-		net.acceptor.async_accept(socket_ptr->lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, socket_ptr));
+		if (net.acceptor.is_open()) {
+			UTCPRemoteSsl* remote_ptr = NewObject<UTCPRemoteSsl>();
+			remote_ptr->Construct(net.context, net.ssl_context);
+			net.acceptor.async_accept(remote_ptr->get_socket().lowest_layer(), std::bind(&UTCPServerSsl::accept, this, asio::placeholders::error, remote_ptr));
+		}
 	}
 }

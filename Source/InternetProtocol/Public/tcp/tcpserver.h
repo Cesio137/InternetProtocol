@@ -36,9 +36,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsRooted();
-
-	UFUNCTION(blueprintcallable, Category = "IP|TCP")
-	void MarkPendingKill();
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|TCP")
 	int Backlog = 2147483647;
@@ -82,7 +79,7 @@ private:
 	asio::error_code error_code;
 
 	void run_context_thread();
-	void accept(const asio::error_code &error, TSharedPtr<tcp::socket>& socket);
+	void accept(const asio::error_code &error, UTCPRemote* remote);
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
@@ -148,9 +145,6 @@ public:
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsRooted();
 
-	UFUNCTION(blueprintcallable, Category = "IP|TCP")
-	void MarkPendingKill();
-
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|TCP")
 	int Backlog = 2147483647;
 
@@ -193,5 +187,5 @@ private:
 	asio::error_code error_code;
 
 	void run_context_thread();
-	void accept(const asio::error_code &error, TSharedPtr<asio::ssl::stream<tcp::socket>>& socket);
+	void accept(const asio::error_code &error, UTCPRemoteSsl* remote);
 };

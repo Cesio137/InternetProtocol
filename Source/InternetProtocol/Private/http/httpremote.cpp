@@ -14,12 +14,13 @@ void UHttpRemote::BeginDestroy() {
 	Super::BeginDestroy();
 }
 
-void UHttpRemote::Construct(asio::io_context &io_context, TSharedPtr<tcp::socket>& sock, const uint8 timeout) {
+void UHttpRemote::Construct(asio::io_context &io_context, const uint8 timeout) {
+	if (!IsRooted()) AddToRoot();
 	if (timeout > 0) {
 		idle_timeout_seconds = timeout;
 		idle_timer = MakeUnique<asio::steady_timer>(io_context, asio::steady_timer::duration(timeout));
 	}
-	socket = sock;
+	socket = MakeUnique<tcp::socket>(io_context);
 }
 
 void UHttpRemote::Destroy() {
@@ -27,7 +28,6 @@ void UHttpRemote::Destroy() {
 		RemoveFromRoot();
 	}
     socket.Reset();
-	MarkPendingKill();
 }
 
 bool UHttpRemote::IsOpen() {
@@ -55,10 +55,6 @@ tcp::socket& UHttpRemote::get_socket() {
 	return *socket;
 }
 
-void UHttpRemote::Headers(const FHttpResponse& Response) {
-	response = Response;
-}
-
 bool UHttpRemote::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 	if (!socket.IsValid()) return false;
 	if (!socket->is_open())
@@ -66,7 +62,7 @@ bool UHttpRemote::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 
 	reset_idle_timer();
 	
-	FString payload = prepare_response(response);
+	FString payload = prepare_response(Headers);
 	asio::async_write(*socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
@@ -81,7 +77,7 @@ bool UHttpRemote::write() {
 		return false;
 
 	reset_idle_timer();
-	FString payload = prepare_response(response);
+	FString payload = prepare_response(Headers);
 	asio::async_write(*socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
 					  [this](const asio::error_code &ec, const size_t bytes_sent) {
@@ -115,6 +111,7 @@ void UHttpRemote::Close() {
 				if (!is_being_destroyed)
 					OnError.Broadcast(FErrorCode(error_code));
 			});
+		if (on_close) on_close();
 	}
 	is_closing.Store(false);
 }
@@ -225,23 +222,23 @@ void UHttpRemote::read_cb(const asio::error_code& error, const size_t bytes_recv
 	request_stream >> version;
 
 	if (version != "HTTP/1.0" && version != "HTTP/1.1" && version != "HTTP/2.0") {
-		response.Status_Code = 400;
-		response.Status_Message = "Bad Request";
-		response.Body = "HTTP version not supported.";
-		response.Headers.Add("Content-Type", "text/plain");
-		response.Headers.Add("Content-Length", FString::FromInt(response.Body.Len()));
+		Headers.Status_Code = 400;
+		Headers.Status_Message = "Bad Request";
+		Headers.Body = "HTTP version not supported.";
+		Headers.Headers.Add("Content-Type", "text/plain");
+		Headers.Headers.Add("Content-Length", FString::FromInt(Headers.Body.Len()));
 		will_close = true;
 		write();
 		return;
 	}
 
 	if (string_to_request_method(method.c_str()) == ERequestMethod::UNKNOWN) {
-		response.Body = "Method not supported.";
-		response.Headers.Add("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
-		response.Headers.Add("Content-Type", "text/plain");
-		response.Headers.Add("Content-Length", FString::FromInt(response.Body.Len()));
-		response.Status_Code = 400;
-		response.Status_Message = "Bad Request";
+		Headers.Body = "Method not supported.";
+		Headers.Headers.Add("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+		Headers.Headers.Add("Content-Type", "text/plain");
+		Headers.Headers.Add("Content-Length", FString::FromInt(Headers.Body.Len()));
+		Headers.Status_Code = 400;
+		Headers.Status_Message = "Bad Request";
 		will_close = true;
 		write();
 		return;
@@ -290,10 +287,10 @@ void UHttpRemote::read_headers(const asio::error_code& error, const std::string&
 		req.Body = body_buffer.str().c_str();
 	}
 
-	response.Status_Code = 200;
-	response.Status_Message = "OK";
-	response.Headers.Add("Content-Type", "text/plain");
-	response.Headers.Add("X-Powered-By", "ASIO");
+	Headers.Status_Code = 200;
+	Headers.Status_Message = "OK";
+	Headers.Headers.Add("Content-Type", "text/plain");
+	Headers.Headers.Add("X-Powered-By", "ASIO");
 
 	will_close = req.Headers.Contains("Connection") ? req.Headers["Connection"] != "keep-alive" : true;
 	if (!will_close)
@@ -312,13 +309,13 @@ void UHttpRemoteSsl::BeginDestroy() {
 	Super::BeginDestroy();
 }
 
-void UHttpRemoteSsl::Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr, asio::io_context &io_context, const uint8 timeout) {
+void UHttpRemoteSsl::Construct(asio::io_context &io_context, asio::ssl::context &ssl_context, const uint8 timeout) {
 	if (!IsRooted()) AddToRoot();
 	if (timeout > 0) {
 		idle_timeout_seconds = timeout;
 		idle_timer = MakeUnique<asio::steady_timer>(io_context, asio::steady_timer::duration(timeout));
 	}
-	ssl_socket = socket_ptr;
+	ssl_socket = MakeUnique<asio::ssl::stream<tcp::socket>>(io_context, ssl_context);
 }
 
 void UHttpRemoteSsl::Destroy() {
@@ -326,7 +323,6 @@ void UHttpRemoteSsl::Destroy() {
 		RemoveFromRoot();
 	}
 	ssl_socket.Reset();
-	MarkPendingKill();
 }
 
 bool UHttpRemoteSsl::IsOpen() {
@@ -354,10 +350,6 @@ asio::ssl::stream<tcp::socket>& UHttpRemoteSsl::get_socket() {
 	return *ssl_socket;
 }
 
-void UHttpRemoteSsl::Headers(const FHttpResponse& Response) {
-	response = Response;
-}
-
 bool UHttpRemoteSsl::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 	if (!ssl_socket.IsValid()) return false;
 	if (!ssl_socket->next_layer().is_open())
@@ -365,7 +357,7 @@ bool UHttpRemoteSsl::Write(const FDelegateHttpRemoteMessageSent& Callback) {
 
 	reset_idle_timer();
 
-	FString payload = prepare_response(response);
+	FString payload = prepare_response(Headers);
 	asio::async_write(*ssl_socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
@@ -380,7 +372,7 @@ bool UHttpRemoteSsl::write() {
 		return false;
 
 	reset_idle_timer();
-	FString payload = prepare_response(response);
+	FString payload = prepare_response(Headers);
 	asio::async_write(*ssl_socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
 					  [this](const asio::error_code &ec, const size_t bytes_sent) {
@@ -427,7 +419,8 @@ void UHttpRemoteSsl::Close() {
 				if (!is_being_destroyed)
 					OnError.Broadcast(FErrorCode(error_code));
 			});
-	}
+		if (on_close) on_close();
+	}	
 	is_closing.Store(false);
 }
 
@@ -555,23 +548,23 @@ void UHttpRemoteSsl::read_cb(const asio::error_code& error, const size_t bytes_r
 	request_stream >> version;
 
 	if (version != "HTTP/1.0" && version != "HTTP/1.1" && version != "HTTP/2.0") {
-		response.Status_Code = 400;
-		response.Status_Message = "Bad Request";
-		response.Body = "HTTP version not supported.";
-		response.Headers.Add("Content-Type", "text/plain");
-		response.Headers.Add("Content-Length", FString::FromInt(response.Body.Len()));
+		Headers.Status_Code = 400;
+		Headers.Status_Message = "Bad Request";
+		Headers.Body = "HTTP version not supported.";
+		Headers.Headers.Add("Content-Type", "text/plain");
+		Headers.Headers.Add("Content-Length", FString::FromInt(Headers.Body.Len()));
 		will_close = true;
 		write();
 		return;
 	}
 
 	if (string_to_request_method(method.c_str()) == ERequestMethod::UNKNOWN) {
-		response.Body = "Method not supported.";
-		response.Headers.Add("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
-		response.Headers.Add("Content-Type", "text/plain");
-		response.Headers.Add("Content-Length", FString::FromInt(response.Body.Len()));
-		response.Status_Code = 400;
-		response.Status_Message = "Bad Request";
+		Headers.Body = "Method not supported.";
+		Headers.Headers.Add("Allow", "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE");
+		Headers.Headers.Add("Content-Type", "text/plain");
+		Headers.Headers.Add("Content-Length", FString::FromInt(Headers.Body.Len()));
+		Headers.Status_Code = 400;
+		Headers.Status_Message = "Bad Request";
 		will_close = true;
 		write();
 		return;
@@ -621,10 +614,10 @@ void UHttpRemoteSsl::read_headers(const asio::error_code& error, const std::stri
 		req.Body = body_buffer.str().c_str();
 	}
 
-	response.Status_Code = 200;
-	response.Status_Message = "OK";
-	response.Headers.Add("Content-Type", "text/plain");
-	response.Headers.Add("X-Powered-By", "ASIO");
+	Headers.Status_Code = 200;
+	Headers.Status_Message = "OK";
+	Headers.Headers.Add("Content-Type", "text/plain");
+	Headers.Headers.Add("X-Powered-By", "ASIO");
 
 	will_close = req.Headers.Contains("Connection") ? req.Headers["Connection"] != "keep-alive" : true;
 	if (!will_close)

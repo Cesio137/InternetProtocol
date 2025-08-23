@@ -40,9 +40,6 @@ public:
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
 	bool IsRooted();
 
-	UFUNCTION(blueprintcallable, Category = "IP|UDP")
-	void MarkPendingKill();
-
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|UDP")
 	bool IsOpen();
 

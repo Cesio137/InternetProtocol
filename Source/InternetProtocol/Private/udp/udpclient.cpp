@@ -24,10 +24,6 @@ bool UUDPClient::IsRooted() {
 	return Super::IsRooted();
 }
 
-void UUDPClient::MarkPendingKill() {
-	Super::MarkPendingKill();
-}
-
 bool UUDPClient::IsOpen() {
 	return net.socket.is_open();
 }

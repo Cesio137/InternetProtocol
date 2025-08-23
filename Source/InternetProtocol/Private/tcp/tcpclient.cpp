@@ -23,10 +23,6 @@ bool UTCPClient::IsRooted() {
 	return Super::IsRooted();
 }
 
-void UTCPClient::MarkPendingKill() {
-	Super::MarkPendingKill();
-}
-
 bool UTCPClient::IsOpen() {
 	return net.socket.is_open();
 }
@@ -224,10 +220,6 @@ void UTCPClientSsl::RemoveFromRoot() {
 
 bool UTCPClientSsl::IsRooted() {
 	return Super::IsRooted();
-}
-
-void UTCPClientSsl::MarkPendingKill() {
-	Super::MarkPendingKill();
 }
 
 bool UTCPClientSsl::IsOpen() {

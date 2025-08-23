@@ -6,6 +6,7 @@
 
 #include "CoreMinimal.h"
 #include "net/asio.h"
+#include "Templates/PimplPtr.h"
 #include "tcpremote.generated.h"
 
 /**
@@ -17,17 +18,17 @@ DECLARE_DYNAMIC_DELEGATE_TwoParams(FDelegateTcpRemoteMessageSent, const FErrorCo
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDelegateTcpRemoteMessage, const TArray<uint8> &, Buffer, int,  BytesRecv);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDelegateTcpRemoteError, const FErrorCode &, ErrorCode);
 
-UCLASS(Blueprintable, BlueprintType, Category = "IP|TCP")
+UCLASS(BlueprintType, Category = "IP|TCP")
 class INTERNETPROTOCOL_API UTCPRemote : public UObject
 {
 	GENERATED_BODY()
 public:
-	UTCPRemote() {}
-	~UTCPRemote() {}
+	UTCPRemote() = default;
+	~UTCPRemote() = default;
 	
 	virtual void BeginDestroy() override;
 
-	void Construct(TSharedPtr<tcp::socket>& socket_ptr);
+	void Construct(asio::io_context &io_context);
 
 	void Destroy();
 
@@ -73,7 +74,7 @@ public:
 private:
 	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
-	TSharedPtr<tcp::socket> socket;
+	TUniquePtr<tcp::socket> socket;
 	asio::error_code error_code;
 	asio::streambuf recv_buffer;
 
@@ -90,7 +91,7 @@ public:
 
 	virtual void BeginDestroy() override;
 
-	void Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr);
+	void Construct(asio::io_context &io_context, asio::ssl::context &ssl_context);
 
 	void Destroy();
 
@@ -136,7 +137,7 @@ public:
 private:
 	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
-	TSharedPtr<asio::ssl::stream<tcp::socket>> ssl_socket;
+	TUniquePtr<asio::ssl::stream<tcp::socket>> ssl_socket;
 	asio::error_code error_code;
 	asio::streambuf recv_buffer;
 

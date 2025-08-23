@@ -23,10 +23,6 @@ bool UUDPServer::IsRooted() {
 	return Super::IsRooted();
 }
 
-void UUDPServer::MarkPendingKill() {
-	Super::MarkPendingKill();
-}
-
 bool UUDPServer::IsOpen() {
 	return net.socket.is_open();
 }

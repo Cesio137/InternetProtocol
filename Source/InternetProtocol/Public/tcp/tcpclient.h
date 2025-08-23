@@ -36,9 +36,6 @@ public:
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsRooted();
 
-	UFUNCTION(blueprintcallable, Category = "IP|TCP")
-	void MarkPendingKill();
-
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsOpen();
 
@@ -155,9 +152,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsRooted();
-
-	UFUNCTION(blueprintcallable, Category = "IP|TCP")
-	void MarkPendingKill();
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|TCP")
 	bool IsOpen();

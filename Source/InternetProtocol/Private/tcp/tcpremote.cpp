@@ -6,15 +6,16 @@
 
 void UTCPRemote::BeginDestroy() {
 	is_being_destroyed = true;
-	if (socket.IsValid()) {
+	if (socket) {
 		if (socket->is_open())
 			Close();
 	}
 	UObject::BeginDestroy();
 }
 
-void UTCPRemote::Construct(TSharedPtr<tcp::socket>& socket_ptr) {
-	socket = socket_ptr;
+void UTCPRemote::Construct(asio::io_context &io_context) {
+	if (!IsRooted()) AddToRoot();
+	socket = MakeUnique<tcp::socket>(io_context);
 }
 
 void UTCPRemote::Destroy() {
@@ -22,7 +23,6 @@ void UTCPRemote::Destroy() {
 		RemoveFromRoot();
 	}
 	socket.Reset();
-	//MarkPendingKill();
 }
 
 bool UTCPRemote::IsOpen() {
@@ -101,12 +101,12 @@ void UTCPRemote::Close() {
 				if (!is_being_destroyed)
 					OnError.Broadcast(FErrorCode(error_code));
 			});
-		socket->close(error_code);
 		if (error_code)
 			AsyncTask(ENamedThreads::GameThread, [this]() {
 				if (!is_being_destroyed)
 					OnError.Broadcast(FErrorCode(error_code));
 			});
+		socket->close(error_code);
 	}
 }
 
@@ -154,8 +154,8 @@ void UTCPRemoteSsl::BeginDestroy() {
 	UObject::BeginDestroy();
 }
 
-void UTCPRemoteSsl::Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr) {
-	ssl_socket = socket_ptr;
+void UTCPRemoteSsl::Construct(asio::io_context &io_context, asio::ssl::context &ssl_context) {
+	ssl_socket = MakeUnique<asio::ssl::stream<tcp::socket>>(io_context, ssl_context);
 }
 
 void UTCPRemoteSsl::Destroy() {
@@ -163,7 +163,6 @@ void UTCPRemoteSsl::Destroy() {
 		RemoveFromRoot();
 	}
 	ssl_socket.Reset();
-	//MarkPendingKill();
 }
 
 bool UTCPRemoteSsl::IsOpen() {
@@ -259,6 +258,7 @@ void UTCPRemoteSsl::Close() {
 				if (!is_being_destroyed)
 					OnError.Broadcast(FErrorCode(error_code));
 			});
+		if (on_close) on_close();
 	}
 }
 
@@ -269,8 +269,6 @@ void UTCPRemoteSsl::ssl_handshake(const asio::error_code& error) {
 		AsyncTask(ENamedThreads::GameThread, [this, error]() {
 			if (!is_being_destroyed)
 				OnError.Broadcast(FErrorCode(error));
-		});
-		AsyncTask(ENamedThreads::GameThread, [this]() {
 			if (!is_being_destroyed)
 				OnClose.Broadcast();
 			if (on_close) on_close();

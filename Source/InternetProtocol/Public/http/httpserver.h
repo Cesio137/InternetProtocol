@@ -36,9 +36,6 @@ public:
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsRooted();
 
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void MarkPendingKill();
-
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	int Backlog = 2147483647;
 
@@ -111,8 +108,8 @@ private:
 	TMap<FString, FDelegateHttpServerRequest> patch_cb;
 
 	void run_context_thread();
-	void accept(const asio::error_code &error, TSharedPtr<tcp::socket>& socket);
-	void read_cb(const FHttpRequest &request, UHttpRemote* client);
+	void accept(const asio::error_code &error, UHttpRemote* remote);
+	void read_cb(const FHttpRequest &request, UHttpRemote* remote);
 };
 
 UCLASS(Blueprintable, BlueprintType, Category = "IP|HTTP")
@@ -177,9 +174,6 @@ public:
 
 	UFUNCTION(blueprintcallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsRooted();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void MarkPendingKill();
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
 	int Backlog = 2147483647;
@@ -253,6 +247,6 @@ private:
 	TMap<FString, FDelegateHttpServerRequestSsl> patch_cb;
 
 	void run_context_thread();
-	void accept(const asio::error_code &error, TSharedPtr<asio::ssl::stream<tcp::socket>>& socket);
-	void read_cb(const FHttpRequest &request, UHttpRemoteSsl* client);
+	void accept(const asio::error_code &error, UHttpRemoteSsl* remote);
+	void read_cb(const FHttpRequest &request, UHttpRemoteSsl* remote);
 };

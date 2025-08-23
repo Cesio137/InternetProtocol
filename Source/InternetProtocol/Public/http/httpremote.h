@@ -26,9 +26,12 @@ public:
 
 	virtual void BeginDestroy() override;
 
-	void Construct(asio::io_context &io_context, TSharedPtr<tcp::socket> &sock, const uint8 timeout = 0);
+	void Construct(asio::io_context &io_context, const uint8 timeout = 0);
 
 	void Destroy();
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	FHttpResponse Headers;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
@@ -43,9 +46,6 @@ public:
 	FErrorCode GetErrorCode();
 
 	tcp::socket &get_socket();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void Headers(const FHttpResponse &Response);
 
 	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
 	bool Write(const FDelegateHttpRemoteMessageSent &Callback);
@@ -71,12 +71,11 @@ private:
 	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	TSharedPtr<tcp::socket> socket;
+	TUniquePtr<tcp::socket> socket;
 	TUniquePtr<asio::steady_timer> idle_timer;
 	uint8 idle_timeout_seconds = 0;
 	asio::error_code error_code;
 	bool will_close = false;
-	FHttpResponse response;
 	asio::streambuf recv_buffer;
 
 	void start_idle_timer();
@@ -99,9 +98,12 @@ public:
 
 	virtual void BeginDestroy() override;
 
-	void Construct(TSharedPtr<asio::ssl::stream<tcp::socket>>& socket_ptr, asio::io_context &io_context, const uint8 timeout = 0);
+	void Construct(asio::io_context &io_context, asio::ssl::context &ssl_context, const uint8 timeout = 0);
 
 	void Destroy();
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "IP|HTTP")
+	FHttpResponse Headers;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "IP|HTTP")
 	bool IsOpen();
@@ -116,9 +118,6 @@ public:
 	FErrorCode GetErrorCode();
 
 	 asio::ssl::stream<tcp::socket> &get_socket();
-
-	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
-	void Headers(const FHttpResponse &Response);
 
 	UFUNCTION(blueprintcallable, Category = "IP|HTTP")
 	bool Write(const FDelegateHttpRemoteMessageSent &Callback);
@@ -144,12 +143,11 @@ private:
 	bool is_being_destroyed = false;
 	FCriticalSection mutex_error;
 	TAtomic<bool> is_closing = false;
-	TSharedPtr<asio::ssl::stream<tcp::socket>> ssl_socket;
+	TUniquePtr<asio::ssl::stream<tcp::socket>> ssl_socket;
 	TUniquePtr<asio::steady_timer> idle_timer;
 	uint8 idle_timeout_seconds = 0;
 	asio::error_code error_code;
 	bool will_close = false;
-	FHttpResponse response;
 	asio::streambuf recv_buffer;
 
 	void start_idle_timer();

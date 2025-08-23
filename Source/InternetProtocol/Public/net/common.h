@@ -335,9 +335,17 @@ struct tcp_client_ssl_t {
 USTRUCT(BlueprintType, Category="IP|STRUCT|Common")
 struct FServerBindOptions {
 	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|ServerBindOptions")
 	FString Address = "localhost";
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|ServerBindOptions")
 	int Port = 8080;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|ServerBindOptions")
 	EProtocolType Protocol = EProtocolType::V4;
+
+	UPROPERTY(BlueprintReadWrite, Category = "IP|ServerBindOptions")
 	bool bReuse_Address = true;
 };
 
