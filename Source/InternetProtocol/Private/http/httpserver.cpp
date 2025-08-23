@@ -199,42 +199,59 @@ void UHttpServer::accept(const asio::error_code& error, UHttpRemote* remote) {
 void UHttpServer::read_cb(const FHttpRequest& request, UHttpRemote* remote) {
 	if (is_being_destroyed) return;
 	if (all_cb.Contains(request.Path)) {
-		all_cb[request.Path].ExecuteIfBound(request, remote);
+		AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+			all_cb[request.Path].ExecuteIfBound(request, remote);
+		});
 	}
 	switch (request.Method) {
 	case ERequestMethod::DEL:
     	if (del_cb.Contains(request.Path) && !is_being_destroyed) {
-    		del_cb[request.Path].ExecuteIfBound(request, remote);
+    		AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+    			del_cb[request.Path].ExecuteIfBound(request, remote);
+			});    		
     	}
     	break;
     case ERequestMethod::GET:
         if (get_cb.Contains(request.Path)) {
-        	get_cb[request.Path].ExecuteIfBound(request, remote);
+        	AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+        		get_cb[request.Path].ExecuteIfBound(request, remote);
+			});
         }
         break;
     case ERequestMethod::HEAD:
         if (head_cb.Contains(request.Path)) {
-        	head_cb[request.Path].ExecuteIfBound(request, remote);
+        	AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				head_cb[request.Path].ExecuteIfBound(request, remote);
+			});
         }
         break;
     case ERequestMethod::OPTIONS:
         if (options_cb.Contains(request.Path)) {
-        	options_cb[request.Path].ExecuteIfBound(request, remote);
+        	AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				options_cb[request.Path].ExecuteIfBound(request, remote);
+			});
         }
         break;
     case ERequestMethod::POST:
         if (post_cb.Contains(request.Path)) {
-        	post_cb[request.Path].ExecuteIfBound(request, remote);
+        	AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+        		post_cb[request.Path].ExecuteIfBound(request, remote);
+			});
         }
         break;
     case ERequestMethod::PUT:
         if (put_cb.Contains(request.Path)) {
-        	put_cb[request.Path].ExecuteIfBound(request, remote);
+        	AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+        		put_cb[request.Path].ExecuteIfBound(request, remote);
+			});
+        	
         }
         break;
     case ERequestMethod::PATCH:
         if (patch_cb.Contains(request.Path)) {
-        	patch_cb[request.Path].ExecuteIfBound(request, remote);
+        	AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+        		patch_cb[request.Path].ExecuteIfBound(request, remote);
+			});
         }
         break;
     default: break;
@@ -441,37 +458,51 @@ void UHttpServerSsl::read_cb(const FHttpRequest& request, UHttpRemoteSsl* remote
 	switch (request.Method) {
 	case ERequestMethod::DEL:
 		if (del_cb.Contains(request.Path)) {
-			del_cb[request.Path].ExecuteIfBound(request, remote);
+			AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				del_cb[request.Path].ExecuteIfBound(request, remote);
+			});
 		}
 		break;
 	case ERequestMethod::GET:
 		if (get_cb.Contains(request.Path)) {
-			get_cb[request.Path].ExecuteIfBound(request, remote);
+			AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				get_cb[request.Path].ExecuteIfBound(request, remote);
+			});
 		}
 		break;
 	case ERequestMethod::HEAD:
 		if (head_cb.Contains(request.Path)) {
-			head_cb[request.Path].ExecuteIfBound(request, remote);
+			AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				head_cb[request.Path].ExecuteIfBound(request, remote);
+			});
 		}
 		break;
 	case ERequestMethod::OPTIONS:
 		if (options_cb.Contains(request.Path)) {
-			options_cb[request.Path].ExecuteIfBound(request, remote);
+			AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				options_cb[request.Path].ExecuteIfBound(request, remote);
+			});
 		}
 		break;
 	case ERequestMethod::POST:
 		if (post_cb.Contains(request.Path)) {
-			post_cb[request.Path].ExecuteIfBound(request, remote);
+			AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				post_cb[request.Path].ExecuteIfBound(request, remote);
+			});
 		}
 		break;
 	case ERequestMethod::PUT:
 		if (put_cb.Contains(request.Path)) {
-			put_cb[request.Path].ExecuteIfBound(request, remote);
+			AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				put_cb[request.Path].ExecuteIfBound(request, remote);
+			});
 		}
 		break;
 	case ERequestMethod::PATCH:
 		if (patch_cb.Contains(request.Path)) {
-			patch_cb[request.Path].ExecuteIfBound(request, remote);
+			AsyncTask(ENamedThreads::GameThread, [this, request, remote]() {
+				patch_cb[request.Path].ExecuteIfBound(request, remote);
+			});
 		}
 		break;
 	default: break;
