@@ -14,7 +14,8 @@ using namespace asio::ip;
 namespace internetprotocol {
     class ws_client_c {
     public:
-        ws_client_c() : idle_timer(net.context) {
+        ws_client_c() {
+            idle_timer = std::make_unique<asio::steady_timer>(net.context, 5);
             handshake.path = "/chat";
             handshake.headers.insert_or_assign("Connection", "Upgrade");
             handshake.headers.insert_or_assign("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==");
@@ -401,14 +402,14 @@ namespace internetprotocol {
         std::mutex mutex_error;
         std::atomic<close_state_e> close_state = CLOSED;
         std::atomic<bool> wait_close_frame_response = true;
-        asio::steady_timer idle_timer;
+        std::unique_ptr<asio::steady_timer> idle_timer;
         tcp_client_t net;
         asio::error_code error_code;
         asio::streambuf recv_buffer;
 
         void start_idle_timer() {
-            idle_timer.expires_after(std::chrono::seconds(5));
-            idle_timer.async_wait([&](const asio::error_code &ec) {
+            idle_timer->expires_after(std::chrono::seconds(5));
+            idle_timer->async_wait([&](const asio::error_code &ec) {
                 if (ec == asio::error::operation_aborted)
                     return;
 
@@ -679,7 +680,8 @@ namespace internetprotocol {
 #ifdef ENABLE_SSL
     class ws_client_ssl_c {
     public:
-        ws_client_ssl_c(const security_context_opts sec_opts = {}) : idle_timer(net.context) {
+        ws_client_ssl_c(const security_context_opts sec_opts = {}) {
+            idle_timer = std::make_unique<asio::steady_timer>(net.context, 5);
             if (!sec_opts.private_key.empty()) {
                 const asio::const_buffer buffer(sec_opts.private_key.data(), sec_opts.private_key.size());
                 net.ssl_context.use_private_key(buffer, sec_opts.file_format);
@@ -1121,14 +1123,14 @@ namespace internetprotocol {
         std::mutex mutex_error;
         std::atomic<close_state_e> close_state = CLOSED;
         std::atomic<bool> wait_close_frame_response = true;
-        asio::steady_timer idle_timer;
+        std::unique_ptr<asio::steady_timer> idle_timer;
         tcp_client_ssl_t net;
         asio::error_code error_code;
         asio::streambuf recv_buffer;
 
         void start_idle_timer() {
-            idle_timer.expires_after(std::chrono::seconds(5));
-            idle_timer.async_wait([&](const asio::error_code &ec) {
+            idle_timer->expires_after(std::chrono::seconds(5));
+            idle_timer->async_wait([&](const asio::error_code &ec) {
                 if (ec == asio::error::operation_aborted)
                     return;
 

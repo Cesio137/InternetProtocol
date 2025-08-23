@@ -9,15 +9,6 @@
 #include "ip/http/httpremote.hpp"
 
 namespace internetprotocol {
-    struct http_server_t {
-        http_server_t(): acceptor(context) {
-        }
-
-        asio::io_context context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<http_remote_c> > clients;
-    };
-
     class http_server_c {
     public:
         http_server_c() {}
@@ -417,7 +408,7 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::mutex mutex_error;
         std::atomic<bool> is_closing = false;
-        http_server_t net;
+        tcp_server_t<http_remote_c> net;
         asio::error_code error_code;
 
         std::map<std::string, std::function<void(const http_request_t &, const std::shared_ptr<http_remote_c> &)>> all_cb;
@@ -534,16 +525,6 @@ namespace internetprotocol {
     };
 
 #ifdef ENABLE_SSL
-    struct http_server_ssl_t {
-        http_server_ssl_t(): acceptor(context), ssl_context(asio::ssl::context::tlsv13) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::acceptor acceptor;
-        std::set<std::shared_ptr<http_remote_ssl_c> > ssl_clients;
-    };
-
     class http_server_ssl_c {
     public:
         http_server_ssl_c(const security_context_opts sec_opts = {}) {
@@ -982,7 +963,7 @@ namespace internetprotocol {
         std::mutex mutex_io;
         std::mutex mutex_error;
         std::atomic<bool> is_closing = false;
-        http_server_ssl_t net;
+        tcp_server_ssl_t<http_remote_ssl_c> net;
         asio::error_code error_code;
 
         std::map<std::string, std::function<void(const http_request_t &, const std::shared_ptr<http_remote_ssl_c> &)>> all_cb;

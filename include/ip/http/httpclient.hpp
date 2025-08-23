@@ -9,19 +9,10 @@
 #include "ip/utils/net.hpp"
 
 namespace internetprotocol {
-    struct http_client_t {
-        http_client_t(): socket(context), resolver(context) {
-        }
-
-        asio::io_context context;
-        tcp::socket socket;
-        tcp::endpoint endpoint;
-        tcp::resolver resolver;
-    };
-    
     class http_client_c {
     public:
-        http_client_c(): idle_timer(net.context) {
+        http_client_c() {
+            idle_timer = std::make_unique<asio::steady_timer>(net.context);
         }
 
         ~http_client_c() {
@@ -143,17 +134,17 @@ namespace internetprotocol {
     private:
         std::mutex mutex_io;
         std::atomic<bool> is_closing = false;
-        asio::steady_timer idle_timer;
+        std::unique_ptr<asio::steady_timer> idle_timer;
         client_bind_options_t bind_options;
-        http_client_t net;
+        tcp_client_t net;
         asio::streambuf recv_buffer;
 
         void start_idle_timer() {
             if (idle_timeout_seconds == 0)
                 return;
 
-            idle_timer.expires_after(std::chrono::seconds(idle_timeout_seconds));
-            idle_timer.async_wait([&](const asio::error_code &ec) {
+            idle_timer->expires_after(std::chrono::seconds(idle_timeout_seconds));
+            idle_timer->async_wait([&](const asio::error_code &ec) {
                 if (ec == asio::error::operation_aborted)
                     return;
 
@@ -168,7 +159,7 @@ namespace internetprotocol {
             if (is_closing.load() || idle_timeout_seconds == 0)
                 return;
 
-            idle_timer.cancel();
+            idle_timer->cancel();
             start_idle_timer();
         }
 
@@ -302,22 +293,10 @@ namespace internetprotocol {
         }
     };
 #ifdef ENABLE_SSL
-    struct http_client_ssl_t {
-        http_client_ssl_t(): ssl_context(asio::ssl::context::tlsv13_client),
-                            ssl_socket(context, ssl_context),
-                            resolver(context) {
-        }
-
-        asio::io_context context;
-        asio::ssl::context ssl_context;
-        tcp::resolver resolver;
-        tcp::endpoint endpoint;
-        asio::ssl::stream<tcp::socket> ssl_socket;
-    };
-
     class http_client_ssl_c {
     public:
-        explicit http_client_ssl_c(const security_context_opts &sec_opts = {}): idle_timer(net.context) {
+        explicit http_client_ssl_c(const security_context_opts &sec_opts = {}) {
+            idle_timer = std::make_unique<asio::steady_timer>(net.context);
             if (!sec_opts.private_key.empty()) {
                 const asio::const_buffer buffer(sec_opts.private_key.data(), sec_opts.private_key.size());
                 net.ssl_context.use_private_key(buffer, sec_opts.file_format);
@@ -482,7 +461,7 @@ namespace internetprotocol {
     private:
         std::mutex mutex_io;
         std::atomic<bool> is_closing = false;
-        asio::steady_timer idle_timer;
+        std::unique_ptr<asio::steady_timer> idle_timer;
         client_bind_options_t bind_options;
         tcp_client_ssl_t net;
         asio::streambuf recv_buffer;
@@ -491,8 +470,8 @@ namespace internetprotocol {
             if (idle_timeout_seconds == 0)
                 return;
 
-            idle_timer.expires_after(std::chrono::seconds(idle_timeout_seconds));
-            idle_timer.async_wait([&](const asio::error_code &ec) {
+            idle_timer->expires_after(std::chrono::seconds(idle_timeout_seconds));
+            idle_timer->async_wait([&](const asio::error_code &ec) {
                 if (ec == asio::error::operation_aborted)
                     return;
 
@@ -507,7 +486,7 @@ namespace internetprotocol {
             if (is_closing.load() || idle_timeout_seconds == 0)
                 return;
 
-            idle_timer.cancel();
+            idle_timer->cancel();
             start_idle_timer();
         }
 
