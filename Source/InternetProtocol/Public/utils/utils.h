@@ -13,10 +13,8 @@
  * 
  */
 
-DECLARE_DYNAMIC_DELEGATE(FDelegateAsync);
 
-
-UCLASS()
+UCLASS(Blueprintable, BlueprintType, Category = "IP|Utils")
 class INTERNETPROTOCOL_API UUtilsFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()

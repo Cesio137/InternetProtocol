@@ -59,8 +59,10 @@ bool UWSClient::Write(const FString& Message, const FDataframe& Dataframe, const
 	asio::async_write(net.socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							if (!is_being_destroyed)
-								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
+							  if (!is_being_destroyed)
+							  	Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		});	
 					  });
 	return true;
 }
@@ -76,8 +78,10 @@ bool UWSClient::WriteBuffer(const TArray<uint8>& Buffer, const FDataframe& Dataf
 	asio::async_write(net.socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-					  		if (!is_being_destroyed)
-								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
+								if (!is_being_destroyed)
+						  			Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+							});
 					  });
 	return true;
 }
@@ -91,8 +95,10 @@ bool UWSClient::Ping(const FDelegateWsClientMessageSent& Callback) {
 	asio::async_write(net.socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-					  		if (!is_being_destroyed)
-								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
+					  			if (!is_being_destroyed)
+						  			Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		});
 					  });
 	return true;
 }
@@ -124,8 +130,11 @@ bool UWSClient::Pong(const FDelegateWsClientMessageSent& Callback) {
 	asio::async_write(net.socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-					  		if (!is_being_destroyed)
-								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		if (ec)
+					  			AsyncTask(ENamedThreads::GameThread, [this, ec]() {
+									  if (!is_being_destroyed)
+								  		OnError.Broadcast(FErrorCode(ec));
+					  			});
 					  });
 	return true;
 }
@@ -584,8 +593,10 @@ bool UWSClientSsl::Write(const FString& Message, const FDataframe& Dataframe,
 	asio::async_write(net.ssl_socket,
 					  asio::buffer(TCHAR_TO_UTF8(*payload), payload.Len()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							if (!is_being_destroyed)
-								Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
+								if (!is_being_destroyed)
+									Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+							});
 					  });
 	return true;
 }
@@ -601,8 +612,10 @@ bool UWSClientSsl::WriteBuffer(const TArray<uint8>& Buffer, const FDataframe& Da
 	asio::async_write(net.ssl_socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							  if (!is_being_destroyed)
-							  	Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
+					  			if (!is_being_destroyed)
+					  				Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		});  
 						});
 	return true;
 }
@@ -616,8 +629,10 @@ bool UWSClientSsl::Ping(const FDelegateWsClientMessageSent& Callback) {
 	asio::async_write(net.ssl_socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							  if (!is_being_destroyed)
-							  	Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
+								if (!is_being_destroyed)
+							  		Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+							});
 						});
 	return true;
 }
@@ -649,8 +664,10 @@ bool UWSClientSsl::Pong(const FDelegateWsClientMessageSent& Callback) {
 	asio::async_write(net.ssl_socket,
 					  asio::buffer(payload.GetData(), payload.Num()),
 					  [this, Callback](const asio::error_code &ec, const size_t bytes_sent) {
-							  if (!is_being_destroyed)
-							  	Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+					  		AsyncTask(ENamedThreads::GameThread, [this, Callback, ec, bytes_sent]() {
+								if (!is_being_destroyed)
+							  		Callback.ExecuteIfBound(FErrorCode(ec), bytes_sent);
+							});
 						});
 	return true;
 }
