@@ -83,7 +83,7 @@ export class websocketserver {
 
     onclientclose(code: number, reason: Buffer, req: IncomingMessage) {
         console.log(
-                `(${req.socket.remotePort} -> logout, ${this.server?.clients.size} client(s))\n{code: ${code} -> ${reason.toString()}}`
+                `(${req.socket.remotePort} -> logout, ${this.server.clients.size} client(s))\n{ code: ${code} -> ${reason.toString()} }`
             );
     }
 
