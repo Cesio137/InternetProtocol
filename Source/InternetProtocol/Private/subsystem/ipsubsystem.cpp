@@ -15,8 +15,8 @@ UUDPClient* UInternetProtocolSubsystem::CreateUDPClient() {
 	return client;
 }
 
-UTCPServer* UInternetProtocolSubsystem::CreateTCPServer() {
-	UTCPServer* server = NewObject<UTCPServer>();
+UWSServer* UInternetProtocolSubsystem::CreateTCPServer() {
+	UWSServer* server = NewObject<UWSServer>();
 	return server;
 }
 
@@ -57,6 +57,11 @@ UHttpClientSsl* UInternetProtocolSubsystem::CreateHttpClientSsl(const FSecurityC
 	UHttpClientSsl* client = NewObject<UHttpClientSsl>();
 	client->Construct(SecOpts);
 	return client;
+}
+
+UWSServer* UInternetProtocolSubsystem::CreateWSServer() {
+	UWSServer* server = NewObject<UWSServer>();
+	return server;
 }
 
 UWSClient* UInternetProtocolSubsystem::CreateWSClient() {

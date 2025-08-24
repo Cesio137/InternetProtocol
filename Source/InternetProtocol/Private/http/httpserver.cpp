@@ -186,8 +186,8 @@ void UHttpServer::accept(const asio::error_code& error, UHttpRemote* remote) {
 			net.clients.Remove(remote);
 			remote->Destroy();
 		};
-		remote->connect();
 		net.clients.Add(remote);
+		remote->connect();
 		if (net.acceptor.is_open()) {
 			UHttpRemote* remote_ptr = NewObject<UHttpRemote>();
 			remote_ptr->Construct(net.context, IdleTimeoutSeconds);
@@ -440,8 +440,8 @@ void UHttpServerSsl::accept(const asio::error_code& error, UHttpRemoteSsl* remot
 			net.ssl_clients.Remove(remote);
 			remote->Destroy();
 		};
-		remote->connect();
 		net.ssl_clients.Add(remote);
+		remote->connect();
 		if (net.acceptor.is_open()) {
 			UHttpRemoteSsl* remote_ptr = NewObject<UHttpRemoteSsl>();
 			remote_ptr->Construct(net.context, net.ssl_context, IdleTimeoutSeconds);

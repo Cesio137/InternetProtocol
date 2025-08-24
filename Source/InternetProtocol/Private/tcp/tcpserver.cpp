@@ -155,11 +155,11 @@ void UTCPServer::accept(const asio::error_code& error, UTCPRemote* remote) {
 			net.clients.Remove(remote);
 			remote->Destroy();
 		};
-		remote->connect();
 		AsyncTask(ENamedThreads::GameThread, [this, remote]() {
 			if (!is_being_destroyed)
 				OnClientAccepted.Broadcast(remote);
 		});
+		remote->connect();
 		if (net.acceptor.is_open()) {
 			UTCPRemote* remote_ptr = NewObject<UTCPRemote>();
 			remote_ptr->Construct(net.context);
@@ -316,11 +316,11 @@ void UTCPServerSsl::accept(const asio::error_code& error, UTCPRemoteSsl* remote)
 			net.ssl_clients.Remove(remote);
 			remote->Destroy();
 		};
-		remote->connect();
 		AsyncTask(ENamedThreads::GameThread, [this, remote]() {
 			if (!is_being_destroyed)
 				OnClientAccepted.Broadcast(remote);
 		});
+		remote->connect();
 		if (net.acceptor.is_open()) {
 			UTCPRemoteSsl* remote_ptr = NewObject<UTCPRemoteSsl>();
 			remote_ptr->Construct(net.context, net.ssl_context);

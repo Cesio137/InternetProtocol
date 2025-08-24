@@ -127,7 +127,7 @@ FString generate_accept_key(const FString& sec_websocket_key) {
 }
 
 bool validate_handshake_request(const FHttpRequest& req_handshake, FHttpResponse& res_handshake) {
-	if (req_handshake.Headers.Contains("connection")) {
+	if (!req_handshake.Headers.Contains("connection")) {
 		res_handshake.Body = "\"Connection\" header not found";
 		return false;
 	}
@@ -136,7 +136,7 @@ bool validate_handshake_request(const FHttpRequest& req_handshake, FHttpResponse
 		return false;
 	}
 
-	if (req_handshake.Headers.Contains("upgrade")) {
+	if (!req_handshake.Headers.Contains("upgrade")) {
 		res_handshake.Body = "\"Upgrade\" header not found";
 		return false;
 	}
@@ -145,12 +145,12 @@ bool validate_handshake_request(const FHttpRequest& req_handshake, FHttpResponse
 		return false;
 	}
 
-	if (req_handshake.Headers.Contains("sec-websocket-key")) {
+	if (!req_handshake.Headers.Contains("sec-websocket-key")) {
 		res_handshake.Body = "\"Sec-WebSocket-Key\" header not found";
 		return false;
 	}
 
-	if (req_handshake.Headers.Contains("sec-websocket-version")) {
+	if (!req_handshake.Headers.Contains("sec-websocket-version")) {
 		res_handshake.Body = "\"Sec-WebSocket-Version\" header not found";
 		return false;
 	}

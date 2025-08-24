@@ -11,8 +11,9 @@
 #include "tcp/tcpclient.h"
 #include "http/httpclient.h"
 #include "http/httpserver.h"
-#include "json/json.h"
+#include "websocket/wsserver.h"
 #include "websocket/wsclient.h"
+#include "json/json.h"
 #include "Subsystems/WorldSubsystem.h"
 
 #include "ipsubsystem.generated.h"
@@ -33,7 +34,7 @@ public:
 	UUDPClient* CreateUDPClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
-	UTCPServer* CreateTCPServer();
+	UWSServer* CreateTCPServer();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UTCPServerSsl* CreateTCPServerSsl(const FSecurityContextOpts &SecOpts);
@@ -55,6 +56,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UHttpClientSsl* CreateHttpClientSsl(const FSecurityContextOpts& SecOpts);
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UWSServer* CreateWSServer();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UWSClient* CreateWSClient();
