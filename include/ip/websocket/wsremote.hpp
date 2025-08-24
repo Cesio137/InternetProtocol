@@ -258,12 +258,12 @@ namespace internetprotocol {
                 if (error_code && on_error)
                     on_error(error_code);
 
+                if (on_close) {
+                    on_close(code, reason);
+                }
+
                 if (is_locked)
                     mutex_error.unlock();
-            }
-
-            if (on_close) {
-                on_close(code, reason);
             }
         }
 
@@ -426,6 +426,7 @@ namespace internetprotocol {
                 std::lock_guard lock(mutex_error);
                 error_code = error;
                 if (on_error) on_error(error);
+                close();
             }
 
             if (!wait_close_frame_response.load()) {

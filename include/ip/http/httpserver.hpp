@@ -453,8 +453,8 @@ namespace internetprotocol {
                 read_cb(request, client);
             };
             client->on_close = [&, client]() { net.clients.erase(client); };
-            client->connect();
             net.clients.insert(client);
+            client->connect();
             if (net.acceptor.is_open()) {
                 std::shared_ptr<http_remote_c> client_socket = std::make_shared<http_remote_c>(net.context, iddle_timeout);
                 net.acceptor.async_accept(client_socket->get_socket(),
@@ -1008,8 +1008,8 @@ namespace internetprotocol {
                 read_cb(request, client);
             };
             client->on_close = [&, client]() { net.ssl_clients.erase(client); };
-            client->connect();
             net.ssl_clients.insert(client);
+            client->connect();
             if (net.acceptor.is_open()) {
                 std::shared_ptr<http_remote_ssl_c> client_socket = std::make_shared<http_remote_ssl_c>(net.context, net.ssl_context, iddle_timeout);
                 net.acceptor.async_accept(client_socket->get_socket().lowest_layer(),

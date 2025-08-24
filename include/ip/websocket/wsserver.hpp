@@ -166,6 +166,9 @@ namespace internetprotocol {
                 return false;
             }
 
+            if (on_listening)
+                on_listening();
+
             asio::post(thread_pool, [&]{ run_context_thread(); });
             return true;
         }
@@ -181,7 +184,7 @@ namespace internetprotocol {
          * server.close(false);
          * @endcode
          */
-        void close(const bool force = false) {
+        void close() {
             is_closing.store(true);
             if (net.acceptor.is_open()) {
                 std::lock_guard guard(mutex_error);
@@ -296,12 +299,11 @@ namespace internetprotocol {
                 }
                 return;
             }
-            client->connect();
             net.clients.insert(client);
             client->on_close = [&, client](const uint16_t code, const std::string &reason) { net.clients.erase(client); };
-
             if (on_client_accepted)
                 on_client_accepted(client);
+            client->connect();
             if (net.acceptor.is_open()) {
                 std::shared_ptr<ws_remote_c> client_socket = std::make_shared<ws_remote_c>(net.context);
                 net.acceptor.async_accept(client_socket->get_socket(),
@@ -635,12 +637,12 @@ namespace internetprotocol {
                 }
                 return;
             }
-            client->connect();
             net.ssl_clients.insert(client);
             client->on_close = [&, client](const uint16_t code, const std::string &reason) { net.ssl_clients.erase(client); };
 
             if (on_client_accepted)
                 on_client_accepted(client);
+            client->connect();
             if (net.acceptor.is_open()) {
                 std::shared_ptr<ws_remote_ssl_c> client_socket = std::make_shared<ws_remote_ssl_c>(net.context, net.ssl_context);
                 net.acceptor.async_accept(client_socket->get_socket().lowest_layer(),
