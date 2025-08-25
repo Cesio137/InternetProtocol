@@ -1,9 +1,9 @@
 {
 	"FileVersion": 3,
 	"Version": 2,
-	"VersionName": "2.0.1",
+	"VersionName": "3.0.0",
 	"FriendlyName": "Internet Protocol",
-	"Description": "UDP, TCP, HTTP, Websocket and SSL conections.",
+	"Description": "UDP, TCP, HTTP, Websocket and TLS conections.",
 	"Category": "Online",
 	"CreatedBy": "Nathan Miguel",
 	"CreatedByURL": "https://github.com/Cesio137",
