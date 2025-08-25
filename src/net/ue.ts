@@ -1,23 +1,25 @@
-import { udpSocket } from "bun";
+import { rl } from "#io";
+import * as dgram from "dgram";
+import type { AddressInfo } from "net";
 
 interface LoginPayload {
-    event: "login";
+    event: "login_order";
     id: number;
     players: number[];
 }
 
 interface RegisterPayload {
-    event: "register";
+    event: "register_order";
     player: number;
 }
 
 interface LogoutPayload {
-    event: "logout";
+    event: "logout_order";
     player: number;
 }
 
 interface PlayerStatePayload {
-    event: "playerState";
+    event: "playerState_order";
     condition: number; // 0-none, 1-owner, 2-skip+owner
     id: number;
     positionX: number;
@@ -26,107 +28,153 @@ interface PlayerStatePayload {
     rotationZ: number;
 }
 
-type ClientPayload = LoginPayload | LogoutPayload | PlayerStatePayload;
-
-let clients: Map<number, string> = new Map();
-
-export class udpUnreal {
-    public static async create() {
-        const socket = await Bun.udpSocket({
-            port: 8080,
-            socket: {
-                data(socket, data, rinfo, addr) {
-                    const json = JSON.parse(data.toString());
-                    const payload = json as ClientPayload;
-
-                    switch (payload.event) {
-                        case "login":
-                            loginHandler(payload, socket, rinfo, addr);
-                            break;
-                        case "logout":
-                            logoutHandler(socket, rinfo, addr);
-                            break;
-                        case "playerState":
-                            playerHandler(payload, socket, rinfo, addr);
-                            break;
-                    }
-                },
-            }
-        });
+export class unrealserver {
+    constructor() {
+        this.socket.on("listening", () => this.onlistening());
+        this.socket.on("message", (msg, rinfo) => this.onmessage(msg, rinfo));
+        this.socket.on("close", () => this.onclose());
+        this.socket.on("error", (err) => this.error(err));
     }
-}
 
-async function loginHandler(payload: LoginPayload, socket: Bun.udp.Socket<"buffer">, rinfo: number, addr: string) {
-    if (clients.has(rinfo)) return;
-    clients.set(rinfo, addr);
-    console.log(`${rinfo} -> login | total players: ${clients.size}`);
+    socket: dgram.Socket = dgram.createSocket("udp4");
+    remotes: Map<number ,dgram.RemoteInfo> = new Map();
 
-    if (clients.size < 2) {
-        const loginPayload: LoginPayload = {
-            event: "login",
-            id: rinfo,
-            players: [0]
+    write(message: string) {
+        for (const [port, remote] of this.remotes) {
+            this.socket.send(message, remote.port, remote.address, function (error) {
+                if (error) {
+                    console.error(`Erro trying send message: ${error.message}`);
+                }
+            });
         }
-        const json = JSON.stringify(loginPayload);
-        socket.send(json, rinfo, addr);
     }
 
-    const registerPayload: RegisterPayload = {
-        event: "register",
-        player: rinfo
-    };
-    const registerjson = JSON.stringify(registerPayload);
-
-    const loginPayload: LoginPayload = {
-        event: "login",
-        id: rinfo,
-        players: clients.keys().toArray()
-    };
-    const loginjson = JSON.stringify(loginPayload);
-
-    socket.send(loginjson, rinfo, addr);
-    for (const [port, address] of clients) {
-        if (rinfo == port) continue;
-        socket.send(registerjson, port, address);
+    open(port: number) {
+        this.socket.bind(port);
     }
-}
 
-async function logoutHandler(socket: Bun.udp.Socket<"buffer">, rinfo: number, addr: string) {
-    if (!clients.has(rinfo)) return;
-    console.log(`${rinfo} -> logout | total players: ${clients.size}`);
-
-    if (clients.size < 1) return;
-
-    const logoutPayload: LogoutPayload = {
-        event: "logout",
-        player: rinfo
-    };
-
-    const logoutJson = JSON.stringify(logoutPayload);
-    for (const [port, address] of clients) {
-        socket.send(logoutJson, port, address);
+    close() {
+        this.socket.close();
+        process.exit();
     }
-}
 
-async function playerHandler(payload: PlayerStatePayload, socket: Bun.udp.Socket<"buffer">, rinfo: number, addr: string) {
-    let playerPayload = payload;
-    playerPayload.id = rinfo;
-    const playerJson = JSON.stringify(playerPayload);
+    online(input: string) {
+        if (input === "") return;
+        if (input === "quit") {
+            this.close();
+            return;
+        }
+        this.write(input);
+    }
 
-    switch (playerPayload.condition) {
-        case 0:
-            for (const [port, address] of clients) {
-                socket.send(playerJson, port, address);
+    onlistening() {
+        const addr = this.socket.address();
+        console.log(`UDP listening at adress: ${addr.address}:${addr.port}`);
+
+        rl.on("SIGINT", () => this.close());
+        rl.on("line", (input) => this.online(input));
+    }
+
+    onmessage(buf: Buffer, rinfo: dgram.RemoteInfo) {
+        const data = buf.toString();
+        switch (data) {
+        case "login":
+            this.onlogin(rinfo);
+            break;
+        case "logout":
+            this.onlogout(rinfo);
+            break;
+        default:
+            this.onplayerbroadcast(rinfo, data);
+        }
+    }
+
+    onclose() {
+        console.log("bye!");
+    }
+
+    error(error: Error) {
+        console.error(`Error: ${error.message}`);
+    }
+
+    // Payload
+
+    onlogin(rinfo: dgram.RemoteInfo) {
+        if (this.remotes.has(rinfo.port)) return;
+        this.remotes.set(rinfo.port, rinfo);
+        console.log(`${rinfo.port} -> login | total players: ${this.remotes.size}`);
+
+        if (this.remotes.size <= 1) {
+            const loginPayload: LoginPayload = {
+                event: "login_order",
+                id: rinfo.port,
+                players: []
             }
-            break;
-        case 1:
-            socket.send(playerJson, rinfo, addr);
-            break;
-        case 2:
-            for (const [port, address] of clients) {
-                if (port === rinfo) continue;
-                socket.send(playerJson, port, address);
-            }
-            break;
+            const json = JSON.stringify(loginPayload);
+            this.socket.send(json, rinfo.port, rinfo.address);
+            return;
+        }
+
+        const registerPayload: RegisterPayload = {
+            event: "register_order",
+            player: rinfo.port
+        };
+        const registerjson = JSON.stringify(registerPayload);
+
+        const loginPayload: LoginPayload = {
+            event: "login_order",
+            id: rinfo.port,
+            players: this.remotes.keys().filter(val => val !== rinfo.port).toArray()
+        };
+        const loginjson = JSON.stringify(loginPayload);
+
+        this.socket.send(loginjson, rinfo.port, rinfo.address);
+        for (const [port, remote] of this.remotes) {
+            if (port === rinfo.port) continue;
+            this.socket.send(registerjson, remote.port, remote.address);
+        }
+    }
+
+    onlogout(rinfo: dgram.RemoteInfo) {
+        if (!this.remotes.has(rinfo.port)) return;
+        this.remotes.delete(rinfo.port);
+        console.log(`${rinfo.port} -> logout | total players: ${this.remotes.size}`);
+
+        if (this.remotes.size < 1) return;
+
+        const logoutPayload: LogoutPayload = {
+            event: "logout_order",
+            player: rinfo.port
+        };
+
+        const logoutJson = JSON.stringify(logoutPayload);
+        for (const [port, remote] of this.remotes) {
+            this.socket.send(logoutJson, remote.port, remote.address);
+        }
+    }
+
+    onplayerbroadcast(rinfo: dgram.RemoteInfo, data: string) {
+        const playerMessage = data;
+        const json = JSON.parse(playerMessage);
+        let playerPayload = json as PlayerStatePayload;
+        playerPayload.id = rinfo.port;
+        const playerJson = JSON.stringify(playerPayload);
+
+        switch (playerPayload.condition) {
+            case 0:
+                for (const [port, remote] of this.remotes) {
+                    this.socket.send(playerJson, remote.port, remote.address);
+                }
+                break;
+            case 1:
+                this.socket.send(playerJson, rinfo.port, rinfo.address);
+                break;
+            case 2:
+                for (const [port, remote] of this.remotes) {
+                    if (remote.port === rinfo.port) continue;
+                    this.socket.send(playerJson, remote.port, remote.address);
+                }
+                break;
+        }
     }
 }
