@@ -61,6 +61,9 @@ public:
 	UWSServer* CreateWSServer();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
+	UWSServerSsl* CreateWSServerSsl(const FSecurityContextOpts& SecOpts);
+
+	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UWSClient* CreateWSClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
