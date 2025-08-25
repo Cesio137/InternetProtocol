@@ -15,8 +15,8 @@ UUDPClient* UInternetProtocolSubsystem::CreateUDPClient() {
 	return client;
 }
 
-UWSServer* UInternetProtocolSubsystem::CreateTCPServer() {
-	UWSServer* server = NewObject<UWSServer>();
+UTCPServer* UInternetProtocolSubsystem::CreateTCPServer() {
+	UTCPServer* server = NewObject<UTCPServer>();
 	return server;
 }
 

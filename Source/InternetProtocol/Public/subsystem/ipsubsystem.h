@@ -34,7 +34,7 @@ public:
 	UUDPClient* CreateUDPClient();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
-	UWSServer* CreateTCPServer();
+	UTCPServer* CreateTCPServer();
 
 	UFUNCTION(BlueprintCallable, Category="IP|Subsystem")
 	UTCPServerSsl* CreateTCPServerSsl(const FSecurityContextOpts &SecOpts);
