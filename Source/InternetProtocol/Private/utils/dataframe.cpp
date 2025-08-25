@@ -67,7 +67,7 @@ FString encode_string_payload(const FString& payload, const FDataframe& datafram
 	}
 
 	// payload data and mask
-	for (size_t i = 0; i < payload.Len(); ++i) {
+	for (int32 i = 0; i < payload.Len(); ++i) {
 		if (dataframe.bMask) {
 			string_buffer.AppendChar(payload[i] ^ masking_key[i % 4]);
 		} else {
@@ -75,7 +75,7 @@ FString encode_string_payload(const FString& payload, const FDataframe& datafram
 		}
 	}
 
-	if (string_buffer.GetAllocatedSize() > string_buffer.Len())
+	if (static_cast<int>(string_buffer.GetAllocatedSize()) > string_buffer.Len())
 		string_buffer.Shrink();
 
 	return string_buffer;
@@ -99,11 +99,11 @@ bool decode_payload(const TArray<uint8>& buffer, TArray<uint8>& payload, FDatafr
 	uint64 payload_length = byte2 & 0x7F;
 
 	if (payload_length == 126) {
-		if (buffer.Num() < pos + 2) return false;
+		if ((size_t)buffer.Num() < pos + 2) return false;
 		payload_length = (static_cast<uint64>(buffer[pos]) << 8) | buffer[pos + 1];
 		pos += 2;
 	} else if (payload_length == 127) {
-		if (buffer.Num() < pos + 8) return false;
+		if ((size_t)buffer.Num() < pos + 8) return false;
 		payload_length = 0;
 		for (int i = 0; i < 8; ++i) {
 			payload_length = (payload_length << 8) | buffer[pos + i];
@@ -114,7 +114,7 @@ bool decode_payload(const TArray<uint8>& buffer, TArray<uint8>& payload, FDatafr
 
 	// Masking key
 	if (dataframe.bMask) {
-		if (buffer.Num() < pos + 4) return false;
+		if ((size_t)buffer.Num() < pos + 4) return false;
 		for (int i = 0; i < 4; ++i) {
 			dataframe.masking_key[i] = buffer[pos++];
 		}
@@ -188,7 +188,7 @@ TArray<uint8> encode_buffer_payload(const TArray<uint8>& payload, const FDatafra
 
 	if (payload.Num()) {
 		// payload data and mask
-		for (size_t i = 0; i < payload.Num(); ++i) {
+		for (int32 i = 0; i < payload.Num(); ++i) {
 			if (dataframe.bMask) {
 				buffer.Add(payload[i] ^ masking_key[i % 4]);
 			} else {
@@ -197,7 +197,7 @@ TArray<uint8> encode_buffer_payload(const TArray<uint8>& payload, const FDatafra
 		}
 	}
 
-	if (buffer.GetAllocatedSize() > buffer.Num())
+	if (static_cast<int32>(buffer.GetAllocatedSize()) > buffer.Num())
 		buffer.Shrink();
 
 	return buffer;

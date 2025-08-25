@@ -31,6 +31,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 #undef UI
 #include "CoreMinimal.h"
+#include "Async/Async.h"
 #include "common.generated.h"
 
 using namespace asio::ip;

@@ -9,7 +9,7 @@ std::array<uint8, 20> sha1(const FString& input) {
 	uint64 bit_length = input.Len() * 8;
 	std::string padded_input = TCHAR_TO_UTF8(*input);
 
-	padded_input += static_cast<char>(0x80);
+	padded_input += static_cast<char>(static_cast<unsigned char>(0x80));
 
 	while ((padded_input.size() % 64) != 56) {
 		padded_input += static_cast<char>(0x00);

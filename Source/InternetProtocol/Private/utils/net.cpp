@@ -75,7 +75,7 @@ FString prepare_request(const FHttpRequest& req, const FString& address, const u
 
 	if (!req.Body.IsEmpty()) payload += req.Body;
 
-	if (payload.GetAllocatedSize() > payload.Len())
+	if (payload.GetAllocatedSize() > (size_t)payload.Len())
 		payload.Shrink();
 
 	return payload;
@@ -99,7 +99,7 @@ FString prepare_response(const FHttpResponse& res) {
 	payload += "\r\n";
 	if (!res.Body.IsEmpty()) payload += res.Body;
 
-	if (payload.GetAllocatedSize() > payload.Len())
+	if (payload.GetAllocatedSize() > (size_t)payload.Len())
 		payload.Shrink();
 
 	return payload;

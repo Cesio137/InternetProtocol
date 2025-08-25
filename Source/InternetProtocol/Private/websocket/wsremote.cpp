@@ -267,7 +267,7 @@ void UWSRemote::send_close_frame(const uint16_t code, const FString& reason, boo
 		}
 	}
 
-	if (close_payload.GetAllocatedSize() > close_payload.Num())
+	if (close_payload.GetAllocatedSize() > (size_t)close_payload.Num())
 		close_payload.Shrink();
 
 	TArray<uint8> encoded_payload = encode_buffer_payload(close_payload, dataframe);
@@ -807,7 +807,7 @@ void UWSRemoteSsl::send_close_frame(const uint16_t code, const FString& reason, 
 		}
 	}
 
-	if (close_payload.GetAllocatedSize() > close_payload.Num())
+	if (close_payload.GetAllocatedSize() > (size_t)close_payload.Num())
 		close_payload.Shrink();
 
 	TArray<uint8> encoded_payload = encode_buffer_payload(close_payload, dataframe);
