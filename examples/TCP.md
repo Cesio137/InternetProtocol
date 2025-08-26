@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
             std::cout << "client logout" << std::endl;
         };
     };
-    net.bind();
+    net.open();
 
     std::string input;
     while (std::getline(std::cin, input)) {
